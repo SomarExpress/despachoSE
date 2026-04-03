@@ -2783,9 +2783,8 @@ function setModoMapa(modo) {
     btnLive?.classList.add('btn-ghost');      btnLive?.classList.remove('btn-primary');
     ctrlZon && (ctrlZon.style.display='flex');
     panelLat && (panelLat.style.display='flex');
-    // Inicializar zonas en el mapa
-    if(!ZM.mapa && S.map) { ZM.mapa = S.map; ZM.drawnItems = new L.FeatureGroup().addTo(ZM.mapa); }
-    zonaRenderMapa();
+    // Inicializar zonas en el mapa (carga Leaflet.draw si hace falta)
+    iniciarMapaZonas();
   }
   if(S.map) setTimeout(()=>S.map.invalidateSize(), 100);
 }
@@ -2802,7 +2801,7 @@ function initMap() {
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'© OpenStreetMap', maxZoom:19 }).addTo(map);
   S.map = map;
   ZM.mapa = map; // compartir instancia con sistema de zonas
-  ZM.drawnItems = new L.FeatureGroup().addTo(map);
+  // drawnItems se crea en iniciarMapaZonas al activar modo Zonas
   S.pedidoMarkers = {}; // marcadores de pedidos en el mapa
 
   // Cargar riders
@@ -4251,62 +4250,57 @@ const ZM = {
 };
 
 async function iniciarMapaZonas() {
-  if(!ZM.mapa) {
-    // Cargar Leaflet.draw si no está cargado
-    if(!window.L?.Draw) {
-      await new Promise((res,rej)=>{
-        const css = document.createElement('link');
-        css.rel='stylesheet';
-        css.href='https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css';
-        document.head.appendChild(css);
-        const s = document.createElement('script');
-        s.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js';
-        s.onload=res; s.onerror=rej;
-        document.head.appendChild(s);
-      });
-    }
+  // El mapa ya existe (map-live), solo cargamos Leaflet.draw y registramos eventos
+  if(!S.map) return; // mapa no listo aún
 
-    ZM.mapa = L.map('mapa-zonas', {
-      center: [15.613, -87.948], zoom: 13
-    });
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution:'© OpenStreetMap', maxZoom:19
-    }).addTo(ZM.mapa);
-
-    // Capa para polígonos dibujados
+  // Compartir instancia
+  ZM.mapa = S.map;
+  if(!ZM.drawnItems) {
     ZM.drawnItems = new L.FeatureGroup().addTo(ZM.mapa);
+  }
 
-    // Eventos de dibujo
-    ZM.mapa.on(L.Draw.Event.CREATED, e => {
-      ZM.poligonoEditando = e.layer;
-      ZM.drawnItems.addLayer(e.layer);
-      ZM._drawHandler = null;
-      const show = (id,d='block') => { const el=document.getElementById(id); if(el) el.style.display=d; };
-      const hide = id => { const el=document.getElementById(id); if(el) el.style.display='none'; };
-      const fb=document.getElementById('zona-form-bar'); if(fb) fb.style.display='flex';
-      show('btn-zona-cancelar','inline-flex');
-      hide('zona-hint');
-      document.getElementById('zf-nombre')?.focus();
-    });
-
-    ZM.mapa.on(L.Draw.Event.EDITED, e => {
-      e.layers.eachLayer(layer => {
-        // Actualizar coordenadas de la zona editada
-        const id = Object.entries(ZM.capas).find(([k,v])=>v===layer)?.[0];
-        if(id) zonaActualizarPoligono(parseInt(id), layer);
-      });
-    });
-
-    ZM.mapa.on(L.Draw.Event.DELETED, e => {
-      e.layers.eachLayer(layer => {
-        const id = Object.entries(ZM.capas).find(([k,v])=>v===layer)?.[0];
-        if(id) eliminarZona(parseInt(id));
-      });
+  // Cargar Leaflet.draw si no está
+  if(!window.L?.Draw) {
+    await new Promise((res, rej) => {
+      if(!document.querySelector('link[href*="leaflet.draw"]')) {
+        const css = document.createElement('link');
+        css.rel = 'stylesheet';
+        css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css';
+        document.head.appendChild(css);
+      }
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
     });
   }
 
-  setTimeout(()=>{ ZM.mapa.invalidateSize(); zonaRenderMapa(); }, 100);
+  // Registrar evento CREATED solo una vez
+  if(!ZM._eventsRegistered) {
+    ZM._eventsRegistered = true;
+    ZM.mapa.on(L.Draw.Event.CREATED, e => {
+      // Polígono terminado — mostrar modal para guardarlo
+      ZM.poligonoEditando = e.layer;
+      ZM.drawnItems.addLayer(e.layer);
+      ZM._drawHandler = null;
+      // Ocultar hint
+      const hint = document.getElementById('zona-hint');
+      if(hint) hint.style.display = 'none';
+      const cb = document.getElementById('btn-zona-cancelar');
+      if(cb) cb.style.display = 'inline-flex';
+      // Mostrar modal
+      const modal = document.getElementById('zona-form-bar');
+      if(modal) {
+        modal.style.display = 'flex';
+        document.getElementById('zf-nombre')?.focus();
+      }
+    });
+  }
+
+  // Dibujar zonas existentes
+  zonaRenderMapa();
 }
+
 
 async function zonaActivarDibujo() {
   if(!ZM.mapa) return;
