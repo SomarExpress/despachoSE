@@ -1035,28 +1035,44 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
             <div style="padding:10px 12px;border-bottom:1px solid var(--g4);font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em;flex-shrink:0">Zonas / Colonias</div>
             <div id="zonas-lista-panel" style="overflow-y:auto;flex:1;padding:8px"></div>
           </div>
-          <!-- Form guardar zona -->
-          <div id="zona-form-bar" style="display:none;position:absolute;bottom:0;left:0;right:0;padding:10px 14px;background:var(--g1);border-top:1px solid var(--g4);z-index:500">
-            <div style="display:grid;grid-template-columns:1fr 130px 80px 40px auto;gap:8px;align-items:end">
-              <div><label class="fl" style="font-size:10px;margin-bottom:2px">Nombre *</label>
-                <input class="fi" id="zf-nombre" placeholder="Col. El Sauce, Barrio Los Andes..." style="padding:7px 10px">
+          <!-- Modal guardar zona — aparece al completar el polígono -->
+          <div id="zona-form-bar" style="display:none;position:fixed;inset:0;z-index:9000;align-items:center;justify-content:center;background:rgba(0,0,0,.55)" onclick="if(event.target===this){}">
+            <div style="background:var(--g1);border:1px solid var(--g4);border-radius:18px;padding:24px;width:100%;max-width:460px;margin:16px;box-shadow:0 8px 40px rgba(0,0,0,.6)">
+              <div style="font-size:16px;font-weight:800;margin-bottom:16px">🗺️ Guardar Zona</div>
+              <div class="form-grid">
+                <div class="fg" style="grid-column:1/-1">
+                  <label class="fl">Nombre de la zona / colonia *</label>
+                  <input class="fi" id="zf-nombre" placeholder="Ej: Col. El Sauce, Barrio Los Andes..." style="font-size:14px">
+                </div>
+                <div class="fg">
+                  <label class="fl">Ciudad</label>
+                  <select class="fi" id="zf-ciudad">
+                    <option value="CHOLOMA">Choloma</option>
+                    <option value="SAN PEDRO SULA">San Pedro Sula</option>
+                  </select>
+                </div>
+                <div class="fg">
+                  <label class="fl">Estado</label>
+                  <select class="fi" id="zf-activo">
+                    <option value="true">Activa</option>
+                    <option value="false">Inactiva</option>
+                  </select>
+                </div>
+                <div class="fg">
+                  <label class="fl">Color en mapa</label>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <input type="color" id="zf-color" value="#FF8C00" style="width:44px;height:38px;border:none;border-radius:8px;cursor:pointer">
+                    <span style="font-size:12px;color:var(--td)">Elige el color</span>
+                  </div>
+                </div>
+                <div class="fg">
+                  <label class="fl">Tarifa de envío (L.) <span style="color:var(--td)">opcional</span></label>
+                  <input class="fi" id="zf-tarifa" type="number" placeholder="0.00">
+                </div>
               </div>
-              <div><label class="fl" style="font-size:10px;margin-bottom:2px">Ciudad</label>
-                <select class="fi" id="zf-ciudad" style="padding:7px 10px;font-size:12px">
-                  <option>CHOLOMA</option><option>SAN PEDRO SULA</option>
-                </select>
-              </div>
-              <div><label class="fl" style="font-size:10px;margin-bottom:2px">Estado</label>
-                <select class="fi" id="zf-activo" style="padding:7px 10px;font-size:12px">
-                  <option value="true">Activa</option><option value="false">Inactiva</option>
-                </select>
-              </div>
-              <div><label class="fl" style="font-size:10px;margin-bottom:2px">Color</label>
-                <input type="color" id="zf-color" value="#FF8C00" style="width:38px;height:34px;border:none;border-radius:8px;cursor:pointer">
-              </div>
-              <div style="display:flex;gap:6px;align-items:flex-end">
-                <button class="btn btn-primary btn-sm" onclick="zonaGuardar()">💾 Guardar</button>
-                <button class="btn btn-ghost btn-sm" onclick="zonaCancelar()">✕</button>
+              <div style="display:flex;gap:8px;margin-top:18px;justify-content:flex-end">
+                <button class="btn btn-ghost" onclick="zonaCancelar()">Cancelar y borrar</button>
+                <button class="btn btn-primary" id="btn-zona-guardar" onclick="zonaGuardar()">💾 Guardar Zona</button>
               </div>
             </div>
           </div>
@@ -4267,7 +4283,7 @@ async function iniciarMapaZonas() {
       ZM._drawHandler = null;
       const show = (id,d='block') => { const el=document.getElementById(id); if(el) el.style.display=d; };
       const hide = id => { const el=document.getElementById(id); if(el) el.style.display='none'; };
-      show('zona-form-bar');
+      const fb=document.getElementById('zona-form-bar'); if(fb) fb.style.display='flex';
       show('btn-zona-cancelar','inline-flex');
       hide('zona-hint');
       document.getElementById('zf-nombre')?.focus();
@@ -4363,7 +4379,9 @@ function zonaCancelar() {
   ZM.poligonoEditando = null;
   ZM.zonaEditandoId = null;
   const hide = id => { const el=document.getElementById(id); if(el) el.style.display='none'; };
-  hide('zona-form-bar'); hide('zona-hint'); hide('btn-zona-cancelar');
+  const fb2=document.getElementById('zona-form-bar'); if(fb2) fb2.style.display='none';
+  const hint2=document.getElementById('zona-hint'); if(hint2) hint2.style.display='none';
+  const cb=document.getElementById('btn-zona-cancelar'); if(cb) cb.style.display='none';
 }
 
 async function zonaGuardar() {
@@ -4374,7 +4392,7 @@ async function zonaGuardar() {
   const color  = document.getElementById('zf-color')?.value || '#FF8C00';
   const ciudad = document.getElementById('zf-ciudad')?.value || 'CHOLOMA';
   const activo = document.getElementById('zf-activo')?.value === 'true';
-  // tarifa_zona se puede agregar opcionalmente
+  const tarifa = parseFloat(document.getElementById('zf-tarifa')?.value)||null;
 
   // Obtener coordenadas del polígono como JSON
   const coords = ZM.poligonoEditando.getLatLngs()[0].map(p => [p.lat, p.lng]);
@@ -4385,16 +4403,16 @@ async function zonaGuardar() {
   const lng = coords.reduce((s,p)=>s+p[1],0)/coords.length;
 
   const row = {
-    nombre:       nom,
-    sector:       nom,
+    nombre:   nom,
+    sector:   nom,
     ciudad,
     activo,
-    activa:       activo,
+    activa:   activo,
     color,
-    lat:          parseFloat(lat.toFixed(6)),
-    lng:          parseFloat(lng.toFixed(6)),
-    poligono:     poligonoJson,
-    descripcion:  tarifa ? `Tarifa: L.${tarifa}` : null,
+    lat:      parseFloat(lat.toFixed(6)),
+    lng:      parseFloat(lng.toFixed(6)),
+    poligono: poligonoJson,
+    ...(tarifa ? {descripcion:`Tarifa: L.${tarifa}`, tarifa_zona:tarifa} : {}),
   };
 
   const btn = document.querySelector('#zona-form-bar .btn-primary');
@@ -4411,7 +4429,9 @@ async function zonaGuardar() {
 
   if(error) { toast('Error: '+error.message,'danger'); return; }
   toast('✅ Zona guardada');
-  zonaCancelar();
+  const fb3=document.getElementById('zona-form-bar'); if(fb3) fb3.style.display='none';
+  ZM.poligonoEditando=null; ZM.zonaEditandoId=null;
+  const hint3=document.getElementById('zona-hint'); if(hint3) hint3.style.display='none';
   await cargarZonas();
 }
 
@@ -4487,13 +4507,15 @@ function zonaClickEditar(z) {
   // Pre-llenar el form con los datos de la zona
   ZM.zonaEditandoId = z.id;
   ZM.poligonoEditando = ZM.capas[z.id];
-  document.getElementById('zf-nombre').value  = z.nombre||z.sector||'';
-  document.getElementById('zf-ciudad').value  = z.ciudad||'CHOLOMA';
-  document.getElementById('zf-color').value   = z.color||'#FF8C00';
-  document.getElementById('zf-activo').value  = (z.activo!==false&&z.activa!==false)?'true':'false';
-  document.getElementById('zona-form-bar').style.display = 'block';
-  document.getElementById('btn-zona-cancelar').style.display = 'inline-flex';
-  document.getElementById('zf-nombre').focus();
+  const set2=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
+  set2('zf-nombre', z.nombre||z.sector||'');
+  set2('zf-ciudad', z.ciudad||'CHOLOMA');
+  set2('zf-color',  z.color||'#FF8C00');
+  set2('zf-activo', (z.activo!==false&&z.activa!==false)?'true':'false');
+  set2('zf-tarifa', '');
+  const fb4=document.getElementById('zona-form-bar'); if(fb4) fb4.style.display='flex';
+  const cb2=document.getElementById('btn-zona-cancelar'); if(cb2) cb2.style.display='inline-flex';
+  document.getElementById('zf-nombre')?.focus();
 }
 
 function zonaFiltrarCiudad() { zonaRenderMapa(); }
