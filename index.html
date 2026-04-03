@@ -3737,19 +3737,17 @@ function abrirModal(tipo, datos=null) {
   MD.modalTipo = tipo;
   MD.editId = datos?.id || null;
   const cfgs = {
-    zona:      { titulo: datos ? 'Editar Zona'       : 'Nueva Zona',      html: htmlFormZona(datos)    },
-    cliente:   { titulo: datos ? 'Editar Cliente'    : 'Nuevo Cliente',    html: htmlFormCliente(datos)   },
-    comercio:  { titulo: datos ? 'Editar Comercio'   : 'Nuevo Comercio',   html: htmlFormComercio(datos)  },
-    categoria: { titulo: datos ? 'Editar Categoría'  : 'Nueva Categoría',  html: htmlFormCategoria(datos) },
-    producto:  { titulo: datos ? 'Editar Producto'   : 'Nuevo Producto',   html: htmlFormProducto(datos)  },
-    cupon:     { titulo: datos ? 'Editar Cupón'      : 'Nuevo Cupón',      html: htmlFormCupon(datos)     },
-    zona:      { titulo: datos ? 'Editar Zona'       : 'Nueva Zona',        html: htmlFormZona(datos)      },
-    catcomercio:{ titulo: datos ? 'Editar Categoría' : 'Nueva Categoría',   html: htmlFormCatcomercio(datos)},
-    sucursal:  { titulo: datos ? 'Editar Sucursal'   : 'Nueva Sucursal',    html: htmlFormSucursal(datos)  },
-    ubicacion_cliente:{ titulo: datos ? 'Editar Ubicación' : 'Nueva Ubicación', html: htmlFormUbicacion_cliente(datos)},
-    zona:      { titulo: datos ? 'Editar Zona'       : 'Nueva Zona',       html: htmlFormZona(datos)      },
-    usuario:   { titulo: datos ? 'Editar Usuario'    : 'Nuevo Usuario',    html: htmlFormUsuario(datos)   },
+    cliente:     { titulo: datos ? 'Editar Cliente'    : 'Nuevo Cliente',    html: htmlFormCliente(datos)   },
+    comercio:    { titulo: datos ? 'Editar Comercio'   : 'Nuevo Comercio',   html: htmlFormComercio(datos)  },
+    categoria:   { titulo: datos ? 'Editar Categoría'  : 'Nueva Categoría',  html: htmlFormCategoria(datos) },
+    producto:    { titulo: datos ? 'Editar Producto'   : 'Nuevo Producto',   html: htmlFormProducto(datos)  },
+    cupon:       { titulo: datos ? 'Editar Cupón'      : 'Nuevo Cupón',      html: htmlFormCupon(datos)     },
+    catcomercio: { titulo: datos ? 'Editar Categoría'  : 'Nueva Categoría',  html: htmlFormCatcomercio(datos)},
+    sucursal:    { titulo: datos ? 'Editar Sucursal'   : 'Nueva Sucursal',   html: htmlFormSucursal ? htmlFormSucursal(datos) : '' },
+    usuario:     { titulo: datos ? 'Editar Usuario'    : 'Nuevo Usuario',    html: htmlFormUsuario(datos)   },
   };
+  // Zonas: manejadas directamente por el mapa (zonaClickEditar)
+  if(tipo === 'zona') { toast('Usa el Mapa en Vivo → Zonas para editar zonas','danger'); return; }
   const cfg = cfgs[tipo];
   if(!cfg) return;
   document.getElementById('md-titulo').textContent = cfg.titulo;
