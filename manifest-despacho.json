@@ -1,0 +1,40 @@
+{
+  "name": "Somar Despacho",
+  "short_name": "Despacho",
+  "description": "Panel operativo de Somar Express",
+  "start_url": "/Riders_Somar/despacho-app.html",
+  "scope": "/Riders_Somar/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0F0F0F",
+  "theme_color": "#FF8C00",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "https://res.cloudinary.com/drkaxsziu/image/upload/v1767871213/Somar_Express_2048_x_2048_px_18_x_18_in__20250623_221102_0000_o0bv7a.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://res.cloudinary.com/drkaxsziu/image/upload/v1767871213/Somar_Express_2048_x_2048_px_18_x_18_in__20250623_221102_0000_o0bv7a.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Nuevo Pedido",
+      "short_name": "Pedido",
+      "url": "/Riders_Somar/despacho-app.html#nuevo",
+      "icons": [{ "src": "https://res.cloudinary.com/drkaxsziu/image/upload/v1767871213/Somar_Express_2048_x_2048_px_18_x_18_in__20250623_221102_0000_o0bv7a.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Ver Pedidos",
+      "short_name": "Pedidos",
+      "url": "/Riders_Somar/despacho-app.html#pedidos"
+    }
+  ]
+}
