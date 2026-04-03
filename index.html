@@ -1007,8 +1007,60 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
       </div>
 
       <!-- ═══ MAPA ══════════════════════════════════════════════ -->
-      <div class="view" id="view-mapa" style="margin:-16px;overflow:hidden;">
-        <div id="map-live"></div>
+      <div class="view" id="view-mapa" style="margin:-16px;overflow:hidden;display:none;flex-direction:column;height:calc(100vh - 52px)">
+        <!-- Toolbar del mapa -->
+        <div style="display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--g1);border-bottom:1px solid var(--g4);flex-shrink:0;flex-wrap:wrap;z-index:10;position:relative">
+          <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em">Modo:</div>
+          <div style="display:flex;gap:4px">
+            <button id="btn-modo-live" class="btn btn-primary btn-sm" onclick="setModoMapa('live')">🔴 En Vivo</button>
+            <button id="btn-modo-zonas" class="btn btn-ghost btn-sm" onclick="setModoMapa('zonas')">🗺️ Zonas</button>
+          </div>
+          <!-- Controles de zonas (ocultos por defecto) -->
+          <div id="ctrl-zonas" style="display:none;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select id="zona-filtro-ciudad" class="fi" style="width:140px;font-size:11px;padding:5px 8px" onchange="zonaFiltrarCiudad()">
+              <option value="">Todas las ciudades</option>
+              <option value="CHOLOMA">Choloma</option>
+              <option value="SAN PEDRO SULA">San Pedro Sula</option>
+            </select>
+            <button id="btn-zona-dibujar" class="btn btn-primary btn-sm" onclick="zonaActivarDibujo()">✏️ Nueva Zona</button>
+            <button id="btn-zona-cancelar" class="btn btn-ghost btn-sm" onclick="zonaCancelar()" style="display:none">✕ Cancelar</button>
+            <span id="zona-hint" style="font-size:11px;color:var(--or);display:none">Haz clic para trazar la zona · Doble clic para cerrar</span>
+          </div>
+        </div>
+        <!-- Mapa principal -->
+        <div style="position:relative;flex:1;min-height:0">
+          <div id="map-live" style="height:100%;width:100%"></div>
+          <!-- Panel lateral zonas (solo en modo zonas) -->
+          <div id="panel-zonas-lateral" style="display:none;position:absolute;top:0;right:0;bottom:0;width:260px;background:var(--g1);border-left:1px solid var(--g4);z-index:400;flex-direction:column;overflow:hidden">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--g4);font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em;flex-shrink:0">Zonas / Colonias</div>
+            <div id="zonas-lista-panel" style="overflow-y:auto;flex:1;padding:8px"></div>
+          </div>
+          <!-- Form guardar zona -->
+          <div id="zona-form-bar" style="display:none;position:absolute;bottom:0;left:0;right:0;padding:10px 14px;background:var(--g1);border-top:1px solid var(--g4);z-index:500">
+            <div style="display:grid;grid-template-columns:1fr 130px 80px 40px auto;gap:8px;align-items:end">
+              <div><label class="fl" style="font-size:10px;margin-bottom:2px">Nombre *</label>
+                <input class="fi" id="zf-nombre" placeholder="Col. El Sauce, Barrio Los Andes..." style="padding:7px 10px">
+              </div>
+              <div><label class="fl" style="font-size:10px;margin-bottom:2px">Ciudad</label>
+                <select class="fi" id="zf-ciudad" style="padding:7px 10px;font-size:12px">
+                  <option>CHOLOMA</option><option>SAN PEDRO SULA</option>
+                </select>
+              </div>
+              <div><label class="fl" style="font-size:10px;margin-bottom:2px">Estado</label>
+                <select class="fi" id="zf-activo" style="padding:7px 10px;font-size:12px">
+                  <option value="true">Activa</option><option value="false">Inactiva</option>
+                </select>
+              </div>
+              <div><label class="fl" style="font-size:10px;margin-bottom:2px">Color</label>
+                <input type="color" id="zf-color" value="#FF8C00" style="width:38px;height:34px;border:none;border-radius:8px;cursor:pointer">
+              </div>
+              <div style="display:flex;gap:6px;align-items:flex-end">
+                <button class="btn btn-primary btn-sm" onclick="zonaGuardar()">💾 Guardar</button>
+                <button class="btn btn-ghost btn-sm" onclick="zonaCancelar()">✕</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- ═══ RIDERS ═══════════════════════════════════════════ -->
@@ -1116,68 +1168,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
         <div id="categorias-lista" class="grid-lista"></div>
       </div>
 
-            <!-- ═══ ZONAS ════════════════════════════════════════════ -->
-      <div class="view" id="view-zonas" style="padding:0;height:calc(100vh - 52px);overflow:hidden;display:none;flex-direction:column">
-        <!-- Topbar de zonas -->
-        <div style="padding:8px 14px;background:var(--g1);border-bottom:1px solid var(--g4);display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap">
-          <select id="zona-filtro-ciudad" class="fi" style="width:150px;font-size:12px;padding:7px 10px" onchange="zonaFiltrarCiudad()">
-            <option value="">Todas las ciudades</option>
-            <option value="CHOLOMA">Choloma</option>
-            <option value="SAN PEDRO SULA">San Pedro Sula</option>
-          </select>
-          <button id="btn-zona-poligono" class="btn btn-primary btn-sm" onclick="zonaActivarDibujo('polygon')">✏️ Dibujar Polígono</button>
-          <button id="btn-zona-editar" class="btn btn-ghost btn-sm" onclick="zonaActivarEdicion()" style="display:none">✂️ Editar</button>
-          <button id="btn-zona-cancelar" class="btn btn-ghost btn-sm" onclick="zonaCancelar()" style="display:none">✕ Cancelar</button>
-          <span id="zona-hint" style="font-size:11px;color:var(--or);display:none">Haz clic en el mapa para trazar los límites de la colonia. Doble clic para cerrar.</span>
-        </div>
-        <!-- Layout mapa + lista -->
-        <div style="display:flex;flex:1;overflow:hidden;min-height:0">
-          <!-- Mapa -->
-          <div id="mapa-zonas" style="flex:1;min-width:0;height:100%"></div>
-          <!-- Panel lateral -->
-          <div style="width:280px;flex-shrink:0;border-left:1px solid var(--g4);display:flex;flex-direction:column;overflow:hidden">
-            <div style="padding:10px 12px;border-bottom:1px solid var(--g4);font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em;flex-shrink:0">
-              Zonas / Colonias
-            </div>
-            <div id="zonas-lista-panel" style="overflow-y:auto;flex:1;padding:8px"></div>
-          </div>
-        </div>
-        <!-- Form guardar zona (aparece al dibujar) -->
-        <div id="zona-form-bar" style="display:none;padding:10px 16px;background:var(--g1);border-top:1px solid var(--g4);flex-shrink:0">
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 80px auto;gap:8px;align-items:end">
-            <div>
-              <label class="fl" style="font-size:10px;margin-bottom:3px">Nombre de la zona/colonia *</label>
-              <input class="fi" id="zf-nombre" placeholder="Ej: Col. El Sauce, Barrio Los Andes..." style="padding:8px 10px;font-size:13px">
-            </div>
-            <div>
-              <label class="fl" style="font-size:10px;margin-bottom:3px">Ciudad</label>
-              <select class="fi" id="zf-ciudad" style="padding:8px 10px">
-                <option>CHOLOMA</option>
-                <option>SAN PEDRO SULA</option>
-              </select>
-            </div>
-            <div>
-              <label class="fl" style="font-size:10px;margin-bottom:3px">Color</label>
-              <div style="display:flex;gap:6px;align-items:center">
-                <input type="color" id="zf-color" value="#FF8C00" style="width:38px;height:34px;border:none;border-radius:8px;cursor:pointer">
-                <select class="fi" id="zf-activo" style="padding:8px 10px;font-size:12px">
-                  <option value="true">Activa</option>
-                  <option value="false">Inactiva</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label class="fl" style="font-size:10px;margin-bottom:3px">Tarifa L.</label>
-              <input class="fi" id="zf-tarifa" type="number" placeholder="0" style="padding:8px 10px">
-            </div>
-            <div style="display:flex;gap:6px">
-              <button class="btn btn-primary" onclick="zonaGuardar()" style="padding:8px 16px;white-space:nowrap">💾 Guardar</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ═══ HISTORIAL ════════════════════════════════════════ --><!-- ═══ HISTORIAL ════════════════════════════════════════ -->
+            <!-- ═══ HISTORIAL ════════════════════════════════════════ --><!-- ═══ HISTORIAL ════════════════════════════════════════ -->
       <div class="view" id="view-historial">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
           <input type="date" id="hist-desde" class="fi" style="width:150px;">
@@ -1424,7 +1415,8 @@ async function init() {
   const _hEl = document.getElementById('dash-hasta');
   if(_dEl) _dEl.value = _hoyHN2;
   if(_hEl) _hEl.value = _hoyHN2;
-  await Promise.all([ cargarMetricas(), cargarRiders(), cargarConfig(), cargarNotifsDespacho(), precargarZonas() ]);
+  await Promise.all([ cargarMetricas(), cargarRiders(), cargarConfig(), cargarNotifsDespacho() ]);
+  cargarZonas(); // cargar zonas en background
   // Badge comprobantes pendientes
   sb.from('pedidos').select('id',{count:'exact',head:true}).in('metodo_pago',['TRANSFERENCIA','TARJETA']).eq('estatus','FINALIZADO').is('transferencia_validada_por',null).then(({count})=>{ const b=document.getElementById('badge-comp');if(b&&count>0){b.textContent=count;b.style.display='inline';} });
   // Badge liquidaciones pendientes
@@ -2752,11 +2744,49 @@ function enfocarRider(dId) {
 // ════════════════════════════════════════════════════════════
 // MAPA
 // ════════════════════════════════════════════════════════════
+
+// ─── MODO MAPA: En Vivo ↔ Zonas ─────────────────────────────
+let _modoMapa = 'live';
+
+function setModoMapa(modo) {
+  _modoMapa = modo;
+  const btnLive  = document.getElementById('btn-modo-live');
+  const btnZonas = document.getElementById('btn-modo-zonas');
+  const ctrlZon  = document.getElementById('ctrl-zonas');
+  const panelLat = document.getElementById('panel-zonas-lateral');
+
+  if(modo === 'live') {
+    btnLive?.classList.add('btn-primary');    btnLive?.classList.remove('btn-ghost');
+    btnZonas?.classList.add('btn-ghost');     btnZonas?.classList.remove('btn-primary');
+    ctrlZon && (ctrlZon.style.display='none');
+    panelLat && (panelLat.style.display='none');
+    // Quitar polígonos del mapa si los hubiera en modo borrador
+    zonaCancelar();
+  } else {
+    btnZonas?.classList.add('btn-primary');   btnZonas?.classList.remove('btn-ghost');
+    btnLive?.classList.add('btn-ghost');      btnLive?.classList.remove('btn-primary');
+    ctrlZon && (ctrlZon.style.display='flex');
+    panelLat && (panelLat.style.display='flex');
+    // Inicializar zonas en el mapa
+    if(!ZM.mapa && S.map) { ZM.mapa = S.map; ZM.drawnItems = new L.FeatureGroup().addTo(ZM.mapa); }
+    zonaRenderMapa();
+  }
+  if(S.map) setTimeout(()=>S.map.invalidateSize(), 100);
+}
+
 function initMap() {
   S.mapInit = true;
+  if(ZM.mapa) {
+    // Mapa ya inicializado por zonas — reusar
+    S.map = ZM.mapa;
+    S.map.invalidateSize();
+    return;
+  }
   const map = L.map('map-live').setView([15.6133, -87.9480], 13);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'© OpenStreetMap', maxZoom:19 }).addTo(map);
   S.map = map;
+  ZM.mapa = map; // compartir instancia con sistema de zonas
+  ZM.drawnItems = new L.FeatureGroup().addTo(map);
   S.pedidoMarkers = {}; // marcadores de pedidos en el mapa
 
   // Cargar riders
@@ -4599,7 +4629,7 @@ async function eliminarUbiCli(id, clienteId, clienteNombre) {
 // ════════════════════════════════════════════════════════════
 // NAVEGACIÓN
 // ════════════════════════════════════════════════════════════
-const TITLES = { inicio:'Dashboard',pedidos:'Pedidos',kanban:'Kanban — Vista de Pedidos',config:'Configuración del Sistema',nuevo:'Nuevo Pedido',mapa:'Mapa en Vivo',riders:'Riders',solicitudes:'Solicitudes de Riders',depositos:'Depósitos',liquidaciones:'Liquidaciones a Riders',turnos:'Gestión de Turnos',comprobantes:'Comprobantes de Pago',historial:'Historial',chat:'Chat',clientes:'Clientes',comercios:'Comercios',categorias:'Tipos de Comercio (Categorías)',zonas:'Zonas de Cobertura',productos:'Productos',cupones:'Cupones de Descuento',usuarios:'Usuarios del Sistema' };
+const TITLES = { inicio:'Dashboard',pedidos:'Pedidos',kanban:'Kanban — Vista de Pedidos',config:'Configuración del Sistema',nuevo:'Nuevo Pedido',mapa:'Mapa en Vivo',riders:'Riders',solicitudes:'Solicitudes de Riders',depositos:'Depósitos',liquidaciones:'Liquidaciones a Riders',turnos:'Gestión de Turnos',comprobantes:'Comprobantes de Pago',historial:'Historial',chat:'Chat',clientes:'Clientes',comercios:'Comercios',categorias:'Tipos de Comercio (Categorías)',productos:'Productos',cupones:'Cupones de Descuento',usuarios:'Usuarios del Sistema' };
 
 async function refreshApp() {
   const btn = document.getElementById('tb-refresh-btn');
@@ -4632,8 +4662,8 @@ function nav(v, pushHistory=true) {
   }
   // Acciones por vista
   if(v === 'mapa') {
-    if(!S.mapInit) { setTimeout(initMap, 80); }
-    else { setTimeout(()=>S.map?.invalidateSize(), 80); }
+    if(!S.mapInit) { setTimeout(()=>{ initMap(); setModoMapa('live'); }, 80); }
+    else { setTimeout(()=>{ S.map?.invalidateSize(); setModoMapa('live'); }, 80); }
   }
   if(v === 'pedidos') renderTablaPedidos();
   if(v === 'kanban') renderKanban();
@@ -4656,8 +4686,8 @@ function nav(v, pushHistory=true) {
   if(v === 'clientes')    cargarClientes();
   if(v === 'comercios')   cargarComerciosList();
   if(v === 'categorias')  cargarCategorias();
-  if(v === 'zonas')       { iniciarMapaZonas(); cargarZonas(); }
-  if(v === 'zonas')       { iniciarMapaZonas(); cargarZonas(); }
+
+
   if(v === 'productos')   cargarProductos();
   if(v === 'cupones')     cargarCupones();
   if(v === 'usuarios')    cargarUsuarios();
