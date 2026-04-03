@@ -4229,7 +4229,8 @@ async function cargarZonas() {
 const ZM = {
   mapa: null, drawnItems: null, drawControl: null,
   poligonoEditando: null, zonaEditandoId: null,
-  capas: {},   // id → layer
+  _drawHandler: null,
+  capas: {},
   editando: false,
 };
 
@@ -4263,10 +4264,13 @@ async function iniciarMapaZonas() {
     ZM.mapa.on(L.Draw.Event.CREATED, e => {
       ZM.poligonoEditando = e.layer;
       ZM.drawnItems.addLayer(e.layer);
-      document.getElementById('zona-form-bar').style.display = 'block';
-      document.getElementById('btn-zona-cancelar').style.display = 'inline-flex';
-      document.getElementById('zona-hint').style.display = 'none';
-      document.getElementById('zf-nombre').focus();
+      ZM._drawHandler = null;
+      const show = (id,d='block') => { const el=document.getElementById(id); if(el) el.style.display=d; };
+      const hide = id => { const el=document.getElementById(id); if(el) el.style.display='none'; };
+      show('zona-form-bar');
+      show('btn-zona-cancelar','inline-flex');
+      hide('zona-hint');
+      document.getElementById('zf-nombre')?.focus();
     });
 
     ZM.mapa.on(L.Draw.Event.EDITED, e => {
@@ -4288,32 +4292,54 @@ async function iniciarMapaZonas() {
   setTimeout(()=>{ ZM.mapa.invalidateSize(); zonaRenderMapa(); }, 100);
 }
 
-function zonaActivarDibujo() {
+async function zonaActivarDibujo() {
   if(!ZM.mapa) return;
-  // Limpiar polígono en draft si había
+
+  // Cargar Leaflet.draw si no está disponible aún
+  if(!window.L?.Draw) {
+    const btn = document.getElementById('btn-zona-dibujar');
+    if(btn) { btn.disabled=true; btn.textContent='⏳ Cargando...'; }
+    await new Promise((res,rej)=>{
+      if(!document.querySelector('link[href*="leaflet.draw"]')){
+        const css=document.createElement('link');
+        css.rel='stylesheet';
+        css.href='https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css';
+        document.head.appendChild(css);
+      }
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js';
+      s.onload=res; s.onerror=rej;
+      document.head.appendChild(s);
+    });
+    if(btn) { btn.disabled=false; btn.textContent='✏️ Nueva Zona'; }
+  }
+
+  // Si ya hay un draw activo, cancelarlo
+  if(ZM._drawHandler) { try{ ZM._drawHandler.disable(); }catch(e){} ZM._drawHandler=null; }
+
+  // Limpiar draft anterior
   if(ZM.poligonoEditando && !ZM.zonaEditandoId) {
     ZM.drawnItems.removeLayer(ZM.poligonoEditando);
     ZM.poligonoEditando = null;
   }
   ZM.zonaEditandoId = null;
-  document.getElementById('zf-nombre').value = '';
-  document.getElementById('zf-color').value = '#FF8C00';
-  document.getElementById('zf-activo').value = 'true';
-  document.getElementById('zf-tarifa').value = '';
-  document.getElementById('zona-form-bar').style.display = 'none';
-  document.getElementById('zona-hint').style.display = 'inline';
-  document.getElementById('btn-zona-cancelar').style.display = 'inline-flex';
 
-  // Activar herramienta de dibujo de polígono
-  new L.Draw.Polygon(ZM.mapa, {
+  // Reset form
+  const set = (id,v) => { const el=document.getElementById(id); if(el) el.value=v; };
+  set('zf-nombre',''); set('zf-color','#FF8C00'); set('zf-activo','true');
+  const hint = document.getElementById('zona-hint');
+  const cancelBtn = document.getElementById('btn-zona-cancelar');
+  const formBar = document.getElementById('zona-form-bar');
+  if(hint) hint.style.display='inline';
+  if(cancelBtn) cancelBtn.style.display='inline-flex';
+  if(formBar) formBar.style.display='none';
+
+  // Activar herramienta de dibujo
+  ZM._drawHandler = new L.Draw.Polygon(ZM.mapa, {
     allowIntersection: false,
-    showArea: true,
-    drawError: { color: '#EF4444', message: 'El polígono no puede cruzarse' },
-    shapeOptions: {
-      color: document.getElementById('zf-color')?.value || '#FF8C00',
-      fillOpacity: 0.15, weight: 2
-    }
-  }).enable();
+    shapeOptions: { color:'#FF8C00', fillOpacity:0.15, weight:2 }
+  });
+  ZM._drawHandler.enable();
 }
 
 function zonaActivarEdicion() {
@@ -4328,17 +4354,16 @@ function zonaActivarEdicion() {
 }
 
 function zonaCancelar() {
+  // Deshabilitar handler de dibujo activo
+  if(ZM._drawHandler) { try{ ZM._drawHandler.disable(); }catch(e){} ZM._drawHandler=null; }
   // Quitar polígono en draft
   if(ZM.poligonoEditando && !ZM.zonaEditandoId) {
-    ZM.drawnItems.removeLayer(ZM.poligonoEditando);
+    try{ ZM.drawnItems.removeLayer(ZM.poligonoEditando); }catch(e){}
   }
   ZM.poligonoEditando = null;
   ZM.zonaEditandoId = null;
-  document.getElementById('zona-form-bar').style.display = 'none';
-  document.getElementById('zona-hint').style.display = 'none';
-  document.getElementById('btn-zona-cancelar').style.display = 'none';
-  // Deshabilitar cualquier herramienta activa
-  ZM.mapa.eachLayer(l => { if(l.disable) l.disable(); });
+  const hide = id => { const el=document.getElementById(id); if(el) el.style.display='none'; };
+  hide('zona-form-bar'); hide('zona-hint'); hide('btn-zona-cancelar');
 }
 
 async function zonaGuardar() {
@@ -4349,7 +4374,7 @@ async function zonaGuardar() {
   const color  = document.getElementById('zf-color')?.value || '#FF8C00';
   const ciudad = document.getElementById('zf-ciudad')?.value || 'CHOLOMA';
   const activo = document.getElementById('zf-activo')?.value === 'true';
-  const tarifa = parseFloat(document.getElementById('zf-tarifa')?.value) || null;
+  // tarifa_zona se puede agregar opcionalmente
 
   // Obtener coordenadas del polígono como JSON
   const coords = ZM.poligonoEditando.getLatLngs()[0].map(p => [p.lat, p.lng]);
@@ -4371,7 +4396,6 @@ async function zonaGuardar() {
     poligono:     poligonoJson,
     descripcion:  tarifa ? `Tarifa: L.${tarifa}` : null,
   };
-  if(tarifa) row.tarifa_zona = tarifa;
 
   const btn = document.querySelector('#zona-form-bar .btn-primary');
   if(btn) { btn.disabled=true; btn.textContent='⏳ Guardando...'; }
