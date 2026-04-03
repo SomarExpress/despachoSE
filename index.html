@@ -381,6 +381,10 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 .badge-activo{background:rgba(34,197,94,.15);color:#22C55E;}
 .badge-inactivo{background:rgba(107,114,128,.15);color:#9CA3AF;}
 @media(max-width:768px){.grid-lista{grid-template-columns:1fr;}}
+.zona-item{padding:8px 10px;border:1px solid var(--g4);border-radius:10px;margin-bottom:6px;cursor:pointer;transition:border-color .15s;}
+.zona-item:hover,.zona-item.sel{border-color:var(--or);background:rgba(255,140,0,.05);}
+.zona-item-nombre{font-size:12px;font-weight:700;}
+.zona-item-info{font-size:10px;color:var(--td);margin-top:2px;}
 /* ════ RESPONSIVE ADICIONAL ══════════════════════════════ */
 .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px;}
 .kanban-col-header{padding:12px 14px;border-bottom:1px solid var(--g4);}
@@ -436,6 +440,10 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
   /* Configuración */
   #view-config > div{max-width:100% !important;}
 
+  /* Zonas: en móvil, panel lateral abajo del mapa */
+  #view-zonas > div:last-child > div:first-child{height:250px;}
+  #view-zonas > div:last-child{grid-template-columns:1fr !important;grid-template-rows:1fr 200px;}
+  #zona-edit-panel{right:0 !important;bottom:0 !important;}
   /* Botones en panel */
   .panel-footer{flex-wrap:wrap;}
   .panel-footer .btn{flex:1;min-width:120px;justify-content:center;}
@@ -1109,12 +1117,52 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
       </div>
 
       <!-- ═══ ZONAS ════════════════════════════════════════════ -->
-      <div class="view" id="view-zonas">
-        <div class="card-hdr" style="margin-bottom:12px">
-          <div class="card-title">Zonas de Cobertura</div>
-          <button class="btn btn-primary btn-sm" onclick="abrirModal('zona')">+ Nueva Zona</button>
+      <div class="view" id="view-zonas" style="display:none;padding:0;height:calc(100vh - 52px);overflow:hidden;flex-direction:column">
+        <!-- Barra superior -->
+        <div style="padding:10px 14px;background:var(--g1);border-bottom:1px solid var(--g4);display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap">
+          <select id="zona-ciudad-filtro" class="fi" style="width:160px;font-size:12px;padding:7px 10px" onchange="filtrarZonasMapa()">
+            <option value="">Todas las ciudades</option>
+            <option value="CHOLOMA">Choloma</option>
+            <option value="SAN PEDRO SULA">San Pedro Sula</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="activarModoNuevaZona()">+ Nueva Zona</button>
+          <div id="zona-instruccion" style="font-size:11px;color:var(--td);display:none">📍 Haz clic en el mapa para colocar el centro de la zona</div>
         </div>
-        <div id="zonas-lista" class="grid-lista"></div>
+        <!-- Layout: mapa + panel lateral -->
+        <div style="display:grid;grid-template-columns:1fr 300px;flex:1;overflow:hidden;min-height:0">
+          <!-- Mapa -->
+          <div id="mapa-zonas" style="height:100%;min-height:400px"></div>
+          <!-- Panel lateral: lista de zonas -->
+          <div style="border-left:1px solid var(--g4);display:flex;flex-direction:column;overflow:hidden">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--g4);font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em">Zonas registradas</div>
+            <div id="zonas-lista-lateral" style="overflow-y:auto;flex:1;padding:8px"></div>
+          </div>
+        </div>
+        <!-- Panel edición zona (se muestra al crear/editar) -->
+        <div id="zona-edit-panel" style="display:none;position:absolute;bottom:52px;left:0;right:300px;background:var(--g1);border-top:1px solid var(--g4);padding:12px 16px;z-index:50">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:8px;align-items:end">
+            <div><label class="fl" style="font-size:10px">Nombre *</label><input class="fi" id="ze-nombre" placeholder="Ej: Zona Norte"></div>
+            <div><label class="fl" style="font-size:10px">Ciudad</label>
+              <select class="fi" id="ze-ciudad" style="padding:8px 10px">
+                <option>CHOLOMA</option><option>SAN PEDRO SULA</option>
+              </select>
+            </div>
+            <div><label class="fl" style="font-size:10px">Radio (metros)</label><input class="fi" id="ze-radio" type="number" value="1000" min="100" max="10000" oninput="actualizarCirculoPreview()"></div>
+            <div><label class="fl" style="font-size:10px">Color</label>
+              <input type="color" id="ze-color" value="#FF8C00" style="width:42px;height:36px;border:none;border-radius:8px;cursor:pointer;background:none" oninput="actualizarCirculoPreview()">
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-primary btn-sm" onclick="guardarZonaMapa()">💾 Guardar</button>
+              <button class="btn btn-ghost btn-sm" onclick="cancelarZonaMapa()">✕</button>
+            </div>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:12px;align-items:center">
+            <span style="font-size:11px;color:var(--td)">Centro: <span id="ze-coords" class="mono" style="color:var(--or)">—</span></span>
+            <label style="font-size:11px;color:var(--td);display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="ze-activo" checked> Activa
+            </label>
+          </div>
+        </div>
       </div>
 
       <!-- ═══ PRODUCTOS ═════════════════════════════════════════ -->
@@ -1157,12 +1205,52 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
       </div>
 
       <!-- ═══ ZONAS ════════════════════════════════════════════ -->
-      <div class="view" id="view-zonas">
-        <div class="card-hdr" style="margin-bottom:12px">
-          <div class="card-title">Zonas de Cobertura</div>
-          <button class="btn btn-primary btn-sm" onclick="abrirModal('zona')">+ Nueva Zona</button>
+      <div class="view" id="view-zonas" style="display:none;padding:0;height:calc(100vh - 52px);overflow:hidden;flex-direction:column">
+        <!-- Barra superior -->
+        <div style="padding:10px 14px;background:var(--g1);border-bottom:1px solid var(--g4);display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap">
+          <select id="zona-ciudad-filtro" class="fi" style="width:160px;font-size:12px;padding:7px 10px" onchange="filtrarZonasMapa()">
+            <option value="">Todas las ciudades</option>
+            <option value="CHOLOMA">Choloma</option>
+            <option value="SAN PEDRO SULA">San Pedro Sula</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="activarModoNuevaZona()">+ Nueva Zona</button>
+          <div id="zona-instruccion" style="font-size:11px;color:var(--td);display:none">📍 Haz clic en el mapa para colocar el centro de la zona</div>
         </div>
-        <div id="zonas-lista" class="grid-lista"></div>
+        <!-- Layout: mapa + panel lateral -->
+        <div style="display:grid;grid-template-columns:1fr 300px;flex:1;overflow:hidden;min-height:0">
+          <!-- Mapa -->
+          <div id="mapa-zonas" style="height:100%;min-height:400px"></div>
+          <!-- Panel lateral: lista de zonas -->
+          <div style="border-left:1px solid var(--g4);display:flex;flex-direction:column;overflow:hidden">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--g4);font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em">Zonas registradas</div>
+            <div id="zonas-lista-lateral" style="overflow-y:auto;flex:1;padding:8px"></div>
+          </div>
+        </div>
+        <!-- Panel edición zona (se muestra al crear/editar) -->
+        <div id="zona-edit-panel" style="display:none;position:absolute;bottom:52px;left:0;right:300px;background:var(--g1);border-top:1px solid var(--g4);padding:12px 16px;z-index:50">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:8px;align-items:end">
+            <div><label class="fl" style="font-size:10px">Nombre *</label><input class="fi" id="ze-nombre" placeholder="Ej: Zona Norte"></div>
+            <div><label class="fl" style="font-size:10px">Ciudad</label>
+              <select class="fi" id="ze-ciudad" style="padding:8px 10px">
+                <option>CHOLOMA</option><option>SAN PEDRO SULA</option>
+              </select>
+            </div>
+            <div><label class="fl" style="font-size:10px">Radio (metros)</label><input class="fi" id="ze-radio" type="number" value="1000" min="100" max="10000" oninput="actualizarCirculoPreview()"></div>
+            <div><label class="fl" style="font-size:10px">Color</label>
+              <input type="color" id="ze-color" value="#FF8C00" style="width:42px;height:36px;border:none;border-radius:8px;cursor:pointer;background:none" oninput="actualizarCirculoPreview()">
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-primary btn-sm" onclick="guardarZonaMapa()">💾 Guardar</button>
+              <button class="btn btn-ghost btn-sm" onclick="cancelarZonaMapa()">✕</button>
+            </div>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:12px;align-items:center">
+            <span style="font-size:11px;color:var(--td)">Centro: <span id="ze-coords" class="mono" style="color:var(--or)">—</span></span>
+            <label style="font-size:11px;color:var(--td);display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="ze-activo" checked> Activa
+            </label>
+          </div>
+        </div>
       </div>
 
       <!-- ═══ ZONAS ════════════════════════════════════════════ -->
@@ -4223,11 +4311,7 @@ async function eliminar(tabla, id, callback){
 
 
 // ─── ZONAS ───────────────────────────────────────────────────
-async function cargarZonas() {
-  const {data} = await sb.from('zonas').select('*').order('orden');
-  MD.zonas = data||[];
-  renderZonas();
-}
+async 
 
 function renderZonas() {
   const el = document.getElementById('zonas-lista');
@@ -4896,8 +4980,8 @@ function nav(v, pushHistory=true) {
   if(v === 'clientes')    cargarClientes();
   if(v === 'comercios')   cargarComerciosList();
   if(v === 'categorias')  cargarCategorias();
-  if(v === 'zonas')       cargarZonas();
-  if(v === 'zonas')       cargarZonas();
+  if(v === 'zonas')       { cargarZonas().then(()=>iniciarMapaZonas()); }
+  if(v === 'zonas')       { cargarZonas().then(()=>iniciarMapaZonas()); }
   if(v === 'productos')   cargarProductos();
   if(v === 'cupones')     cargarCupones();
   if(v === 'usuarios')    cargarUsuarios();
