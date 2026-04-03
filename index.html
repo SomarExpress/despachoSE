@@ -3799,7 +3799,7 @@ function renderClientes() {
         <div style="margin-top:6px;color:var(--or);font-weight:700">${c.total_pedidos||0} pedidos</div>
       </div>
       <div class="item-card-footer">
-        ${c.celular?`<button class="btn btn-ghost btn-sm" style="color:#22C55E" onclick="window.open('https://wa.me/504'+c.celular.replace(/\D/g,''))">💬 WA</button>`:''}
+        ${c.celular?`<a href="https://wa.me/504${c.celular.replace(/\D/g,'')}" target="_blank" class="btn btn-ghost btn-sm" style="color:#22C55E;text-decoration:none">💬 WA</a>`:''}
         <button class="btn btn-ghost btn-sm" onclick="verPedidosCliente('${c.nombre}')">📋 Pedidos</button>
         <button class="btn btn-ghost btn-sm" onclick="abrirModal('cliente',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('clientes','${c.id}',cargarClientes)">🗑</button>
@@ -3929,7 +3929,7 @@ function renderComerciosList(){
         ${c.comision_pct?`<div style="color:var(--or)">Comisión: ${c.comision_pct}%</div>`:''}
       </div>
       <div class="item-card-footer">
-        ${c.whatsapp?`<button class="btn btn-ghost btn-sm" style="color:#22C55E" onclick="window.open('https://wa.me/504'+c.whatsapp.replace(/\D/g,''))">💬 WA</button>`:''}
+        ${c.whatsapp?`<a href="https://wa.me/504${c.whatsapp.replace(/\D/g,'')}" target="_blank" class="btn btn-ghost btn-sm" style="color:#22C55E;text-decoration:none">💬 WA</a>`:''}
         <button class="btn btn-ghost btn-sm" onclick="gestionarCatsComercio(${c.id},'${c.nombre}')">🏷 Cats</button>
         <button class="btn btn-ghost btn-sm" onclick="verProductosComercio(${c.id})">📦 Prod.</button>
         <button class="btn btn-ghost btn-sm" onclick="abrirModal('comercio',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️</button>
@@ -4224,7 +4224,7 @@ async function eliminar(tabla, id, callback){
 
 // ─── ZONAS ───────────────────────────────────────────────────
 async function cargarZonas() {
-  const {data} = await sb.from('zonas').select('*').order('ciudad').order('orden');
+  const {data} = await sb.from('zonas').select('*').order('orden');
   MD.zonas = data||[];
   renderZonas();
 }
@@ -4395,7 +4395,6 @@ async function cargarZonasList() {
         <button class="btn btn-ghost btn-sm" onclick="abrirModal('zona',${JSON.stringify(z).replace(/"/g,'&quot;')})">✏️ Editar</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('zonas',${z.id},cargarZonasList)">🗑</button>
       </div>
-    </div>`).join('')}
   `).join('');
 }
 guardarDatos.zona = async()=>{
@@ -4639,15 +4638,7 @@ function renderZonas() {
   const el = document.getElementById('zonas-lista');
   if(!MD.zonas?.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin zonas registradas</div>';return;}
   // Agrupar por ciudad
-  const porCiudad = {};
-  MD.zonas.forEach(z => {
-    const c = z.ciudad||'Sin ciudad';
-    if(!porCiudad[c]) porCiudad[c] = [];
-    porCiudad[c].push(z);
-  });
-  el.innerHTML = Object.entries(porCiudad).map(([ciudad, zonas]) => `
-    <div style="grid-column:1/-1;font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 6px">📍 ${ciudad}</div>
-    ${zonas.map(z=>`
+  el.innerHTML = MD.zonas.map(z=>`
     <div class="item-card">
       <div class="item-card-hdr">
         <div style="flex:1">
@@ -4661,32 +4652,46 @@ function renderZonas() {
         <button class="btn btn-ghost btn-sm" onclick="abrirModal('zona',${JSON.stringify(z).replace(/"/g,'&quot;')})">✏️ Editar</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('zonas',${z.id},cargarZonas)">🗑</button>
       </div>
-    </div>`).join('')}
   `).join('');
 }
 
 function htmlFormZona(d=null){ return `
   <div class="form-grid">
     <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="zona-nombre" value="${d?.nombre||''}"></div>
-    <div class="fg"><label class="fl">Ciudad *</label>
-      <select class="fi" id="zona-ciudad">
-        <option ${d?.ciudad==='CHOLOMA'||!d?'selected':''}>CHOLOMA</option>
-        <option ${d?.ciudad==='SAN PEDRO SULA'?'selected':''}>SAN PEDRO SULA</option>
-      </select>
-    </div>
-    <div class="fg" style="grid-column:1/-1"><label class="fl">Descripción</label><input class="fi" id="zona-desc" value="${d?.descripcion||''}"></div>
     <div class="fg"><label class="fl">Estado</label>
       <select class="fi" id="zona-activo">
         <option value="true" ${d?.activo!==false?'selected':''}>Activa</option>
         <option value="false" ${d?.activo===false?'selected':''}>Inactiva</option>
       </select>
     </div>
-  </div>`; }
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Descripción / Referencia</label><input class="fi" id="zona-desc" value="${d?.descripcion||''}"></div>
+    <div class="fg" style="grid-column:1/-1">
+      <label class="fl">Geocerca (coordenadas del centro)</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+        <input class="fi" id="zona-lat" type="number" step="any" placeholder="Latitud (ej: 15.6099)" value="${d?.lat||d?.latitud||''}">
+        <input class="fi" id="zona-lng" type="number" step="any" placeholder="Longitud (ej: -87.9563)" value="${d?.lng||d?.longitud||''}">
+      </div>
+    </div>
+    <div class="fg"><label class="fl">Radio (metros)</label><input class="fi" id="zona-radio" type="number" placeholder="1000" value="${d?.radio||d?.radio_metros||1000}"></div>
+  </div>
+  <div style="font-size:11px;color:var(--td);margin-top:8px">💡 El centro y radio definen la geocerca de la zona</div>`; }
 
 guardarDatos.zona = async()=>{
   const nom = gv('zona-nombre');
   if(!nom){toast('El nombre es requerido','danger');return;}
-  const row = {nombre:nom, ciudad:gv('zona-ciudad'), descripcion:gv('zona-desc'), activo:document.getElementById('zona-activo').value==='true'};
+  const lat = parseFloat(document.getElementById('zona-lat')?.value)||null;
+  const lng = parseFloat(document.getElementById('zona-lng')?.value)||null;
+  const row = {
+    nombre:      nom,
+    descripcion: gv('zona-desc'),
+    activo:      document.getElementById('zona-activo').value==='true',
+  };
+  // Agregar coordenadas si el schema las tiene
+  if(lat) row.lat = lat;
+  if(lng) row.lng = lng;
+  const radio = parseInt(document.getElementById('zona-radio')?.value)||1000;
+  row.radio = radio;
+  Object.keys(row).forEach(k=>{ if(row[k]===null) delete row[k]; });
   const {error} = MD.editId
     ? await sb.from('zonas').update(row).eq('id',MD.editId)
     : await sb.from('zonas').insert(row);
@@ -4698,7 +4703,7 @@ guardarDatos.zona = async()=>{
 function actualizarZonasFiltradas(selectId, ciudad) {
   const sel = document.getElementById(selectId);
   if(!sel) return;
-  const zonasFiltradas = (MD.zonas||[]).filter(z=>z.activo!==false&&(!ciudad||z.ciudad===ciudad));
+  const zonasFiltradas = (MD.zonas||[]).filter(z=>z.activo!==false);
   sel.innerHTML = '<option value="">Seleccionar zona...</option>' +
     zonasFiltradas.map(z=>`<option value="${z.id}">${z.nombre}</option>`).join('');
 }
