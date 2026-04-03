@@ -577,7 +577,11 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
       </div>
       <div class="nav-item" onclick="nav('categorias')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        Categorías
+        Tipos Comercio
+      </div>
+      <div class="nav-item" onclick="nav('zonas')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+        Zonas
       </div>
       <div class="nav-item" onclick="nav('productos')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
@@ -1099,6 +1103,15 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
         <div id="categorias-lista" class="grid-lista"></div>
       </div>
 
+      <!-- ═══ ZONAS ════════════════════════════════════════════ -->
+      <div class="view" id="view-zonas">
+        <div class="card-hdr" style="margin-bottom:12px">
+          <div class="card-title">Zonas de Cobertura</div>
+          <button class="btn btn-primary btn-sm" onclick="abrirModal('zona')">+ Nueva Zona</button>
+        </div>
+        <div id="zonas-lista" class="grid-lista"></div>
+      </div>
+
       <!-- ═══ PRODUCTOS ═════════════════════════════════════════ -->
       <div class="view" id="view-productos">
         <div class="card-hdr" style="margin-bottom:12px">
@@ -1136,6 +1149,63 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
           <button class="btn btn-primary btn-sm" onclick="abrirModal('usuario')">+ Nuevo Usuario</button>
         </div>
         <div id="usuarios-lista" class="grid-lista"></div>
+      </div>
+
+      <!-- ═══ ZONAS ════════════════════════════════════════════ -->
+      <div class="view" id="view-zonas">
+        <div class="card-hdr" style="margin-bottom:12px">
+          <div class="card-title">Zonas de Cobertura</div>
+          <button class="btn btn-primary btn-sm" onclick="abrirModal('zona')">+ Nueva Zona</button>
+        </div>
+        <div id="zonas-lista" class="grid-lista"></div>
+      </div>
+
+      <!-- ═══ ZONAS ════════════════════════════════════════════ -->
+      <div class="view" id="view-zonas">
+        <div class="card-hdr" style="margin-bottom:12px">
+          <div class="card-title">Zonas por Ciudad</div>
+          <button class="btn btn-primary btn-sm" onclick="abrirModal('zona')">+ Nueva Zona</button>
+        </div>
+        <div id="zonas-lista" class="grid-lista"></div>
+      </div>
+
+      <!-- ═══ CATEGORÍAS DEL COMERCIO ══════════════════════════ -->
+      <div class="view" id="view-catcomercio">
+        <div class="card-hdr" style="margin-bottom:12px">
+          <div>
+            <div class="card-title">Categorías del Comercio</div>
+            <div id="catcomercio-titulo" style="font-size:12px;color:var(--td)"></div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="nav('comercios')">← Comercios</button>
+            <button class="btn btn-primary btn-sm" onclick="abrirModal('catcomercio')">+ Nueva</button>
+          </div>
+        </div>
+        <div id="catcomercio-lista" class="grid-lista"></div>
+      </div>
+
+      <!-- ═══ SUCURSALES ════════════════════════════════════════ -->
+      <div class="view" id="view-sucursales">
+        <div class="card-hdr" style="margin-bottom:12px">
+          <div class="card-title">Sucursales del Comercio</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="nav('comercios')">← Comercios</button>
+            <button class="btn btn-primary btn-sm" onclick="abrirModal('sucursal')">+ Nueva</button>
+          </div>
+        </div>
+        <div id="sucursales-lista" class="grid-lista"></div>
+      </div>
+
+      <!-- ═══ UBICACIONES CLIENTE ═══════════════════════════════ -->
+      <div class="view" id="view-ubicaciones_cliente">
+        <div class="card-hdr" style="margin-bottom:12px">
+          <div class="card-title">Ubicaciones del Cliente</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="nav('clientes')">← Clientes</button>
+            <button class="btn btn-primary btn-sm" onclick="abrirModal('ubicacion_cliente')">+ Nueva</button>
+          </div>
+        </div>
+        <div id="ubicaciones_cliente-lista" class="grid-lista"></div>
       </div>
 
       <!-- ═══ HISTORIAL ════════════════════════════════════════ -->
@@ -1385,7 +1455,7 @@ async function init() {
   const _hEl = document.getElementById('dash-hasta');
   if(_dEl) _dEl.value = _hoyHN2;
   if(_hEl) _hEl.value = _hoyHN2;
-  await Promise.all([ cargarMetricas(), cargarRiders(), cargarConfig(), cargarNotifsDespacho() ]);
+  await Promise.all([ cargarMetricas(), cargarRiders(), cargarConfig(), cargarNotifsDespacho(), precargarZonas() ]);
   // Badge comprobantes pendientes
   sb.from('pedidos').select('id',{count:'exact',head:true}).in('metodo_pago',['TRANSFERENCIA','TARJETA']).eq('estatus','FINALIZADO').is('transferencia_validada_por',null).then(({count})=>{ const b=document.getElementById('badge-comp');if(b&&count>0){b.textContent=count;b.style.display='inline';} });
   // Badge liquidaciones pendientes
@@ -3642,7 +3712,7 @@ async function validarTransferencia(pedidoId, aprobado) {
 
 // Estado local de módulos
 const MD = {
-  clientes:[], comercios:[], categorias:[], productos:[], cupones:[], usuarios:[],
+  clientes:[], comercios:[], categorias:[], productos:[], cupones:[], usuarios:[], zonas:[],
   filtros:{ clientes:'', comercios:'', productos_comercio:'' },
   cupFiltro:'todos', usrFiltro:'todos',
   modalTipo:null, editId:null
@@ -3653,11 +3723,17 @@ function abrirModal(tipo, datos=null) {
   MD.modalTipo = tipo;
   MD.editId = datos?.id || null;
   const cfgs = {
+    zona:      { titulo: datos ? 'Editar Zona'       : 'Nueva Zona',      html: htmlFormZona(datos)    },
     cliente:   { titulo: datos ? 'Editar Cliente'    : 'Nuevo Cliente',    html: htmlFormCliente(datos)   },
     comercio:  { titulo: datos ? 'Editar Comercio'   : 'Nuevo Comercio',   html: htmlFormComercio(datos)  },
     categoria: { titulo: datos ? 'Editar Categoría'  : 'Nueva Categoría',  html: htmlFormCategoria(datos) },
     producto:  { titulo: datos ? 'Editar Producto'   : 'Nuevo Producto',   html: htmlFormProducto(datos)  },
     cupon:     { titulo: datos ? 'Editar Cupón'      : 'Nuevo Cupón',      html: htmlFormCupon(datos)     },
+    zona:      { titulo: datos ? 'Editar Zona'       : 'Nueva Zona',        html: htmlFormZona(datos)      },
+    catcomercio:{ titulo: datos ? 'Editar Categoría' : 'Nueva Categoría',   html: htmlFormCatcomercio(datos)},
+    sucursal:  { titulo: datos ? 'Editar Sucursal'   : 'Nueva Sucursal',    html: htmlFormSucursal(datos)  },
+    ubicacion_cliente:{ titulo: datos ? 'Editar Ubicación' : 'Nueva Ubicación', html: htmlFormUbicacion_cliente(datos)},
+    zona:      { titulo: datos ? 'Editar Zona'       : 'Nueva Zona',       html: htmlFormZona(datos)      },
     usuario:   { titulo: datos ? 'Editar Usuario'    : 'Nuevo Usuario',    html: htmlFormUsuario(datos)   },
   };
   const cfg = cfgs[tipo];
@@ -3669,6 +3745,7 @@ function abrirModal(tipo, datos=null) {
 function cerrarModalDatos() {
   document.getElementById('modal-datos').style.display='none';
   MD.modalTipo=null; MD.editId=null;
+  document.getElementById('md-guardar').style.display='flex';
 }
 async function guardarModal() {
   const tipo = MD.modalTipo;
@@ -3717,8 +3794,9 @@ function renderClientes() {
         <div style="margin-top:6px;color:var(--or);font-weight:700">${c.total_pedidos||0} pedidos</div>
       </div>
       <div class="item-card-footer">
+        ${c.celular?`<button class="btn btn-ghost btn-sm" style="color:#22C55E" onclick="window.open('https://wa.me/504'+c.celular.replace(/\D/g,''))">💬 WA</button>`:''}
         <button class="btn btn-ghost btn-sm" onclick="verPedidosCliente('${c.nombre}')">📋 Pedidos</button>
-        <button class="btn btn-ghost btn-sm" onclick="abrirModal('cliente',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️ Editar</button>
+        <button class="btn btn-ghost btn-sm" onclick="abrirModal('cliente',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('clientes','${c.id}',cargarClientes)">🗑</button>
       </div>
     </div>`).join('');
@@ -3729,21 +3807,33 @@ function htmlFormCliente(d=null){ return `
     <div class="fg"><label class="fl">Celular</label><input class="fi" id="cli-cel" value="${d?.celular||''}"></div>
     <div class="fg"><label class="fl">Correo</label><input class="fi" id="cli-correo" type="email" value="${d?.correo||''}"></div>
     <div class="fg"><label class="fl">Ciudad</label>
-      <select class="fi" id="cli-ciudad">
+      <select class="fi" id="cli-ciudad" onchange="actualizarZonasFiltradas('cli-zona',this.value)">
         <option ${d?.ciudad==='CHOLOMA'||!d?'selected':''}>CHOLOMA</option>
         <option ${d?.ciudad==='SAN PEDRO SULA'?'selected':''}>SAN PEDRO SULA</option>
       </select>
     </div>
+    <div class="fg"><label class="fl">Zona</label>
+      <select class="fi" id="cli-zona">
+        <option value="">Seleccionar zona...</option>
+        ${(MD.zonas||[]).filter(z=>z.activo&&(!d?.ciudad||z.ciudad===d.ciudad)).map(z=>`<option value="${z.id}" ${d?.zona_id===z.id?'selected':''}>${z.nombre}</option>`).join('')}
+      </select>
+    </div>
     <div class="fg"><label class="fl">Dirección</label><input class="fi" id="cli-dir" value="${d?.direccion||''}"></div>
     <div class="fg"><label class="fl">Colonia</label><input class="fi" id="cli-colonia" value="${d?.colonia||''}"></div>
+    <div class="fg"><label class="fl">Zona</label>
+      <select class="fi" id="cli-zona">
+        <option value="">Sin zona</option>
+        ${MD.zonas.map(z=>`<option value="${z.id}" ${d?.zona_id===z.id?'selected':''}>${z.nombre} (${z.ciudad})</option>`).join('')}
+      </select>
+    </div>
     <div class="fg" style="grid-column:1/-1"><label class="fl">Notas</label><textarea class="fi" id="cli-notas" rows="2">${d?.notas||''}</textarea></div>
   </div>`; }
 const guardarDatos = {};
 guardarDatos.cliente = async()=>{
   const nom = gv('cli-nombre');
   if(!nom){ toast('El nombre es requerido','danger'); return; }
-  const row = { nombre:nom, celular:gv('cli-cel'), correo:gv('cli-correo'), ciudad:gv('cli-ciudad'), direccion:gv('cli-dir'), colonia:gv('cli-colonia'), notas:gv('cli-notas') };
-  Object.keys(row).forEach(k=>{ if(row[k]===null) delete row[k]; });
+  const row = { nombre:nom, celular:gv('cli-cel'), correo:gv('cli-correo'), ciudad:gv('cli-ciudad'), direccion:gv('cli-dir'), colonia:gv('cli-colonia'), notas:gv('cli-notas'), zona_id:document.getElementById('cli-zona')?.value||null };
+  Object.keys(row).forEach(k=>{ if(row[k]===null||row[k]==='') delete row[k]; });
   const {error} = MD.editId
     ? await sb.from('clientes').update(row).eq('id',MD.editId)
     : await sb.from('clientes').insert(row);
@@ -3759,7 +3849,8 @@ async function verPedidosCliente(nombre) {
 
 // ─── CATEGORÍAS ──────────────────────────────────────────────
 async function cargarCategorias() {
-  const {data} = await sb.from('categorias_comercio').select('*').not('nombre','is',null).order('nombre');
+  // 'categorias' = tipos de comercio (Restaurante, Farmacia...)
+  const {data} = await sb.from('categorias').select('*').order('nombre');
   MD.categorias = data||[];
   renderCategorias();
 }
@@ -3775,7 +3866,7 @@ function renderCategorias(){
       </div>
       <div class="item-card-footer">
         <button class="btn btn-ghost btn-sm" onclick="abrirModal('categoria',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️ Editar</button>
-        <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('categorias_comercio',${c.id},cargarCategorias)">🗑</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('categorias','${c.id}',cargarCategorias)">🗑</button>
       </div>
     </div>`).join('');
 }
@@ -3792,15 +3883,15 @@ guardarDatos.categoria = async()=>{
   if(!nom){toast('El nombre es requerido','danger');return;}
   const row = {nombre:nom, icono:gv('cat-icono')||'🏪', activo:document.getElementById('cat-activo').value==='true'};
   const {error} = MD.editId
-    ? await sb.from('categorias_comercio').update(row).eq('id',MD.editId)
-    : await sb.from('categorias_comercio').insert(row);
+    ? await sb.from('categorias').update(row).eq('id',MD.editId)
+    : await sb.from('categorias').insert(row);
   if(error){toast('Error: '+error.message,'danger');return;}
   toast('✅ Categoría guardada'); cerrarModalDatos(); cargarCategorias();
 };
 
 // ─── COMERCIOS ───────────────────────────────────────────────
 async function cargarComerciosList() {
-  const {data} = await sb.from('comercios').select('*,categoria:categoria_id(nombre,icono)').order('nombre');
+  const {data} = await sb.from('comercios').select('*,categoria:categorias(nombre,icono)').order('nombre');
   MD.comercios = data||[];
   // Poblar selector de comercios en productos
   const sel = document.getElementById('prod-comercio-filter');
@@ -3832,13 +3923,17 @@ function renderComerciosList(){
         ${c.comision_pct?`<div style="color:var(--or)">Comisión: ${c.comision_pct}%</div>`:''}
       </div>
       <div class="item-card-footer">
-        <button class="btn btn-ghost btn-sm" onclick="verProductosComercio(${c.id})">📦 Productos</button>
-        <button class="btn btn-ghost btn-sm" onclick="abrirModal('comercio',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️ Editar</button>
+        ${c.whatsapp?`<button class="btn btn-ghost btn-sm" style="color:#22C55E" onclick="window.open('https://wa.me/504'+c.whatsapp.replace(/\D/g,''))">💬 WA</button>`:''}
+        <button class="btn btn-ghost btn-sm" onclick="gestionarCatsComercio(${c.id},'${c.nombre}')">🏷 Cats</button>
+        <button class="btn btn-ghost btn-sm" onclick="verProductosComercio(${c.id})">📦 Prod.</button>
+        <button class="btn btn-ghost btn-sm" onclick="abrirModal('comercio',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('comercios',${c.id},cargarComerciosList)">🗑</button>
       </div>
     </div>`).join('');
 }
 function htmlFormComercio(d=null){
+  // Zonas filtradas por ciudad seleccionada
+  const zonasOpts = MD.zonas.map(z=>`<option value="${z.id}" ${d?.zona_id===z.id?'selected':''}>${z.nombre} (${z.ciudad})</option>`).join('');
   const catOpts = MD.categorias.map(c=>`<option value="${c.id}" ${d?.categoria_id===c.id?'selected':''}>${c.icono} ${c.nombre}</option>`).join('');
   return `
   <div class="form-grid">
@@ -3856,9 +3951,18 @@ function htmlFormComercio(d=null){
     <div class="fg" style="grid-column:1/-1"><label class="fl">Dirección</label><input class="fi" id="com-dir" value="${d?.direccion||''}"></div>
     <div class="fg"><label class="fl">Abre</label><input class="fi" id="com-abre" type="time" value="${d?.horario_apertura?.slice(0,5)||''}"></div>
     <div class="fg"><label class="fl">Cierra</label><input class="fi" id="com-cierra" type="time" value="${d?.horario_cierre?.slice(0,5)||''}"></div>
-    <div class="fg"><label class="fl">Comisión %</label><input class="fi" id="com-com" type="number" value="${d?.comision_pct||0}" min="0" max="100"></div>
     <div class="fg"><label class="fl">Estado</label>
       <select class="fi" id="com-activo"><option value="true" ${d?.activo!==false?'selected':''}>Activo</option><option value="false" ${d?.activo===false?'selected':''}>Inactivo</option></select>
+    </div>
+    <div class="fg"><label class="fl">Zona</label>
+      <select class="fi" id="com-zona"><option value="">Sin zona</option>${zonasOpts}</select>
+    </div>
+    <div class="fg"><label class="fl">Comisión %</label><input class="fi" id="com-com" type="number" value="${d?.comision_pct||0}" min="0" max="100" step="0.5"></div>
+    <div class="fg"><label class="fl">Tipo comisión</label>
+      <select class="fi" id="com-comtipo">
+        <option value="INCLUIDA"  ${d?.comision_tipo==='INCLUIDA' ||!d?.comision_tipo?'selected':''}>Incluida en el precio</option>
+        <option value="ADICIONAL" ${d?.comision_tipo==='ADICIONAL'?'selected':''}>Se suma al precio</option>
+      </select>
     </div>
     <div class="fg" style="grid-column:1/-1"><label class="fl">Notas</label><textarea class="fi" id="com-notas" rows="2">${d?.notas||''}</textarea></div>
   </div>`;}
@@ -3867,20 +3971,23 @@ guardarDatos.comercio = async()=>{
   if(!nom){toast('El nombre es requerido','danger');return;}
   const catId = document.getElementById('com-cat')?.value;
   // Usar columnas reales de la tabla comercios
+  const zonaId = document.getElementById('com-zona')?.value||null;
   const row = {
-    nombre:      nom,
-    categoria_id: catId||null,       // uuid de categorias_comercio
-    telefono:    gv('com-tel'),
-    whatsapp:    gv('com-wa'),
-    correo:      gv('com-correo'),
-    ciudad:      gv('com-ciudad'),
-    direccion:   gv('com-dir'),
-    apertura:    gv('com-abre')||null,
-    cierre:      gv('com-cierra')||null,
-    comision_pct: gn('com-com')||0,
-    notas:       gv('com-notas'),
-    activo:      document.getElementById('com-activo').value==='true',
-    visible:     true,
+    nombre:        nom,
+    categoria_id:  catId||null,   // uuid de tabla 'categorias' (tipos de comercio)
+    telefono:      gv('com-tel'),
+    whatsapp:      gv('com-wa'),
+    correo:        gv('com-correo'),
+    ciudad:        gv('com-ciudad'),
+    direccion:     gv('com-dir'),
+    apertura:      gv('com-abre')||null,
+    cierre:        gv('com-cierra')||null,
+    comision_pct:  gn('com-com')||0,
+    comision_tipo: document.getElementById('com-comtipo')?.value||'INCLUIDA',
+    zona_id:       zonaId||null,
+    notas:         gv('com-notas'),
+    activo:        document.getElementById('com-activo').value==='true',
+    visible:       true,
   };
   // Limpiar nulls
   Object.keys(row).forEach(k=>{ if(row[k]===null||row[k]==='') delete row[k]; });
@@ -3929,7 +4036,11 @@ function htmlFormProducto(d=null){
   const comOpts = MD.comercios.map(c=>`<option value="${c.id}" ${d?.comercio_id===c.id?'selected':''}>${c.nombre}</option>`).join('');
   return `
   <div class="form-grid">
-    <div class="fg"><label class="fl">Comercio *</label><select class="fi" id="prod-com"><option value="">Seleccionar...</option>${comOpts}</select></div>
+    <div class="fg"><label class="fl">Comercio *</label>
+      <select class="fi" id="prod-com" onchange="cargarCatsComercioEnForm(this.value,'${d?.categoria_id||''}')">
+        <option value="">Seleccionar...</option>${comOpts}
+      </select>
+    </div>
     <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="prod-nombre" value="${d?.nombre||''}"></div>
     <div class="fg"><label class="fl">Precio (L.) *</label><input class="fi" id="prod-precio" type="number" value="${d?.precio||''}"></div>
     <div class="fg"><label class="fl">Categoría</label><input class="fi" id="prod-cat" value="${d?.categoria||''}"></div>
@@ -3952,7 +4063,7 @@ guardarDatos.producto = async()=>{
     nombre: nom,
     descripcion: gv('prod-desc'),
     precio,
-    categoria_id: gv('prod-cat')||null,
+    categoria_id: document.getElementById('prod-cat')?.value||null,
     imagen_url: gv('prod-img')||null,
     estatus,  // 'activo', 'inactivo', 'agotado'
   };
@@ -4104,10 +4215,620 @@ async function eliminar(tabla, id, callback){
   if(callback) callback();
 }
 
+
+// ─── ZONAS ───────────────────────────────────────────────────
+async function cargarZonas() {
+  const {data} = await sb.from('zonas').select('*').order('ciudad').order('orden');
+  MD.zonas = data||[];
+  renderZonas();
+}
+
+function renderZonas() {
+  const el = document.getElementById('zonas-lista');
+  if(!MD.zonas.length) { el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin zonas registradas</div>'; return; }
+  // Agrupar por ciudad
+  const ciudades = [...new Set(MD.zonas.map(z=>z.ciudad))];
+  el.innerHTML = ciudades.map(ciudad => {
+    const zonasCiudad = MD.zonas.filter(z=>z.ciudad===ciudad);
+    return `<div class="card" style="grid-column:1/-1">
+      <div class="card-hdr"><div class="card-title">📍 ${ciudad}</div></div>
+      <div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px;">
+        ${zonasCiudad.map(z=>`
+          <div style="background:var(--g3);border:1px solid var(--g4);border-radius:10px;padding:8px 14px;display:flex;align-items:center;gap:10px;">
+            <div style="width:10px;height:10px;border-radius:50%;background:${z.color||'#FF8C00'};flex-shrink:0"></div>
+            <div>
+              <div style="font-size:13px;font-weight:700">${z.nombre}</div>
+              ${z.descripcion?`<div style="font-size:11px;color:var(--td)">${z.descripcion}</div>`:''}
+            </div>
+            <span class="badge-estado ${z.activa?'badge-activo':'badge-inactivo'}" style="margin-left:4px">${z.activa?'Activa':'Inactiva'}</span>
+            <button class="btn btn-ghost btn-sm" onclick="abrirModal('zona',${JSON.stringify(z).replace(/"/g,'&quot;')})">✏️</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('zonas','${z.id}',cargarZonas)">🗑</button>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function htmlFormZona(d=null) { return `
+  <div class="form-grid">
+    <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="zona-nombre" value="${d?.nombre||''}"></div>
+    <div class="fg"><label class="fl">Ciudad *</label>
+      <select class="fi" id="zona-ciudad">
+        <option ${d?.ciudad==='CHOLOMA'||!d?'selected':''}>CHOLOMA</option>
+        <option ${d?.ciudad==='SAN PEDRO SULA'?'selected':''}>SAN PEDRO SULA</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Color (hex)</label><input class="fi" id="zona-color" type="color" value="${d?.color||'#FF8C00'}" style="height:42px;padding:4px"></div>
+    <div class="fg"><label class="fl">Orden</label><input class="fi" id="zona-orden" type="number" value="${d?.orden||0}"></div>
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Descripción</label><input class="fi" id="zona-desc" value="${d?.descripcion||''}"></div>
+    <div class="fg"><label class="fl">Estado</label>
+      <select class="fi" id="zona-activa">
+        <option value="true"  ${d?.activa!==false?'selected':''}>Activa</option>
+        <option value="false" ${d?.activa===false?'selected':''}>Inactiva</option>
+      </select>
+    </div>
+  </div>`; }
+
+guardarDatos.zona = async()=>{
+  const nom = gv('zona-nombre');
+  if(!nom){ toast('El nombre es requerido','danger'); return; }
+  const row = {
+    nombre: nom,
+    ciudad: document.getElementById('zona-ciudad')?.value||'CHOLOMA',
+    color:  document.getElementById('zona-color')?.value||'#FF8C00',
+    orden:  parseInt(document.getElementById('zona-orden')?.value||0),
+    descripcion: gv('zona-desc'),
+    activa: document.getElementById('zona-activa')?.value==='true',
+  };
+  const {error} = MD.editId
+    ? await sb.from('zonas').update(row).eq('id',MD.editId)
+    : await sb.from('zonas').insert(row);
+  if(error){ toast('Error: '+error.message,'danger'); return; }
+  toast('✅ Zona guardada'); cerrarModalDatos(); cargarZonas();
+};
+
+// Precargar zonas al inicializar app (necesarias para forms)
+async function precargarZonas() {
+  const {data} = await sb.from('zonas').select('*').eq('activa',true).order('ciudad').order('orden');
+  MD.zonas = data||[];
+}
+
+// ─── CATEGORÍAS DEL COMERCIO (para selector en productos) ────
+async function cargarCatsComercioEnForm(comercioId, selectedId='') {
+  const sel = document.getElementById('prod-cat');
+  if(!sel || !comercioId) return;
+  const {data} = await sb.from('categorias_comercio')
+    .select('*').eq('comercio_id', parseInt(comercioId)).eq('activo', true).order('nombre');
+  sel.innerHTML = '<option value="">Sin categoría</option>' +
+    (data||[]).map(c=>`<option value="${c.id}" ${c.id===selectedId?'selected':''}>${c.icono||''} ${c.nombre}</option>`).join('');
+}
+
+// CATEGORÍAS COMERCIO (las propias de cada comercio)
+// Se gestionan desde la vista de comercio (botón en card)
+async function gestionarCatsComercio(comercioId, comercioNombre) {
+  // Abrir modal especial para gestionar categorías de ese comercio
+  MD.modalTipo = 'catComercio';
+  MD.editId = null;
+  MD._comercioActivo = comercioId;
+  document.getElementById('md-titulo').textContent = `Categorías de ${comercioNombre}`;
+  await renderCatsComercioModal(comercioId);
+  document.getElementById('modal-datos').style.display='flex';
+}
+
+async function renderCatsComercioModal(comercioId) {
+  const {data} = await sb.from('categorias_comercio')
+    .select('*').eq('comercio_id', parseInt(comercioId)).order('nombre');
+  const lista = (data||[]).map(c=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--g3)">
+      <span style="font-size:18px">${c.icono||'📁'}</span>
+      <span style="flex:1;font-size:13px">${c.nombre}</span>
+      <button class="btn btn-ghost btn-sm" onclick="eliminarCatComercio('${c.id}',${comercioId})">🗑</button>
+    </div>`).join('') || '<div style="font-size:12px;color:var(--td)">Sin categorías aún</div>';
+  
+  document.getElementById('md-cuerpo').innerHTML = `
+    <div style="margin-bottom:14px">${lista}</div>
+    <div style="border-top:1px solid var(--g4);padding-top:12px;font-size:12px;font-weight:700;color:var(--td);margin-bottom:8px">AGREGAR CATEGORÍA</div>
+    <div class="form-grid">
+      <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="catcom-nombre"></div>
+      <div class="fg"><label class="fl">Ícono</label><input class="fi" id="catcom-icono" value="📁" maxlength="4" style="font-size:22px;text-align:center"></div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:10px;width:100%" onclick="agregarCatComercio(${comercioId})">+ Agregar</button>
+  `;
+}
+
+async function agregarCatComercio(comercioId) {
+  const nom = document.getElementById('catcom-nombre')?.value?.trim();
+  if(!nom){ toast('Ingresa un nombre','danger'); return; }
+  const {error} = await sb.from('categorias_comercio').insert({
+    comercio_id: parseInt(comercioId),
+    nombre: nom,
+    icono: document.getElementById('catcom-icono')?.value||'📁',
+    activo: true
+  });
+  if(error){ toast('Error: '+error.message,'danger'); return; }
+  toast('✅ Categoría agregada');
+  await renderCatsComercioModal(comercioId);
+}
+
+async function eliminarCatComercio(id, comercioId) {
+  if(!confirm('¿Eliminar esta categoría?')) return;
+  await sb.from('categorias_comercio').delete().eq('id',id);
+  await renderCatsComercioModal(comercioId);
+}
+
+// Override guardarModal para catComercio (no tiene botón guardar normal)
+const _guardarModalOrig = guardarModal;
+guardarModal = async function() {
+  if(MD.modalTipo === 'catComercio') { cerrarModalDatos(); return; }
+  await _guardarModalOrig();
+};
+
+
+// ════════════════════════════════════════════════════════════
+// ZONAS
+// ════════════════════════════════════════════════════════════
+async function cargarZonasList() {
+  const {data} = await sb.from('zonas').select('*').order('ciudad').order('nombre');
+  MD.zonas = data||[];
+  const el = document.getElementById('zonas-lista');
+  if(!el) return;
+  if(!MD.zonas.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin zonas registradas</div>';return;}
+  const ciudades = [...new Set(MD.zonas.map(z=>z.ciudad||'Sin ciudad'))];
+  el.innerHTML = ciudades.map(ciudad=>`
+    <div style="grid-column:1/-1;margin-bottom:4px;font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em">📍 ${ciudad}</div>
+    ${MD.zonas.filter(z=>(z.ciudad||'Sin ciudad')===ciudad).map(z=>`
+    <div class="item-card">
+      <div class="item-card-hdr">
+        <div style="width:36px;height:36px;border-radius:10px;background:var(--or);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🗺️</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:700">${z.nombre||z.id}</div>
+          ${z.descripcion?`<div style="font-size:11px;color:var(--td)">${z.descripcion}</div>`:''}
+        </div>
+        <span class="badge-estado ${z.activa!==false?'badge-activo':'badge-inactivo'}">${z.activa!==false?'Activa':'Inactiva'}</span>
+      </div>
+      <div class="item-card-footer">
+        <button class="btn btn-ghost btn-sm" onclick="abrirModal('zona',${JSON.stringify(z).replace(/"/g,'&quot;')})">✏️ Editar</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('zonas',${z.id},cargarZonasList)">🗑</button>
+      </div>
+    </div>`).join('')}
+  `).join('');
+}
+guardarDatos.zona = async()=>{
+  const nom=gv('zona-nombre');
+  if(!nom){toast('El nombre es requerido','danger');return;}
+  const row={nombre:nom, ciudad:gv('zona-ciudad')||'CHOLOMA', descripcion:gv('zona-desc'), activa:document.getElementById('zona-activa').value==='true'};
+  const {error}=MD.editId
+    ? await sb.from('zonas').update(row).eq('id',MD.editId)
+    : await sb.from('zonas').insert(row);
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Zona guardada');cerrarModalDatos();cargarZonasList();cargarZonas();
+};
+function htmlFormZona(d=null){return`
+  <div class="form-grid">
+    <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="zona-nombre" value="${d?.nombre||''}"></div>
+    <div class="fg"><label class="fl">Ciudad</label>
+      <select class="fi" id="zona-ciudad">
+        <option ${d?.ciudad==='CHOLOMA'||!d?'selected':''}>CHOLOMA</option>
+        <option ${d?.ciudad==='SAN PEDRO SULA'?'selected':''}>SAN PEDRO SULA</option>
+      </select>
+    </div>
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Descripción</label><input class="fi" id="zona-desc" value="${d?.descripcion||''}"></div>
+    <div class="fg"><label class="fl">Estado</label>
+      <select class="fi" id="zona-activa"><option value="true" ${d?.activa!==false?'selected':''}>Activa</option><option value="false" ${d?.activa===false?'selected':''}>Inactiva</option></select>
+    </div>
+  </div>`;}
+
+// ════════════════════════════════════════════════════════════
+// CATEGORÍAS DE COMERCIO (propias de cada comercio)
+// ════════════════════════════════════════════════════════════
+async function cargarCategoriasComercio() {
+  const comId = MD.ctxComercioId;
+  if(!comId){ document.getElementById('catcomercio-lista').innerHTML='<div class="empty">Selecciona un comercio primero</div>'; return; }
+  const {data} = await sb.from('categorias_comercio').select('*').eq('comercio_id',comId).order('nombre');
+  MD.categoriasComercio = data||[];
+  renderCategoriasComercio();
+}
+function renderCategoriasComercio(){
+  const el = document.getElementById('catcomercio-lista');
+  if(!el) return;
+  const com = MD.comercios.find(c=>c.id===MD.ctxComercioId);
+  document.getElementById('catcomercio-titulo')?.textContent && (document.getElementById('catcomercio-titulo').textContent = com?com.nombre:'');
+  if(!MD.categoriasComercio.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin categorías para este comercio</div>';return;}
+  el.innerHTML = MD.categoriasComercio.map(c=>`
+    <div class="item-card">
+      <div class="item-card-hdr">
+        <div style="font-size:26px">${c.icono||'🏷️'}</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:700">${c.nombre}</div></div>
+        <span class="badge-estado ${c.activo!==false?'badge-activo':'badge-inactivo'}">${c.activo!==false?'Activa':'Inactiva'}</span>
+      </div>
+      <div class="item-card-footer">
+        <button class="btn btn-ghost btn-sm" onclick="abrirModal('catcomercio',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️ Editar</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('categorias_comercio','${c.id}',cargarCategoriasComercio)">🗑</button>
+      </div>
+    </div>`).join('');
+}
+async function verCategoriasComercio(comId, comNombre) {
+  MD.ctxComercioId = comId;
+  nav('catcomercio');
+  document.getElementById('catcomercio-back-btn') && (document.getElementById('catcomercio-back-btn').style.display='inline-flex');
+}
+guardarDatos.catcomercio = async()=>{
+  const nom=gv('catc-nombre');
+  if(!nom||!MD.ctxComercioId){toast('Nombre y comercio son requeridos','danger');return;}
+  const row={nombre:nom, icono:gv('catc-icono')||'🏷️', comercio_id:MD.ctxComercioId, activo:document.getElementById('catc-activo').value==='true'};
+  const {error}=MD.editId
+    ? await sb.from('categorias_comercio').update(row).eq('id',MD.editId)
+    : await sb.from('categorias_comercio').insert(row);
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Categoría guardada');cerrarModalDatos();cargarCategoriasComercio();
+};
+function htmlFormCatcomercio(d=null){return`
+  <div class="form-grid">
+    <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="catc-nombre" value="${d?.nombre||''}"></div>
+    <div class="fg"><label class="fl">Ícono</label><input class="fi" id="catc-icono" value="${d?.icono||'🏷️'}" style="font-size:22px;text-align:center" maxlength="4"></div>
+    <div class="fg"><label class="fl">Estado</label>
+      <select class="fi" id="catc-activo"><option value="true" ${d?.activo!==false?'selected':''}>Activa</option><option value="false" ${d?.activo===false?'selected':''}>Inactiva</option></select>
+    </div>
+  </div>`;}
+
+// ════════════════════════════════════════════════════════════
+// SUCURSALES (ubicaciones de un comercio)
+// ════════════════════════════════════════════════════════════
+async function cargarSucursales() {
+  if(!MD.ctxComercioId){ document.getElementById('sucursales-lista').innerHTML='<div class="empty">Selecciona un comercio</div>'; return; }
+  const {data} = await sb.from('sucursales').select('*,zona:zona_id(nombre)').eq('comercio_id',MD.ctxComercioId).order('es_principal',{ascending:false}).order('nombre');
+  MD.sucursales = data||[];
+  const el = document.getElementById('sucursales-lista');
+  if(!data?.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin sucursales registradas</div>';return;}
+  el.innerHTML = data.map(s=>`
+    <div class="item-card">
+      <div class="item-card-hdr">
+        <div style="font-size:24px">${s.es_principal?'🏢':'🏪'}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700">${s.nombre}${s.es_principal?' <span style="color:var(--or);font-size:10px">PRINCIPAL</span>':''}</div>
+          <div style="font-size:11px;color:var(--td)">${s.ciudad||''}${s.zona?` · ${s.zona.nombre}`:''}</div>
+          ${s.direccion?`<div style="font-size:11px;color:var(--td)">${s.direccion}</div>`:''}
+        </div>
+        <span class="badge-estado ${s.activa!==false?'badge-activo':'badge-inactivo'}">${s.activa!==false?'Activa':'Inactiva'}</span>
+      </div>
+      <div class="item-card-footer">
+        <button class="btn btn-ghost btn-sm" onclick="abrirModal('sucursal',${JSON.stringify(s).replace(/"/g,'&quot;')})">✏️ Editar</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('sucursales',${s.id},cargarSucursales)">🗑</button>
+      </div>
+    </div>`).join('');
+}
+async function verSucursales(comId, comNombre) {
+  MD.ctxComercioId = comId;
+  nav('sucursales');
+}
+guardarDatos.sucursal = async()=>{
+  const nom=gv('suc-nombre');
+  if(!nom||!MD.ctxComercioId){toast('El nombre es requerido','danger');return;}
+  const zonaId = document.getElementById('suc-zona')?.value;
+  const row={nombre:nom, comercio_id:MD.ctxComercioId, direccion:gv('suc-dir'), ciudad:gv('suc-ciudad')||'CHOLOMA', zona_id:zonaId?parseInt(zonaId):null, telefono:gv('suc-tel'), apertura:gv('suc-abre')||null, cierre:gv('suc-cierra')||null, es_principal:gc('suc-principal'), activa:document.getElementById('suc-activa').value==='true'};
+  Object.keys(row).forEach(k=>{if(row[k]===null)delete row[k];});
+  const {error}=MD.editId
+    ? await sb.from('sucursales').update(row).eq('id',MD.editId)
+    : await sb.from('sucursales').insert(row);
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Sucursal guardada');cerrarModalDatos();cargarSucursales();
+};
+function htmlFormSucursal(d=null){
+  const ciudad = d?.ciudad||'CHOLOMA';
+  const zonaOpts = MD.zonas.filter(z=>z.ciudad===ciudad).map(z=>`<option value="${z.id}" ${d?.zona_id===z.id?'selected':''}>${z.nombre}</option>`).join('');
+  return`<div class="form-grid">
+    <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="suc-nombre" value="${d?.nombre||'Principal'}"></div>
+    <div class="fg"><label class="fl">Ciudad</label>
+      <select class="fi" id="suc-ciudad" onchange="actualizarZonasEnForm('suc-zona',this.value)">
+        <option ${ciudad==='CHOLOMA'?'selected':''}>CHOLOMA</option>
+        <option ${ciudad==='SAN PEDRO SULA'?'selected':''}>SAN PEDRO SULA</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Zona</label><select class="fi" id="suc-zona"><option value="">Sin zona</option>${zonaOpts}</select></div>
+    <div class="fg"><label class="fl">Teléfono</label><input class="fi" id="suc-tel" value="${d?.telefono||''}"></div>
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Dirección</label><input class="fi" id="suc-dir" value="${d?.direccion||''}"></div>
+    <div class="fg"><label class="fl">Abre</label><input class="fi" id="suc-abre" type="time" value="${d?.apertura?.slice(0,5)||''}"></div>
+    <div class="fg"><label class="fl">Cierra</label><input class="fi" id="suc-cierra" type="time" value="${d?.cierre?.slice(0,5)||''}"></div>
+    <div class="fg"><label class="fl">Estado</label>
+      <select class="fi" id="suc-activa"><option value="true" ${d?.activa!==false?'selected':''}>Activa</option><option value="false" ${d?.activa===false?'selected':''}>Inactiva</option></select>
+    </div>
+    <div class="fg" style="display:flex;align-items:center;gap:8px;padding-top:8px">
+      <input type="checkbox" id="suc-principal" ${d?.es_principal?'checked':''}>
+      <label for="suc-principal" style="font-size:13px">Es sucursal principal</label>
+    </div>
+  </div>`;}
+
+// ════════════════════════════════════════════════════════════
+// UBICACIONES DE CLIENTE
+// ════════════════════════════════════════════════════════════
+async function cargarUbicacionesCliente() {
+  if(!MD.ctxClienteId){ document.getElementById('ubicaciones_cliente-lista').innerHTML='<div class="empty">Selecciona un cliente</div>'; return; }
+  const {data} = await sb.from('ubicaciones_cliente').select('*,zona:zona_id(nombre)').eq('cliente_id',MD.ctxClienteId).order('es_principal',{ascending:false}).order('nombre');
+  MD.ubicacionesCliente = data||[];
+  const el = document.getElementById('ubicaciones_cliente-lista');
+  if(!data?.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin ubicaciones registradas</div>';return;}
+  el.innerHTML = data.map(u=>`
+    <div class="item-card">
+      <div class="item-card-hdr">
+        <div style="font-size:24px">${u.nombre==='Casa'?'🏠':u.nombre==='Trabajo'?'🏢':'📍'}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700">${u.nombre}${u.es_principal?' <span style="color:var(--or);font-size:10px">PRINCIPAL</span>':''}</div>
+          <div style="font-size:11px;color:var(--td)">${u.ciudad||''}${u.zona?` · ${u.zona.nombre}`:''}</div>
+          ${u.direccion?`<div style="font-size:11px;color:var(--td)">${u.direccion}</div>`:''}
+          ${u.referencia?`<div style="font-size:10px;color:var(--td);font-style:italic">${u.referencia}</div>`:''}
+        </div>
+        <span class="badge-estado ${u.activa!==false?'badge-activo':'badge-inactivo'}">${u.activa!==false?'Activa':'Inactiva'}</span>
+      </div>
+      <div class="item-card-footer">
+        <button class="btn btn-ghost btn-sm" onclick="abrirModal('ubicacion_cliente',${JSON.stringify(u).replace(/"/g,'&quot;')})">✏️ Editar</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('ubicaciones_cliente',${u.id},cargarUbicacionesCliente)">🗑</button>
+      </div>
+    </div>`).join('');
+}
+async function verUbicacionesCliente(clienteId, clienteNombre) {
+  MD.ctxClienteId = clienteId;
+  nav('ubicaciones_cliente');
+}
+guardarDatos.ubicacion_cliente = async()=>{
+  const nom=gv('ubic-nombre');
+  if(!nom||!MD.ctxClienteId){toast('El nombre es requerido','danger');return;}
+  const zonaId=document.getElementById('ubic-zona')?.value;
+  const row={nombre:nom, cliente_id:MD.ctxClienteId, direccion:gv('ubic-dir'), ciudad:gv('ubic-ciudad')||'CHOLOMA', zona_id:zonaId?parseInt(zonaId):null, referencia:gv('ubic-ref'), es_principal:gc('ubic-principal'), activa:true};
+  Object.keys(row).forEach(k=>{if(row[k]===null)delete row[k];});
+  const {error}=MD.editId
+    ? await sb.from('ubicaciones_cliente').update(row).eq('id',MD.editId)
+    : await sb.from('ubicaciones_cliente').insert(row);
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Ubicación guardada');cerrarModalDatos();cargarUbicacionesCliente();
+};
+function htmlFormUbicacion_cliente(d=null){
+  const ciudad=d?.ciudad||'CHOLOMA';
+  const zonaOpts=MD.zonas.filter(z=>z.ciudad===ciudad).map(z=>`<option value="${z.id}" ${d?.zona_id===z.id?'selected':''}>${z.nombre}</option>`).join('');
+  return`<div class="form-grid">
+    <div class="fg"><label class="fl">Nombre *</label>
+      <select class="fi" id="ubic-nombre-sel" onchange="document.getElementById('ubic-nombre').value=this.value">
+        <option>Casa</option><option>Trabajo</option><option>Otro</option>
+      </select>
+    </div>
+    <input type="hidden" id="ubic-nombre" value="${d?.nombre||'Casa'}">
+    <div class="fg"><label class="fl">Ciudad</label>
+      <select class="fi" id="ubic-ciudad" onchange="actualizarZonasEnForm('ubic-zona',this.value)">
+        <option ${ciudad==='CHOLOMA'?'selected':''}>CHOLOMA</option>
+        <option ${ciudad==='SAN PEDRO SULA'?'selected':''}>SAN PEDRO SULA</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Zona</label><select class="fi" id="ubic-zona"><option value="">Sin zona</option>${zonaOpts}</select></div>
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Dirección</label><input class="fi" id="ubic-dir" value="${d?.direccion||''}"></div>
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Referencia</label><input class="fi" id="ubic-ref" placeholder="Frente al parque, casa verde..." value="${d?.referencia||''}"></div>
+    <div class="fg" style="display:flex;align-items:center;gap:8px;padding-top:8px">
+      <input type="checkbox" id="ubic-principal" ${d?.es_principal?'checked':''}>
+      <label for="ubic-principal" style="font-size:13px">Ubicación principal</label>
+    </div>
+  </div>`;}
+
+// Helper: actualizar zonas en select cuando cambia ciudad
+function actualizarZonasEnForm(selectId, ciudad) {
+  const sel = document.getElementById(selectId);
+  if(!sel) return;
+  const opts = MD.zonas.filter(z=>z.ciudad===ciudad).map(z=>`<option value="${z.id}">${z.nombre}</option>`).join('');
+  sel.innerHTML = '<option value="">Sin zona</option>' + opts;
+}
+
+// Cargar categorías del comercio en el form de producto
+async function cargarCatComercioEnProd(comId) {
+  const sel = document.getElementById('prod-cat-id');
+  if(!sel||!comId) return;
+  const {data} = await sb.from('categorias_comercio').select('id,nombre').eq('comercio_id',parseInt(comId)).eq('activo',true).order('nombre');
+  sel.innerHTML = '<option value="">Sin categoría</option>' + (data||[]).map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+}
+
+
+// ─── ZONAS ───────────────────────────────────────────────────
+async function cargarZonas() {
+  const {data} = await sb.from('zonas').select('*').order('ciudad,nombre');
+  MD.zonas = data||[];
+  renderZonas();
+}
+
+function renderZonas() {
+  const el = document.getElementById('zonas-lista');
+  if(!MD.zonas?.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin zonas registradas</div>';return;}
+  // Agrupar por ciudad
+  const porCiudad = {};
+  MD.zonas.forEach(z => {
+    const c = z.ciudad||'Sin ciudad';
+    if(!porCiudad[c]) porCiudad[c] = [];
+    porCiudad[c].push(z);
+  });
+  el.innerHTML = Object.entries(porCiudad).map(([ciudad, zonas]) => `
+    <div style="grid-column:1/-1;font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 6px">📍 ${ciudad}</div>
+    ${zonas.map(z=>`
+    <div class="item-card">
+      <div class="item-card-hdr">
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:700">${z.nombre}</div>
+          <div style="font-size:11px;color:var(--td)">${z.ciudad||'—'}</div>
+        </div>
+        <span class="badge-estado ${z.activo!==false?'badge-activo':'badge-inactivo'}">${z.activo!==false?'Activa':'Inactiva'}</span>
+      </div>
+      ${z.descripcion?`<div class="item-card-body">${z.descripcion}</div>`:''}
+      <div class="item-card-footer">
+        <button class="btn btn-ghost btn-sm" onclick="abrirModal('zona',${JSON.stringify(z).replace(/"/g,'&quot;')})">✏️ Editar</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('zonas',${z.id},cargarZonas)">🗑</button>
+      </div>
+    </div>`).join('')}
+  `).join('');
+}
+
+function htmlFormZona(d=null){ return `
+  <div class="form-grid">
+    <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="zona-nombre" value="${d?.nombre||''}"></div>
+    <div class="fg"><label class="fl">Ciudad *</label>
+      <select class="fi" id="zona-ciudad">
+        <option ${d?.ciudad==='CHOLOMA'||!d?'selected':''}>CHOLOMA</option>
+        <option ${d?.ciudad==='SAN PEDRO SULA'?'selected':''}>SAN PEDRO SULA</option>
+      </select>
+    </div>
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Descripción</label><input class="fi" id="zona-desc" value="${d?.descripcion||''}"></div>
+    <div class="fg"><label class="fl">Estado</label>
+      <select class="fi" id="zona-activo">
+        <option value="true" ${d?.activo!==false?'selected':''}>Activa</option>
+        <option value="false" ${d?.activo===false?'selected':''}>Inactiva</option>
+      </select>
+    </div>
+  </div>`; }
+
+guardarDatos.zona = async()=>{
+  const nom = gv('zona-nombre');
+  if(!nom){toast('El nombre es requerido','danger');return;}
+  const row = {nombre:nom, ciudad:gv('zona-ciudad'), descripcion:gv('zona-desc'), activo:document.getElementById('zona-activo').value==='true'};
+  const {error} = MD.editId
+    ? await sb.from('zonas').update(row).eq('id',MD.editId)
+    : await sb.from('zonas').insert(row);
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Zona guardada'); cerrarModalDatos(); cargarZonas();
+};
+
+// Filtrar zonas por ciudad en los selects
+function actualizarZonasFiltradas(selectId, ciudad) {
+  const sel = document.getElementById(selectId);
+  if(!sel) return;
+  const zonasFiltradas = (MD.zonas||[]).filter(z=>z.activo!==false&&(!ciudad||z.ciudad===ciudad));
+  sel.innerHTML = '<option value="">Seleccionar zona...</option>' +
+    zonasFiltradas.map(z=>`<option value="${z.id}">${z.nombre}</option>`).join('');
+}
+
+// Cargar categorías propias de un comercio para el form de producto
+async function cargarCatsComercioProd(comercioId) {
+  if(!comercioId) { document.getElementById('prod-cat-sel').innerHTML='<option value="">Sin categoría</option>'; return; }
+  const {data} = await sb.from('categorias_comercio').select('*').eq('comercio_id',parseInt(comercioId)).eq('activo',true).order('nombre');
+  MD.catsComercioProd = data||[];
+  const sel = document.getElementById('prod-cat-sel');
+  if(sel) sel.innerHTML = '<option value="">Sin categoría</option>' +
+    (data||[]).map(c=>`<option value="${c.id}">${c.icono||''} ${c.nombre}</option>`).join('');
+}
+
+// ─── SUCURSALES DE COMERCIO ──────────────────────────────────
+async function abrirModalSucursal(comercioId, datos=null) {
+  MD.modalTipo = 'sucursal';
+  MD.editId = datos?.id||null;
+  MD.sucursalComercioId = comercioId;
+  document.getElementById('md-titulo').textContent = datos ? 'Editar Sucursal' : 'Nueva Sucursal';
+  const zonaOpts = (MD.zonas||[]).filter(z=>z.activo).map(z=>`<option value="${z.id}" ${datos?.zona_id===z.id?'selected':''}>${z.nombre}</option>`).join('');
+  document.getElementById('md-cuerpo').innerHTML = `
+    <div class="form-grid">
+      <div class="fg"><label class="fl">Nombre sucursal *</label><input class="fi" id="suc-nombre" value="${datos?.nombre||'Principal'}"></div>
+      <div class="fg"><label class="fl">Ciudad</label>
+        <select class="fi" id="suc-ciudad" onchange="actualizarZonasFiltradas('suc-zona',this.value)">
+          <option ${datos?.ciudad==='CHOLOMA'||!datos?'selected':''}>CHOLOMA</option>
+          <option ${datos?.ciudad==='SAN PEDRO SULA'?'selected':''}>SAN PEDRO SULA</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">Zona</label><select class="fi" id="suc-zona"><option value="">—</option>${zonaOpts}</select></div>
+      <div class="fg" style="grid-column:1/-1"><label class="fl">Dirección</label><input class="fi" id="suc-dir" value="${datos?.direccion||''}"></div>
+      <div class="fg"><label class="fl">Teléfono</label><input class="fi" id="suc-tel" value="${datos?.telefono||''}"></div>
+      <div class="fg"><label class="fl">GPS (lat,lng)</label><input class="fi" id="suc-gps" value="${datos?.ubicacion_gps||''}"></div>
+      <div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="suc-principal" ${datos?.es_principal?'checked':''}>
+        <span class="fl" style="margin:0">Sucursal principal</span>
+      </label></div>
+    </div>`;
+  document.getElementById('modal-datos').style.display='flex';
+}
+
+guardarDatos.sucursal = async()=>{
+  const nom = gv('suc-nombre');
+  if(!nom){toast('El nombre es requerido','danger');return;}
+  const zonaId = document.getElementById('suc-zona')?.value;
+  const row = {
+    comercio_id:  MD.sucursalComercioId,
+    nombre:       nom,
+    ciudad:       gv('suc-ciudad'),
+    zona_id:      zonaId?parseInt(zonaId):null,
+    direccion:    gv('suc-dir'),
+    telefono:     gv('suc-tel'),
+    ubicacion_gps: gv('suc-gps'),
+    es_principal: document.getElementById('suc-principal')?.checked||false,
+    activo:       true,
+  };
+  Object.keys(row).forEach(k=>{if(row[k]===null)delete row[k];});
+  const {error} = MD.editId
+    ? await sb.from('sucursales_comercio').update(row).eq('id',MD.editId)
+    : await sb.from('sucursales_comercio').insert(row);
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Sucursal guardada'); cerrarModalDatos();
+};
+
+// ─── UBICACIONES DE CLIENTE ──────────────────────────────────
+async function abrirUbicacionesCliente(clienteId, clienteNombre) {
+  const {data} = await sb.from('ubicaciones_cliente').select('*').eq('cliente_id',clienteId).order('es_principal',{ascending:false});
+  const zonaOpts = (MD.zonas||[]).filter(z=>z.activo).map(z=>`<option value="${z.id}">${z.nombre}</option>`).join('');
+  document.getElementById('md-titulo').textContent = `📍 Ubicaciones de ${clienteNombre}`;
+  document.getElementById('md-cuerpo').innerHTML = `
+    <div style="margin-bottom:12px">
+      ${(data||[]).length===0?'<div style="font-size:12px;color:var(--td);margin-bottom:12px">Sin ubicaciones registradas</div>':''}
+      ${(data||[]).map(u=>`
+        <div style="border:1px solid var(--g4);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;gap:10px;align-items:center">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700">${u.es_principal?'⭐ ':''} ${u.nombre}</div>
+            <div style="font-size:11px;color:var(--td)">${u.direccion||'—'} ${u.colonia?'· '+u.colonia:''}</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminarUbiCli('${u.id}','${clienteId}','${clienteNombre}')">🗑</button>
+        </div>`).join('')}
+    </div>
+    <div style="border-top:1px solid var(--g4);padding-top:12px">
+      <div style="font-size:12px;font-weight:700;margin-bottom:10px">+ Nueva Ubicación</div>
+      <div class="form-grid">
+        <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="ubi-nombre" placeholder="Casa, Trabajo, Otro..."></div>
+        <div class="fg"><label class="fl">Ciudad</label>
+          <select class="fi" id="ubi-ciudad" onchange="actualizarZonasFiltradas('ubi-zona',this.value)">
+            <option>CHOLOMA</option><option>SAN PEDRO SULA</option>
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Zona</label><select class="fi" id="ubi-zona"><option value="">—</option>${zonaOpts}</select></div>
+        <div class="fg"><label class="fl">Colonia</label><input class="fi" id="ubi-colonia"></div>
+        <div class="fg" style="grid-column:1/-1"><label class="fl">Dirección</label><input class="fi" id="ubi-dir"></div>
+        <div class="fg" style="grid-column:1/-1"><label class="fl">Referencia</label><input class="fi" id="ubi-ref" placeholder="Frente al parque..."></div>
+        <div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="ubi-principal"><span class="fl" style="margin:0">Principal</span>
+        </label></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:10px;justify-content:center" onclick="guardarUbiCliente('${clienteId}','${clienteNombre}')">💾 Guardar ubicación</button>
+    </div>`;
+  MD.modalTipo='ubicacion_cliente';
+  document.getElementById('modal-datos').style.display='flex';
+  document.getElementById('md-guardar').style.display='none';
+}
+
+async function guardarUbiCliente(clienteId, clienteNombre) {
+  const nom = document.getElementById('ubi-nombre')?.value?.trim();
+  if(!nom){toast('El nombre es requerido','danger');return;}
+  const zonaId = document.getElementById('ubi-zona')?.value;
+  const {error} = await sb.from('ubicaciones_cliente').insert({
+    cliente_id:    clienteId,
+    nombre:        nom,
+    ciudad:        document.getElementById('ubi-ciudad')?.value||'CHOLOMA',
+    zona_id:       zonaId?parseInt(zonaId):null,
+    colonia:       document.getElementById('ubi-colonia')?.value||null,
+    direccion:     document.getElementById('ubi-dir')?.value||null,
+    referencia:    document.getElementById('ubi-ref')?.value||null,
+    es_principal:  document.getElementById('ubi-principal')?.checked||false,
+  });
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Ubicación guardada');
+  abrirUbicacionesCliente(clienteId, clienteNombre);
+}
+
+async function eliminarUbiCli(id, clienteId, clienteNombre) {
+  await sb.from('ubicaciones_cliente').delete().eq('id',id);
+  toast('Ubicación eliminada');
+  abrirUbicacionesCliente(clienteId, clienteNombre);
+}
+
+// Agregar botón de ubicaciones en card de cliente (se llama desde guardar)
 // ════════════════════════════════════════════════════════════
 // NAVEGACIÓN
 // ════════════════════════════════════════════════════════════
-const TITLES = { inicio:'Dashboard',pedidos:'Pedidos',kanban:'Kanban — Vista de Pedidos',config:'Configuración del Sistema',nuevo:'Nuevo Pedido',mapa:'Mapa en Vivo',riders:'Riders',solicitudes:'Solicitudes de Riders',depositos:'Depósitos',liquidaciones:'Liquidaciones a Riders',turnos:'Gestión de Turnos',comprobantes:'Comprobantes de Pago',historial:'Historial',chat:'Chat',clientes:'Clientes',comercios:'Comercios',categorias:'Categorías de Comercio',productos:'Productos',cupones:'Cupones de Descuento',usuarios:'Usuarios del Sistema' };
+const TITLES = { inicio:'Dashboard',pedidos:'Pedidos',kanban:'Kanban — Vista de Pedidos',config:'Configuración del Sistema',nuevo:'Nuevo Pedido',mapa:'Mapa en Vivo',riders:'Riders',solicitudes:'Solicitudes de Riders',depositos:'Depósitos',liquidaciones:'Liquidaciones a Riders',turnos:'Gestión de Turnos',comprobantes:'Comprobantes de Pago',historial:'Historial',chat:'Chat',clientes:'Clientes',comercios:'Comercios',categorias:'Tipos de Comercio (Categorías)',zonas:'Zonas de Cobertura',productos:'Productos',cupones:'Cupones de Descuento',usuarios:'Usuarios del Sistema' };
 
 async function refreshApp() {
   const btn = document.getElementById('tb-refresh-btn');
@@ -4164,6 +4885,8 @@ function nav(v, pushHistory=true) {
   if(v === 'clientes')    cargarClientes();
   if(v === 'comercios')   cargarComerciosList();
   if(v === 'categorias')  cargarCategorias();
+  if(v === 'zonas')       cargarZonas();
+  if(v === 'zonas')       cargarZonas();
   if(v === 'productos')   cargarProductos();
   if(v === 'cupones')     cargarCupones();
   if(v === 'usuarios')    cargarUsuarios();
