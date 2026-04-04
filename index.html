@@ -2348,9 +2348,10 @@ async function confirmarAsig() {
 // RIDERS
 // ════════════════════════════════════════════════════════════
 async function cargarRiders() {
-  const { data } = await sb.from('delivery')
+  const { data, error } = await sb.from('delivery')
     .select('*, ubicaciones_delivery(en_turno, lat, lng)')
     .order('nombre');
+  console.log('[riders] registros:', data?.length, 'error:', error?.message);
   if(data) {
     S.riders = data.map(d => {
       // Supabase puede devolver la relación como objeto o array según la FK definida
@@ -4771,7 +4772,9 @@ function gc(id){ return document.getElementById(id)?.checked||false; }
 
 // ─── CLIENTES ────────────────────────────────────────────────
 async function cargarClientes() {
-  const {data} = await sb.from('clientes').select('*').order('nombre');
+  const {data, error} = await sb.from('clientes').select('*').order('nombre');
+  if(error) { console.error('[clientes]', error.message); toast('Error cargando clientes: '+error.message,'danger'); }
+  console.log('[clientes] registros:', data?.length, 'error:', error?.message);
   MD.clientes = data||[];
   if(MD.clientes.length) {
     const nombres = MD.clientes.map(c=>c.nombre).filter(Boolean);
@@ -4938,7 +4941,9 @@ guardarDatos.categoria = async()=>{
 
 // ─── COMERCIOS ───────────────────────────────────────────────
 async function cargarComerciosList() {
-  const {data}=await sb.from('comercios').select('*').order('nombre');
+  const {data, error}=await sb.from('comercios').select('*').order('nombre');
+  if(error) { console.error('[comercios]', error.message); toast('Error cargando comercios: '+error.message,'danger'); }
+  console.log('[comercios] registros:', data?.length, 'error:', error?.message);
   if(data?.length && MD.categorias.length) {
     data.forEach(com=>{com.categoria=MD.categorias.find(cat=>cat.id===com.categoria_id)||null;});
   } else if(data?.length) {
@@ -5318,6 +5323,33 @@ function renderConfig() {
     ${fila('comision_oro','Comisión Oro (%)','150+ pedidos/mes','number',0,100,1)}
     <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-top:16px;margin-bottom:2px;">👛 Billetera</div>
     ${fila('saldo_minimo','Saldo mínimo (L.)','Para operar','number',0,9999,10)}`;
+}
+
+
+// ─── Haversine + tarifa local ────────────────────────────────
+function haversineKm(lat1,lon1,lat2,lon2) {
+  const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// Cálculo local de tarifa (fallback cuando no hay GPS o falla el RPC)
+// Mínimo misma ciudad: L.50 | Mínimo entre ciudades: L.150
+function calcularTarifaLocal(km, ciudadOrigen, ciudadDestino) {
+  const entre = (ciudadOrigen||'').toUpperCase() !== (ciudadDestino||'').toUpperCase();
+  const base   = entre ? 40  : 30;
+  const minimo = entre ? 150 : 50;
+  const bruta  = base + (km * 9);
+  const conMin = Math.max(bruta, minimo);
+  return Math.ceil(conMin / 5) * 5;
+}
+
+// Asignar rider directamente desde la vista Riders
+function abrirAsignarRider(dId) {
+  const pedSinAsig = S.pedidos.filter(p => p.estatus === 'PENDIENTE');
+  if(!pedSinAsig.length) { toast('No hay pedidos sin asignar', 'ghost'); return; }
+  abrirAsignar(pedSinAsig[0].id);
+  setTimeout(()=>{ S.selRiderId = String(dId); selRider(String(dId)); }, 100);
 }
 
 // ════════════════════════════════════════════════════════════
