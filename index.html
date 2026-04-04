@@ -2814,7 +2814,7 @@ function enfocarRider(dId) {
 // ════════════════════════════════════════════════════════════
 
 // ─── MODO MAPA: En Vivo ↔ Zonas ─────────────────────────────
-let _modoMapa = 'live';
+var _modoMapa = 'live';
 
 function setModoMapa(modo) {
   _modoMapa = modo;
@@ -3214,9 +3214,9 @@ async function guardarPedido() {
   nav('pedidos');
 }
 
-async // ─── WIZARD: Búsqueda inteligente ────────────────────────────
-let _wizCliTimer = null, _wizComTimer = null;
-let _wizCliSel = null, _wizComSel = null; // objetos seleccionados
+// ─── WIZARD: Búsqueda inteligente ────────────────────────────
+var _wizCliTimer = null, _wizComTimer = null;
+var _wizCliSel = null, _wizComSel = null; // objetos seleccionados
 
 async function wizBuscarCliente(q) {
   clearTimeout(_wizCliTimer);
@@ -3973,7 +3973,7 @@ async function validarTransferencia(pedidoId, aprobado) {
 // ════════════════════════════════════════════════════════════
 
 // Estado local de módulos
-const MD = {
+var MD = {
   clientes:[], comercios:[], categorias:[], productos:[], cupones:[], usuarios:[], zonas:[],
   filtros:{ clientes:'', comercios:'', productos_comercio:'' },
   cupFiltro:'todos', usrFiltro:'todos',
@@ -4508,7 +4508,7 @@ async function cargarZonas() {
 }
 
 // ─── MAPA DE ZONAS CON POLÍGONOS ─────────────────────────────
-const ZM = {
+var ZM = {
   mapa: null, drawnItems: null, drawControl: null,
   poligonoEditando: null, zonaEditandoId: null,
   _drawHandler: null,
@@ -4936,7 +4936,7 @@ async function eliminarUbiCli(id, clienteId, clienteNombre) {
 // ════════════════════════════════════════════════════════════
 // NAVEGACIÓN
 // ════════════════════════════════════════════════════════════
-const TITLES = { inicio:'Dashboard',pedidos:'Pedidos',kanban:'Kanban — Vista de Pedidos',config:'Configuración del Sistema',nuevo:'Nuevo Pedido',mapa:'Mapa en Vivo',riders:'Riders',solicitudes:'Solicitudes de Riders',depositos:'Depósitos',liquidaciones:'Liquidaciones a Riders',turnos:'Gestión de Turnos',comprobantes:'Comprobantes de Pago',historial:'Historial',chat:'Chat',clientes:'Clientes',comercios:'Comercios',categorias:'Tipos de Comercio (Categorías)',productos:'Productos',cupones:'Cupones de Descuento',usuarios:'Usuarios del Sistema' };
+var TITLES = { inicio:'Dashboard',pedidos:'Pedidos',kanban:'Kanban — Vista de Pedidos',config:'Configuración del Sistema',nuevo:'Nuevo Pedido',mapa:'Mapa en Vivo',riders:'Riders',solicitudes:'Solicitudes de Riders',depositos:'Depósitos',liquidaciones:'Liquidaciones a Riders',turnos:'Gestión de Turnos',comprobantes:'Comprobantes de Pago',historial:'Historial',chat:'Chat',clientes:'Clientes',comercios:'Comercios',categorias:'Tipos de Comercio (Categorías)',productos:'Productos',cupones:'Cupones de Descuento',usuarios:'Usuarios del Sistema' };
 
 async function refreshApp() {
   const btn = document.getElementById('tb-refresh-btn');
