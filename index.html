@@ -91,6 +91,8 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 /* ─── VIEWS ────────────────────────────────────────────────── */
 .view{display:none !important;}
 .view.active{display:block !important;animation:fadeIn .18s ease;}
+#view-chat.active{display:flex !important;flex-direction:column;}
+#view-mapa.active{display:flex !important;flex-direction:column;}
 /* Aislar mapas dentro de sus vistas */
 #view-riders{overflow:hidden;}
 #view-mapa{overflow:hidden;padding:0 !important;}
@@ -1163,7 +1165,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
         </div>
 
       <!-- ═══ MAPA ══════════════════════════════════════════════ -->
-      <div class="view" id="view-mapa" style="margin:-16px;overflow:hidden;display:none;flex-direction:column;height:calc(100vh - 52px)">
+      <div class="view" id="view-mapa" style="margin:-16px;overflow:hidden;flex-direction:column;height:calc(100vh - 52px)">
         <!-- Toolbar del mapa -->
         <div style="display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--g1);border-bottom:1px solid var(--g4);flex-shrink:0;flex-wrap:wrap;z-index:10;position:relative">
           <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em">Modo:</div>
@@ -1239,7 +1241,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
       </div>
 
       <!-- ═══ RIDERS ═══════════════════════════════════════════ -->
-      <div class="view" id="view-riders" style="margin:-16px;display:block;">
+      <div class="view" id="view-riders" style="margin:-16px;">
         <!-- Mapa riders - altura fija -->
         <div id="map-riders" style="height:320px;width:100%;position:relative;z-index:1;"></div>
         <!-- Lista + filtros -->
@@ -1406,7 +1408,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
       </div>
 
       <!-- ═══ CHAT ══════════════════════════════════════════════ -->
-      <div class="view" id="view-chat" style="height:calc(100vh - 52px);overflow:hidden;padding:0;display:flex;flex-direction:column;">
+      <div class="view" id="view-chat" style="height:calc(100vh - 52px);overflow:hidden;padding:0;flex-direction:column;">
         <div class="chat-layout" id="chat-layout">
           <div class="chat-list" id="chat-contacts">
             <div style="padding:10px 12px;font-size:10px;color:var(--td);letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid var(--g4);">Repartidores</div>
@@ -2351,7 +2353,6 @@ async function cargarRiders() {
   const { data, error } = await sb.from('delivery')
     .select('*, ubicaciones_delivery(en_turno, lat, lng)')
     .order('nombre');
-  console.log('[riders] registros:', data?.length, 'error:', error?.message);
   if(data) {
     S.riders = data.map(d => {
       // Supabase puede devolver la relación como objeto o array según la FK definida
@@ -4786,8 +4787,6 @@ function gc(id){ return document.getElementById(id)?.checked||false; }
 // ─── CLIENTES ────────────────────────────────────────────────
 async function cargarClientes() {
   const {data, error} = await sb.from('clientes').select('*').order('nombre');
-  if(error) { console.error('[clientes]', error.message); toast('Error cargando clientes: '+error.message,'danger'); }
-  console.log('[clientes] registros:', data?.length, 'error:', error?.message);
   MD.clientes = data||[];
   if(MD.clientes.length) {
     const nombres = MD.clientes.map(c=>c.nombre).filter(Boolean);
@@ -4814,7 +4813,7 @@ function renderClientes() {
   if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin clientes</div>';return;}
   // Guardar referencia por id para evitar JSON.stringify en onclick
   lista.forEach(cli => { MD._cache = MD._cache||{}; MD._cache['cli_'+cli.id]=cli; });
-  const _renderHtml = lista.map(c=>`
+  el.innerHTML = lista.map(c=>`
     <div class="item-card">
       <div class="item-card-hdr">
         <div style="width:36px;height:36px;border-radius:50%;background:var(--or);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#000;flex-shrink:0">${inic(c.nombre)}</div>
@@ -4838,9 +4837,6 @@ function renderClientes() {
         <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('clientes','${c.id}',cargarClientes)">🗑</button>
       </div>
     </div>`).join('');
-  console.log('[renderClientes] HTML generado:', _renderHtml.length, 'chars, el existe:', !!el);
-  el.innerHTML = _renderHtml;
-  console.log('[renderClientes] después de asignar, el.innerHTML len:', el.innerHTML.length);
 }
 function htmlFormCliente(d=null){return`
   <div class="form-grid">
@@ -4961,8 +4957,6 @@ guardarDatos.categoria = async()=>{
 // ─── COMERCIOS ───────────────────────────────────────────────
 async function cargarComerciosList() {
   const {data, error}=await sb.from('comercios').select('*').order('nombre');
-  if(error) { console.error('[comercios]', error.message); toast('Error cargando comercios: '+error.message,'danger'); }
-  console.log('[comercios] registros:', data?.length, 'error:', error?.message);
   if(data?.length && MD.categorias.length) {
     data.forEach(com=>{com.categoria=MD.categorias.find(cat=>cat.id===com.categoria_id)||null;});
   } else if(data?.length) {
