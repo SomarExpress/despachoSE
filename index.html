@@ -3437,7 +3437,7 @@ async function wizCalcularTarifa() {
   // Fallback local si no hay GPS o falló el RPC
   if(!tarifa) {
     const entre = ciudadOrigen.toUpperCase() !== ciudadDestino.toUpperCase();
-    tarifa = entre ? 40 : 30;
+    tarifa = entre ? 150 : 50;
   }
 
   // Aplicar tarifa dinámica
@@ -4083,6 +4083,20 @@ function gc(id){ return document.getElementById(id)?.checked||false; }
 async function cargarClientes() {
   const { data } = await sb.from('clientes').select('*').order('nombre');
   MD.clientes = data||[];
+  // Enriquecer con conteo real de pedidos
+  if(MD.clientes.length) {
+    const nombres = MD.clientes.map(c=>c.nombre).filter(Boolean);
+    // Contar pedidos finalizados por nombre_cliente
+    const {data:conteos} = await sb.from('pedidos')
+      .select('nombre_cliente')
+      .in('nombre_cliente', nombres)
+      .eq('estatus','FINALIZADO');
+    if(conteos) {
+      const counts = {};
+      conteos.forEach(p => { counts[p.nombre_cliente] = (counts[p.nombre_cliente]||0)+1; });
+      MD.clientes.forEach(c => { c._pedidos_reales = counts[c.nombre]||c.total_pedidos||0; });
+    }
+  }
   renderClientes();
 }
 function filtrarLista(tipo) {
@@ -4110,7 +4124,7 @@ function renderClientes() {
         <div>📍 ${c.ciudad||'—'} ${c.direccion?'· '+c.direccion:''}</div>
         ${c.correo?`<div>✉️ ${c.correo}</div>`:''}
         ${c.notas?`<div style="margin-top:4px;font-style:italic">${c.notas}</div>`:''}
-        <div style="margin-top:6px;color:var(--or);font-weight:700">${c.total_pedidos||0} pedidos</div>
+        <div style="margin-top:6px;color:var(--or);font-weight:700">${c._pedidos_reales||c.total_pedidos||0} pedidos realizados</div>
       </div>
       <div class="item-card-footer">
         ${c.celular?`<a href="https://wa.me/504${c.celular.replace(/\D/g,'')}" target="_blank" class="btn btn-ghost btn-sm" style="color:#22C55E;text-decoration:none">💬 WA</a>`:''}
@@ -4383,7 +4397,11 @@ function htmlFormProducto(d=null){
     </div>
     <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="prod-nombre" value="${d?.nombre||''}"></div>
     <div class="fg"><label class="fl">Precio (L.) *</label><input class="fi" id="prod-precio" type="number" value="${d?.precio||''}"></div>
-    <div class="fg"><label class="fl">Categoría</label><input class="fi" id="prod-cat" value="${d?.categoria||''}"></div>
+    <div class="fg"><label class="fl">Categoría del comercio</label>
+      <select class="fi" id="prod-cat-sel">
+        <option value="">Sin categoría</option>
+      </select>
+    </div>
     <div class="fg" style="grid-column:1/-1"><label class="fl">Descripción</label><textarea class="fi" id="prod-desc" rows="2">${d?.descripcion||''}</textarea></div>
     <div class="fg"><label class="fl">URL de imagen</label><input class="fi" id="prod-img" value="${d?.imagen_url||''}"></div>
     <div class="fg"><label class="fl">Estado</label>
@@ -4403,7 +4421,7 @@ guardarDatos.producto = async()=>{
     nombre: nom,
     descripcion: gv('prod-desc'),
     precio,
-    categoria_id: document.getElementById('prod-cat')?.value||null,
+    categoria_id: document.getElementById('prod-cat-sel')?.value||null,
     imagen_url: gv('prod-img')||null,
     estatus,  // 'activo', 'inactivo', 'agotado'
   };
@@ -4993,6 +5011,86 @@ async function eliminarUbiCli(id, clienteId, clienteNombre) {
 }
 
 // Agregar botón de ubicaciones en card de cliente (se llama desde guardar)
+
+// ─── CATEGORÍAS PROPIAS DEL COMERCIO ─────────────────────────
+async function gestionarCatsComercio(comercioId, comercioNombre) {
+  const {data} = await sb.from('categorias_comercio')
+    .select('*').eq('comercio_id', comercioId).order('nombre');
+  
+  document.getElementById('md-titulo').textContent = `🏷️ Categorías de ${comercioNombre}`;
+  MD.modalTipo = 'catcomercio_lista';
+  MD._catComercioId = comercioId;
+  MD._catComercioNombre = comercioNombre;
+
+  const lista = (data||[]).map(c=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--g4);border-radius:10px;margin-bottom:6px">
+      <div style="font-size:22px">${c.icono||'🏷️'}</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700">${c.nombre}</div>
+        <div style="font-size:11px;color:var(--td)">${c.activo!==false?'Activa':'Inactiva'}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="editarCatComercio(${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️</button>
+      <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminarCatComercio('${c.id}',${comercioId},'${comercioNombre}')">🗑</button>
+    </div>`).join('') || '<div class="empty">Sin categorías — agrega la primera</div>';
+
+  document.getElementById('md-cuerpo').innerHTML = `
+    <div id="cats-com-lista" style="margin-bottom:14px">${lista}</div>
+    <div style="border-top:1px solid var(--g4);padding-top:12px">
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px">+ Nueva Categoría</div>
+      <div class="form-grid">
+        <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="ncat-nombre" placeholder="Ej: Perfumes, Lociones..."></div>
+        <div class="fg"><label class="fl">Ícono</label><input class="fi" id="ncat-icono" value="🏷️" maxlength="4" style="font-size:20px;text-align:center"></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:8px;justify-content:center" onclick="guardarCatComercio(${comercioId},'${comercioNombre}')">💾 Agregar categoría</button>
+    </div>`;
+  
+  document.getElementById('modal-datos').style.display='flex';
+  const mdg = document.getElementById('md-guardar'); if(mdg) mdg.style.display='none';
+}
+
+async function guardarCatComercio(comercioId, comercioNombre) {
+  const nom = document.getElementById('ncat-nombre')?.value?.trim();
+  if(!nom) { toast('El nombre es requerido','danger'); return; }
+  const icono = document.getElementById('ncat-icono')?.value||'🏷️';
+  const {error} = await sb.from('categorias_comercio').insert({
+    comercio_id: comercioId, nombre: nom, icono, activo: true
+  });
+  if(error) { toast('Error: '+error.message,'danger'); return; }
+  toast('✅ Categoría agregada');
+  gestionarCatsComercio(comercioId, comercioNombre);
+}
+
+async function editarCatComercio(cat) {
+  const nuevo = prompt('Nuevo nombre:', cat.nombre);
+  if(!nuevo || nuevo === cat.nombre) return;
+  await sb.from('categorias_comercio').update({nombre:nuevo}).eq('id',cat.id);
+  toast('✅ Categoría actualizada');
+  gestionarCatsComercio(MD._catComercioId, MD._catComercioNombre);
+}
+
+async function eliminarCatComercio(id, comercioId, comercioNombre) {
+  if(!confirm('¿Eliminar esta categoría?')) return;
+  await sb.from('categorias_comercio').delete().eq('id',id);
+  toast('Categoría eliminada');
+  gestionarCatsComercio(comercioId, comercioNombre);
+}
+
+// Función para cargar cats del comercio en el form de producto
+async function cargarCatsComercioEnForm(comercioId, catIdActual='') {
+  if(!comercioId) {
+    const sel = document.getElementById('prod-cat-sel');
+    if(sel) sel.innerHTML = '<option value="">Sin categoría</option>';
+    return;
+  }
+  const {data} = await sb.from('categorias_comercio')
+    .select('id,nombre,icono').eq('comercio_id',parseInt(comercioId)).eq('activo',true).order('nombre');
+  const sel = document.getElementById('prod-cat-sel');
+  if(sel) {
+    sel.innerHTML = '<option value="">Sin categoría</option>' +
+      (data||[]).map(c=>`<option value="${c.id}" ${c.id===catIdActual?'selected':''}>${c.icono||''} ${c.nombre}</option>`).join('');
+  }
+}
+
 // ════════════════════════════════════════════════════════════
 // NAVEGACIÓN
 // ════════════════════════════════════════════════════════════
