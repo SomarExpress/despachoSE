@@ -1164,6 +1164,8 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
           </div>
         </div>
 
+      </div>
+
       <!-- ═══ MAPA ══════════════════════════════════════════════ -->
       <div class="view" id="view-mapa" style="margin:-16px;overflow:hidden;flex-direction:column;height:calc(100vh - 52px)">
         <!-- Toolbar del mapa -->
@@ -5485,12 +5487,32 @@ document.querySelectorAll('.modal-bg').forEach(bg => bg.addEventListener('click'
 </script>
 
 <script>
-// Registrar Service Worker para PWA
+// Registrar Service Worker para PWA — con auto-actualización
 if('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('despacho-sw.js')
-      .then(reg => console.log('[SW] Despacho registrado:', reg.scope))
+      .then(reg => {
+        console.log('[SW] Despacho registrado:', reg.scope);
+        // Forzar actualización inmediata si hay nueva versión
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker.addEventListener('statechange', () => {
+            if(newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // Nueva versión disponible — activar inmediatamente
+              newWorker.postMessage('SKIP_WAITING');
+            }
+          });
+        });
+        // Verificar actualizaciones al cargar
+        reg.update();
+      })
       .catch(err => console.log('[SW] Error:', err));
+
+    // Recargar cuando el SW tome control (después de actualización)
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if(!refreshing) { refreshing = true; window.location.reload(); }
+    });
   });
 }
 
