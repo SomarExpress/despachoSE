@@ -4141,7 +4141,8 @@ function renderClientes() {
       </div>
       <div class="item-card-footer">
         ${c.celular?`<a href="https://wa.me/504${c.celular.replace(/\D/g,'')}" target="_blank" class="btn btn-ghost btn-sm" style="color:#22C55E;text-decoration:none">💬 WA</a>`:''}
-        <button class="btn btn-ghost btn-sm" onclick="verPedidosCliente('${c.nombre}')">📋 Pedidos</button>
+        <button class="btn btn-ghost btn-sm" onclick="abrirUbicacionesCliente('${c.id}','${c.nombre}')">📍 Ubic.</button>
+        <button class="btn btn-ghost btn-sm" onclick="verPedidosCliente('${c.nombre}')">📋 Ped.</button>
         <button class="btn btn-ghost btn-sm" onclick="abrirModal('cliente',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('clientes','${c.id}',cargarClientes)">🗑</button>
       </div>
@@ -4964,34 +4965,64 @@ async function abrirUbicacionesCliente(clienteId, clienteNombre) {
   document.getElementById('md-titulo').textContent = `📍 Ubicaciones de ${clienteNombre}`;
   document.getElementById('md-cuerpo').innerHTML = `
     <div style="margin-bottom:12px">
-      ${(data||[]).length===0?'<div style="font-size:12px;color:var(--td);margin-bottom:12px">Sin ubicaciones registradas</div>':''}
-      ${(data||[]).map(u=>`
-        <div style="border:1px solid var(--g4);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;gap:10px;align-items:center">
-          <div style="flex:1">
-            <div style="font-size:13px;font-weight:700">${u.es_principal?'⭐ ':''} ${u.nombre}</div>
-            <div style="font-size:11px;color:var(--td)">${u.direccion||'—'} ${u.colonia?'· '+u.colonia:''}</div>
+      ${(data||[]).length===0?'<div style="font-size:12px;color:var(--td);margin-bottom:10px">Sin ubicaciones registradas</div>':''}
+      ${(data||[]).map(u=>{
+        const zona = MD.zonas?.find(z=>z.id===u.zona_id);
+        return `<div style="border:1px solid var(--g4);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+          <div style="display:flex;gap:8px;align-items:flex-start">
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:700">${u.es_principal?'⭐ ':''} ${u.nombre}</div>
+              <div style="font-size:11px;color:var(--td);margin-top:2px">${[u.colonia,u.direccion].filter(Boolean).join(', ')||'Sin dirección'}</div>
+              ${u.referencia?`<div style="font-size:11px;color:var(--td);font-style:italic">${u.referencia}</div>`:''}
+              <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
+                ${u.ciudad?`<span style="font-size:10px;background:var(--g3);padding:2px 7px;border-radius:10px">📍 ${u.ciudad}</span>`:''}
+                ${zona?`<span style="font-size:10px;background:rgba(255,140,0,.15);color:var(--or);padding:2px 7px;border-radius:10px">🗺️ ${zona.nombre}</span>`:''}
+                ${u.ubicacion_gps?`<span style="font-size:10px;background:var(--g3);padding:2px 7px;border-radius:10px;color:var(--td)" class="mono">${u.ubicacion_gps}</span>`:''}
+              </div>
+            </div>
+            <button class="btn btn-ghost btn-sm" style="color:var(--rojo);flex-shrink:0" onclick="eliminarUbiCli('${u.id}','${clienteId}','${clienteNombre}')">🗑</button>
           </div>
-          <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminarUbiCli('${u.id}','${clienteId}','${clienteNombre}')">🗑</button>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
     </div>
     <div style="border-top:1px solid var(--g4);padding-top:12px">
       <div style="font-size:12px;font-weight:700;margin-bottom:10px">+ Nueva Ubicación</div>
       <div class="form-grid">
-        <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="ubi-nombre" placeholder="Casa, Trabajo, Otro..."></div>
+        <div class="fg"><label class="fl">Nombre *</label>
+          <input class="fi" id="ubi-nombre" placeholder="Casa, Trabajo, Otro...">
+        </div>
         <div class="fg"><label class="fl">Ciudad</label>
-          <select class="fi" id="ubi-ciudad" onchange="actualizarZonasFiltradas('ubi-zona',this.value)">
+          <select class="fi" id="ubi-ciudad">
             <option>CHOLOMA</option><option>SAN PEDRO SULA</option>
           </select>
         </div>
-        <div class="fg"><label class="fl">Zona</label><select class="fi" id="ubi-zona"><option value="">—</option>${zonaOpts}</select></div>
-        <div class="fg"><label class="fl">Colonia</label><input class="fi" id="ubi-colonia"></div>
-        <div class="fg" style="grid-column:1/-1"><label class="fl">Dirección</label><input class="fi" id="ubi-dir"></div>
-        <div class="fg" style="grid-column:1/-1"><label class="fl">Referencia</label><input class="fi" id="ubi-ref" placeholder="Frente al parque..."></div>
-        <div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <input type="checkbox" id="ubi-principal"><span class="fl" style="margin:0">Principal</span>
-        </label></div>
+        <div class="fg"><label class="fl">Colonia / Barrio</label>
+          <input class="fi" id="ubi-colonia" placeholder="Col. El Sauce...">
+        </div>
+        <div class="fg" style="grid-column:1/-1"><label class="fl">Dirección</label>
+          <input class="fi" id="ubi-dir" placeholder="Calle, casa, número...">
+        </div>
+        <div class="fg" style="grid-column:1/-1">
+          <label class="fl">Coordenadas GPS <span style="color:var(--td);font-weight:400">(pega desde Google Maps)</span></label>
+          <div style="display:flex;gap:6px">
+            <input class="fi" id="ubi-gps" placeholder="15.6133,-87.9480" style="flex:1" oninput="ubiAutodetectarZona(this.value)">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="ubiPegaGps()" title="Pegar del portapapeles">📋</button>
+          </div>
+          <div id="ubi-zona-detectada" style="display:none;margin-top:6px;padding:6px 10px;background:rgba(255,140,0,.1);border:1px solid rgba(255,140,0,.3);border-radius:8px;font-size:12px;color:var(--or)"></div>
+        </div>
+        <div class="fg" style="grid-column:1/-1"><label class="fl">Referencia</label>
+          <input class="fi" id="ubi-ref" placeholder="Frente al parque, casa azul...">
+        </div>
+        <div class="fg">
+          <label class="fl">Zona <span style="color:var(--td);font-weight:400">(se detecta automático)</span></label>
+          <select class="fi" id="ubi-zona"><option value="">—</option>${zonaOpts}</select>
+        </div>
+        <div class="fg" style="display:flex;align-items:center;gap:8px;padding-top:20px">
+          <input type="checkbox" id="ubi-principal">
+          <label class="fl" style="margin:0;cursor:pointer" for="ubi-principal">Marcar como principal</label>
+        </div>
       </div>
-      <button class="btn btn-primary" style="width:100%;margin-top:10px;justify-content:center" onclick="guardarUbiCliente('${clienteId}','${clienteNombre}')">💾 Guardar ubicación</button>
+      <button class="btn btn-primary" style="width:100%;margin-top:12px;justify-content:center" onclick="guardarUbiCliente('${clienteId}','${clienteNombre}')">💾 Guardar ubicación</button>
     </div>`;
   MD.modalTipo='ubicacion_cliente';
   document.getElementById('modal-datos').style.display='flex';
@@ -5002,14 +5033,22 @@ async function guardarUbiCliente(clienteId, clienteNombre) {
   const nom = document.getElementById('ubi-nombre')?.value?.trim();
   if(!nom){toast('El nombre es requerido','danger');return;}
   const zonaId = document.getElementById('ubi-zona')?.value;
+  const gpsVal = document.getElementById('ubi-gps')?.value?.trim()||null;
+  // Si tiene GPS y no tiene zona manual, intentar detectar
+  let zonaFinal = zonaId ? parseInt(zonaId) : null;
+  if(gpsVal && !zonaFinal) {
+    const zonaAuto = autodetectarZonaGps(gpsVal);
+    if(zonaAuto) zonaFinal = zonaAuto.id;
+  }
   const {error} = await sb.from('ubicaciones_cliente').insert({
     cliente_id:    clienteId,
     nombre:        nom,
     ciudad:        document.getElementById('ubi-ciudad')?.value||'CHOLOMA',
-    zona_id:       zonaId?parseInt(zonaId):null,
+    zona_id:       zonaFinal||null,
     colonia:       document.getElementById('ubi-colonia')?.value||null,
     direccion:     document.getElementById('ubi-dir')?.value||null,
     referencia:    document.getElementById('ubi-ref')?.value||null,
+    ubicacion_gps: gpsVal,
     es_principal:  document.getElementById('ubi-principal')?.checked||false,
   });
   if(error){toast('Error: '+error.message,'danger');return;}
@@ -5102,6 +5141,76 @@ async function cargarCatsComercioEnForm(comercioId, catIdActual='') {
     sel.innerHTML = '<option value="">Sin categoría</option>' +
       (data||[]).map(c=>`<option value="${c.id}" ${c.id===catIdActual?'selected':''}>${c.icono||''} ${c.nombre}</option>`).join('');
   }
+}
+
+
+
+// Autodetectar zona al escribir GPS en modal ubicaciones
+function ubiAutodetectarZona(gpsStr) {
+  const zona = autodetectarZonaGps(gpsStr);
+  const badge = document.getElementById('ubi-zona-detectada');
+  const sel   = document.getElementById('ubi-zona');
+  if(zona && badge) {
+    badge.style.display = 'block';
+    badge.innerHTML = `🗺️ Zona detectada: <b>${zona.nombre}</b> (${zona.ciudad})`;
+    if(sel) sel.value = zona.id;
+    // Auto-rellenar ciudad
+    if(zona.ciudad) {
+      const selCiudad = document.getElementById('ubi-ciudad');
+      if(selCiudad) selCiudad.value = zona.ciudad;
+    }
+  } else if(badge) {
+    badge.style.display = gpsStr?.trim() ? 'block' : 'none';
+    badge.style.color = 'var(--td)';
+    badge.innerHTML = gpsStr?.trim() ? '⚠️ Punto fuera de zonas registradas' : '';
+  }
+}
+
+async function ubiPegaGps() {
+  try {
+    const txt = await navigator.clipboard.readText();
+    const el = document.getElementById('ubi-gps');
+    if(el) { el.value = txt.trim(); ubiAutodetectarZona(txt.trim()); }
+  } catch(e) { toast('Permite acceso al portapapeles','ghost'); }
+}
+
+// ─── DETECCIÓN DE ZONA POR COORDENADAS ───────────────────────
+// Ray casting algorithm: punto dentro de polígono
+function puntoEnPoligono(lat, lng, coordsJson) {
+  try {
+    const coords = typeof coordsJson === 'string' ? JSON.parse(coordsJson) : coordsJson;
+    if(!coords?.length) return false;
+    let dentro = false;
+    const n = coords.length;
+    let j = n - 1;
+    for(let i = 0; i < n; i++) {
+      const [yi, xi] = coords[i];
+      const [yj, xj] = coords[j];
+      const cruza = ((yi > lat) !== (yj > lat)) &&
+                    (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+      if(cruza) dentro = !dentro;
+      j = i;
+    }
+    return dentro;
+  } catch(e) { return false; }
+}
+
+// Detectar en qué zona está un punto GPS
+function detectarZona(lat, lng) {
+  if(!MD.zonas?.length || !lat || !lng) return null;
+  for(const z of MD.zonas) {
+    if(!z.poligono || !z.activo) continue;
+    if(puntoEnPoligono(lat, lng, z.poligono)) return z;
+  }
+  return null;
+}
+
+// Autodetectar zona a partir de un string GPS "lat,lng"
+function autodetectarZonaGps(gpsStr) {
+  if(!gpsStr?.trim()) return null;
+  const parts = gpsStr.split(',').map(parseFloat);
+  if(parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
+  return detectarZona(parts[0], parts[1]);
 }
 
 // ════════════════════════════════════════════════════════════
