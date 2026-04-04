@@ -4814,7 +4814,7 @@ function renderClientes() {
   if(!el) return;
   if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin clientes</div>';return;}
   // Guardar referencia por id para evitar JSON.stringify en onclick
-  lista.forEach(cli => { MD._cache = MD._cache||{}; MD._cache['cli_'+cli.id]=cli; });
+  lista.forEach(cli => cacheObj('cliente', cli));
   el.innerHTML = lista.map(c=>`
     <div class="item-card">
       <div class="item-card-hdr">
@@ -4835,7 +4835,7 @@ function renderClientes() {
         ${c.celular?'<a href="https://wa.me/504'+c.celular.replace(/\D/g,'')+'" target="_blank" class="btn btn-ghost btn-sm" style="color:#22C55E;text-decoration:none">💬 WA</a>':''}
         <button class="btn btn-ghost btn-sm" onclick="abrirUbicacionesCliente('${c.id}','${c.nombre.replace(/'/g,"\\'")}')">📍 Ubic.</button>
         <button class="btn btn-ghost btn-sm" onclick="verPedidosCliente('${c.nombre.replace(/'/g,"\\'")}')">📋 Ped.</button>
-        <button class="btn btn-ghost btn-sm" onclick="editarDesdeCache('cli','${c.id}')">✏️</button>
+        <button class="btn btn-ghost btn-sm" onclick="editarDesdeCache('cliente','${c.id}')">✏️</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('clientes','${c.id}',cargarClientes)">🗑</button>
       </div>
     </div>`).join('');
@@ -4886,6 +4886,67 @@ guardarDatos.sucursal = async()=>{
   if(error){toast('Error: '+error.message,'danger');return;}
   toast('✅ Sucursal guardada'); cerrarModalDatos();
 };
+
+// ─── htmlFormCatcomercio ─────────────────────────────────────
+function htmlFormCatcomercio(d=null) {
+  const comOpts = MD.comercios.map(com =>
+    `<option value="${com.id}" ${d?.comercio_id===com.id?'selected':''}>${com.nombre}</option>`
+  ).join('');
+  return `
+  <div class="form-grid">
+    <div class="fg"><label class="fl">Nombre *</label>
+      <input class="fi" id="catc-nombre" value="${d?.nombre||''}"></div>
+    <div class="fg"><label class="fl">Ícono</label>
+      <input class="fi" id="catc-icono" value="${d?.icono||'🏷️'}" maxlength="4"
+        style="font-size:20px;text-align:center"></div>
+    <div class="fg"><label class="fl">Comercio</label>
+      <select class="fi" id="catc-com">
+        <option value="">Sin comercio específico</option>
+        ${comOpts}
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Estado</label>
+      <select class="fi" id="catc-activo">
+        <option value="true" ${d?.activo!==false?'selected':''}>Activa</option>
+        <option value="false" ${d?.activo===false?'selected':''}>Inactiva</option>
+      </select>
+    </div>
+  </div>`;
+}
+
+// ─── htmlFormSucursal ────────────────────────────────────────
+function htmlFormSucursal(d=null) {
+  const zonaOpts = (MD.zonas||[]).filter(z=>z.activo).map(z =>
+    `<option value="${z.id}" ${d?.zona_id===z.id?'selected':''}>${z.nombre} (${z.ciudad||''})</option>`
+  ).join('');
+  return `
+  <div class="form-grid">
+    <div class="fg"><label class="fl">Nombre *</label>
+      <input class="fi" id="suc-nombre" value="${d?.nombre||'Principal'}"></div>
+    <div class="fg"><label class="fl">Ciudad</label>
+      <select class="fi" id="suc-ciudad">
+        <option ${d?.ciudad==='CHOLOMA'||!d?'selected':''}>CHOLOMA</option>
+        <option ${d?.ciudad==='SAN PEDRO SULA'?'selected':''}>SAN PEDRO SULA</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Zona</label>
+      <select class="fi" id="suc-zona">
+        <option value="">—</option>${zonaOpts}
+      </select>
+    </div>
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Dirección</label>
+      <input class="fi" id="suc-dir" value="${d?.direccion||''}"></div>
+    <div class="fg"><label class="fl">Teléfono</label>
+      <input class="fi" id="suc-tel" value="${d?.telefono||''}"></div>
+    <div class="fg"><label class="fl">GPS (lat,lng)</label>
+      <input class="fi" id="suc-gps" value="${d?.ubicacion_gps||''}"></div>
+    <div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+      <input type="checkbox" id="suc-principal" ${d?.es_principal?'checked':''}>
+      <span class="fl" style="margin:0">Sucursal principal</span>
+    </label></div>
+  </div>`;
+}
+
 guardarDatos.catcomercio = async()=>{
   const nom=gv('catc-nombre');
   if(!nom){toast('Nombre requerido','danger');return;}
@@ -5138,6 +5199,7 @@ function renderCupones(){
   const el=document.getElementById('cupones-lista');
   if(!el) return;
   if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin cupones</div>';return;}
+  lista.forEach(cup => cacheObj('cupon', cup));
   el.innerHTML=lista.map(c=>{
     const vencido=c.expira_at&&new Date(c.expira_at)<=ahora;
     const agotado=(c.usos_max!=null)&&(c.usos_actuales||0)>=c.usos_max;
