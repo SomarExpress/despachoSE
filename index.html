@@ -4814,7 +4814,7 @@ function renderClientes() {
   if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin clientes</div>';return;}
   // Guardar referencia por id para evitar JSON.stringify en onclick
   lista.forEach(cli => { MD._cache = MD._cache||{}; MD._cache['cli_'+cli.id]=cli; });
-  el.innerHTML=lista.map(c=>`
+  const _renderHtml = lista.map(c=>`
     <div class="item-card">
       <div class="item-card-hdr">
         <div style="width:36px;height:36px;border-radius:50%;background:var(--or);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#000;flex-shrink:0">${inic(c.nombre)}</div>
@@ -4838,6 +4838,9 @@ function renderClientes() {
         <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('clientes','${c.id}',cargarClientes)">🗑</button>
       </div>
     </div>`).join('');
+  console.log('[renderClientes] HTML generado:', _renderHtml.length, 'chars, el existe:', !!el);
+  el.innerHTML = _renderHtml;
+  console.log('[renderClientes] después de asignar, el.innerHTML len:', el.innerHTML.length);
 }
 function htmlFormCliente(d=null){return`
   <div class="form-grid">
