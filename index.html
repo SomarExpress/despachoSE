@@ -591,10 +591,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         Tipos Comercio
       </div>
-      <div class="nav-item" onclick="nav('zonas')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
-        Zonas
-      </div>
+      
       <div class="nav-item" onclick="nav('productos')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
         Productos
@@ -1084,7 +1081,10 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
           <div id="map-live" style="height:100%;width:100%"></div>
           <!-- Panel lateral zonas (solo en modo zonas) -->
           <div id="panel-zonas-lateral" style="display:none;position:absolute;top:0;right:0;bottom:0;width:260px;background:var(--g1);border-left:1px solid var(--g4);z-index:400;flex-direction:column;overflow:hidden">
-            <div style="padding:10px 12px;border-bottom:1px solid var(--g4);font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em;flex-shrink:0">Zonas / Colonias</div>
+            <div style="padding:8px 12px;border-bottom:1px solid var(--g4);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+              <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em">Zonas / Colonias</div>
+              <button onclick="document.getElementById('panel-zonas-lateral').style.display='none'" style="background:none;border:none;color:var(--td);font-size:18px;cursor:pointer;padding:0 2px;line-height:1">✕</button>
+            </div>
             <div id="zonas-lista-panel" style="overflow-y:auto;flex:1;padding:8px"></div>
           </div>
           <!-- Modal guardar zona — aparece al completar el polígono -->
@@ -1234,6 +1234,45 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
           <button class="btn btn-primary btn-sm" onclick="abrirModal('categoria')">+ Nueva Categoría</button>
         </div>
         <div id="categorias-lista" class="grid-lista"></div>
+      </div>
+
+      <!-- ═══ PRODUCTOS ═════════════════════════════════════ -->
+      <div class="view" id="view-productos">
+        <div class="card-hdr" style="margin-bottom:12px">
+          <select id="prod-comercio-filter" class="fi" style="max-width:220px;font-size:13px;padding:8px 12px" onchange="cargarProductos()">
+            <option value="">Todos los comercios</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="abrirModal('producto')">+ Nuevo Producto</button>
+        </div>
+        <div id="productos-lista" class="grid-lista"></div>
+      </div>
+
+      <!-- ═══ CUPONES ═══════════════════════════════════════════ -->
+      <div class="view" id="view-cupones">
+        <div class="card-hdr" style="margin-bottom:12px">
+          <div class="filter-bar">
+            <button class="fbtn active" onclick="filtCup(this,'todos')">Todos</button>
+            <button class="fbtn" onclick="filtCup(this,'activos')">Activos</button>
+            <button class="fbtn" onclick="filtCup(this,'vencidos')">Vencidos</button>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="abrirModal('cupon')">+ Nuevo Cupón</button>
+        </div>
+        <div id="cupones-lista" class="grid-lista"></div>
+      </div>
+
+      <!-- ═══ USUARIOS ══════════════════════════════════════════ -->
+      <div class="view" id="view-usuarios">
+        <div class="card-hdr" style="margin-bottom:12px">
+          <div class="filter-bar">
+            <button class="fbtn active" onclick="filtUsr(this,'todos')">Todos</button>
+            <button class="fbtn" onclick="filtUsr(this,'STAFF')">Staff</button>
+            <button class="fbtn" onclick="filtUsr(this,'DELIVERY')">Riders</button>
+            <button class="fbtn" onclick="filtUsr(this,'CLIENTE')">Clientes</button>
+            <button class="fbtn" onclick="filtUsr(this,'COMERCIO')">Comercios</button>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="abrirModal('usuario')">+ Nuevo Usuario</button>
+        </div>
+        <div id="usuarios-lista" class="grid-lista"></div>
       </div>
 
             <!-- ═══ HISTORIAL ════════════════════════════════════════ --><!-- ═══ HISTORIAL ════════════════════════════════════════ -->
@@ -2827,7 +2866,7 @@ function setModoMapa(modo) {
     btnLive?.classList.add('btn-primary');    btnLive?.classList.remove('btn-ghost');
     btnZonas?.classList.add('btn-ghost');     btnZonas?.classList.remove('btn-primary');
     ctrlZon && (ctrlZon.style.display='none');
-    panelLat && (panelLat.style.display='none');
+    if(panelLat) panelLat.style.display='none';
     // Quitar polígonos del mapa si los hubiera en modo borrador
     zonaCancelar();
   } else {
@@ -2835,6 +2874,7 @@ function setModoMapa(modo) {
     btnLive?.classList.add('btn-ghost');      btnLive?.classList.remove('btn-primary');
     ctrlZon && (ctrlZon.style.display='flex');
     panelLat && (panelLat.style.display='flex');
+    document.getElementById('btn-zona-editar')?.style && (document.getElementById('btn-zona-editar').style.display='none');
     // Inicializar zonas en el mapa (carga Leaflet.draw si hace falta)
     iniciarMapaZonas();
   }
@@ -4084,18 +4124,12 @@ function htmlFormCliente(d=null){ return `
         <option ${d?.ciudad==='SAN PEDRO SULA'?'selected':''}>SAN PEDRO SULA</option>
       </select>
     </div>
-    <div class="fg"><label class="fl">Zona</label>
-      <select class="fi" id="cli-zona">
-        <option value="">Seleccionar zona...</option>
-        ${(MD.zonas||[]).filter(z=>z.activo&&(!d?.ciudad||z.ciudad===d.ciudad)).map(z=>`<option value="${z.id}" ${d?.zona_id===z.id?'selected':''}>${z.nombre}</option>`).join('')}
-      </select>
-    </div>
     <div class="fg"><label class="fl">Dirección</label><input class="fi" id="cli-dir" value="${d?.direccion||''}"></div>
     <div class="fg"><label class="fl">Colonia</label><input class="fi" id="cli-colonia" value="${d?.colonia||''}"></div>
     <div class="fg"><label class="fl">Zona</label>
       <select class="fi" id="cli-zona">
         <option value="">Sin zona</option>
-        ${MD.zonas.map(z=>`<option value="${z.id}" ${d?.zona_id===z.id?'selected':''}>${z.nombre} (${z.ciudad})</option>`).join('')}
+        ${(MD.zonas||[]).map(z=>`<option value="${z.id}" ${d?.zona_id===z.id?'selected':''}>${z.nombre} (${z.ciudad||''})</option>`).join('')}
       </select>
     </div>
     <div class="fg" style="grid-column:1/-1"><label class="fl">Notas</label><textarea class="fi" id="cli-notas" rows="2">${d?.notas||''}</textarea></div>
@@ -4904,7 +4938,7 @@ async function abrirUbicacionesCliente(clienteId, clienteNombre) {
     </div>`;
   MD.modalTipo='ubicacion_cliente';
   document.getElementById('modal-datos').style.display='flex';
-  document.getElementById('md-guardar').style.display='none';
+  const mdg=document.getElementById('md-guardar'); if(mdg) mdg.style.display='none';
 }
 
 async function guardarUbiCliente(clienteId, clienteNombre) {
