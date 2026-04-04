@@ -4456,6 +4456,273 @@ function autodetectarZonaGps(gpsStr) {
 }
 
 
+
+// ════════════════════════════════════════════════════════════
+// KANBAN
+// ════════════════════════════════════════════════════════════
+function renderKanban() {
+  const pend = S.pedidos.filter(p => ['PENDIENTE','BORRADOR'].includes(p.estatus) || (p.estatus==='ASIGNADO'&&!p.delivery_id));
+  const proc = S.pedidos.filter(p => ['ASIGNADO','ACEPTADO','EN_ESTABLECIMIENTO','PEDIDO_EN_CAMINO','ENTREGANDO'].includes(p.estatus));
+  const fin  = S.pedidos.filter(p => p.estatus === 'FINALIZADO');
+  const canc = S.pedidos.filter(p => p.estatus === 'CANCELADO');
+  const cnt  = document.getElementById;
+  const kb   = id => document.getElementById(id);
+  if(kb('kb-cnt-pend')) kb('kb-cnt-pend').textContent = pend.length + ' pedido' + (pend.length!==1?'s':'');
+  if(kb('kb-cnt-proc')) kb('kb-cnt-proc').textContent = proc.length + ' pedido' + (proc.length!==1?'s':'');
+  if(kb('kb-cnt-fin'))  kb('kb-cnt-fin').textContent  = (fin.length+canc.length) + ' pedido' + (fin.length!==1?'s':'');
+  const card = (p, accentColor) => {
+    const rider = S.riders.find(r=>r.id===p.delivery_id);
+    const ts = p.hora_asignado || p.created_at;
+    const hace = ts ? Math.round((Date.now()-new Date(ts).getTime())/60000) : null;
+    const urgente = hace!==null && hace>20 && ['PENDIENTE','ASIGNADO'].includes(p.estatus);
+    return `<div onclick="abrirModalPedido('${p.id}')" style="background:var(--g2);border:1px solid ${urgente?'var(--rojo)':accentColor+'33'};border-left:3px solid ${accentColor};border-radius:10px;padding:10px 11px;cursor:pointer;transition:all .15s;${urgente?'box-shadow:0 0 8px rgba(239,68,68,.3);':''}" onmouseover="this.style.background='var(--g3)'" onmouseout="this.style.background='var(--g2)'">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:5px">
+        <div class="mono" style="font-size:10px;color:${accentColor}">${p.no_orden||'—'}</div>
+        ${ts&&!['FINALIZADO','CANCELADO'].includes(p.estatus)?`<span class="timer-badge ${hace>45?' urgent':hace>20?' warn':''}" data-ts="${new Date(ts).getTime()}">—</span>`:hace!==null?`<span style="font-size:10px;color:var(--td)">${hace<60?hace+'m':Math.floor(hace/60)+'h'}</span>`:''}
+      </div>
+      <div style="font-size:12px;font-weight:700;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.nombre_comercio||p.nombre_destinatario||'—'}</div>
+      <div style="font-size:11px;color:var(--td);margin-bottom:6px">📍 ${p.ciudad_destino||'—'} · ${p.tipo||'—'}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        ${chipEst(p.estatus)}
+        <div style="font-size:11px;color:var(--td)">${rider?'🛵 '+rider.nombre.split(' ')[0]:'<span style="color:var(--rojo);font-size:10px">Sin rider</span>'}</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px">
+        <span style="color:var(--td)">${p.metodo_pago||'—'}</span>
+        <span class="mono" style="color:var(--or);font-weight:700">L.${parseFloat(p.tarifa_envio||0).toFixed(0)}</span>
+      </div>
+      ${p.estatus==='PENDIENTE'?`<button class="btn btn-primary btn-sm" style="width:100%;justify-content:center;margin-top:8px" onclick="event.stopPropagation();abrirAsignar('${p.id}')">Asignar Rider</button>`:''}
+    </div>`;
+  };
+  const empty = txt => `<div style="text-align:center;padding:20px;font-size:12px;color:var(--td)">${txt}</div>`;
+  if(kb('kb-pend')) kb('kb-pend').innerHTML = pend.length ? pend.map(p=>card(p,'#F59E0B')).join('') : empty('Sin pedidos pendientes');
+  if(kb('kb-proc')) kb('kb-proc').innerHTML = proc.length ? proc.map(p=>card(p,'#FF8C00')).join('') : empty('Sin pedidos en proceso');
+  if(kb('kb-fin'))  kb('kb-fin').innerHTML  = (fin.length+canc.length) ? [...fin.map(p=>card(p,'#22C55E')),...canc.map(p=>card(p,'#EF4444'))].join('') : empty('Sin finalizados hoy');
+}
+
+// ════════════════════════════════════════════════════════════
+// GESTIÓN DE TURNOS
+// ════════════════════════════════════════════════════════════
+async function renderTurnos() {
+  const hoy = new Date().toISOString().split('T')[0];
+  const fechaEl = document.getElementById('turnos-fecha');
+  if(fechaEl && !fechaEl.value) fechaEl.value = new Date(Date.now()+86400000).toISOString().split('T')[0];
+  const fecha = fechaEl?.value || hoy;
+  const {data:turnos} = await sb.from('turnos_config').select('*').eq('activo',true).order('hora_inicio');
+  const listaEl = document.getElementById('turnos-config-lista');
+  if(listaEl) {
+    if(!turnos?.length) { listaEl.innerHTML='<div class="empty">Sin turnos configurados</div>'; }
+    else listaEl.innerHTML = turnos.map(t=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--g4);border-radius:10px;margin-bottom:6px">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700">${t.nombre}</div>
+          <div style="font-size:11px;color:var(--td)">${t.hora_inicio?.slice(0,5)} – ${t.hora_fin?.slice(0,5)} · Máx ${t.max_riders} riders</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="asignarTurnoManual('${t.id}','${t.nombre}')">+ Asignar</button>
+        <button class="btn btn-ghost btn-sm" onclick="eliminarTurno('${t.id}')" style="color:var(--rojo)">✕</button>
+      </div>`).join('');
+  }
+  const {data:reservas} = await sb.from('reservaciones_turno')
+    .select('*,turno:turno_id(nombre,hora_inicio,hora_fin),delivery:delivery_id(nombre,celular)')
+    .eq('fecha',fecha).order('turno_id');
+  const resEl = document.getElementById('turnos-reservaciones-lista');
+  if(resEl) {
+    if(!reservas?.length) { resEl.innerHTML='<div class="empty">Sin reservaciones para esta fecha</div>'; return; }
+    const colores={RESERVADO:'var(--am)',CONFIRMADO:'var(--verde)',CANCELADO:'var(--rojo)',COMPLETADO:'var(--td)'};
+    resEl.innerHTML = reservas.map(r=>{
+      const turno=r.turno; const rider=Array.isArray(r.delivery)?r.delivery[0]:r.delivery;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--g4);border-radius:10px;margin-bottom:6px">
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:700">${rider?.nombre||'—'}</div>
+          <div style="font-size:11px;color:var(--td)">${turno?.nombre||'—'} · ${turno?.hora_inicio?.slice(0,5)||''} – ${turno?.hora_fin?.slice(0,5)||''}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:${colores[r.estatus]||'var(--td)'}">${r.estatus}</span>
+        ${r.estatus==='RESERVADO'?`<button class="btn btn-primary btn-sm" onclick="confirmarReserva('${r.id}')">Confirmar</button>`:''}
+        ${!['CANCELADO','COMPLETADO'].includes(r.estatus)?`<button class="btn btn-ghost btn-sm" onclick="cancelarReserva('${r.id}')" style="color:var(--rojo)">Cancelar</button>`:''}
+      </div>`;
+    }).join('');
+  }
+}
+async function abrirCrearTurno() {
+  const nombre=prompt('Nombre del turno:'); if(!nombre) return;
+  const inicio=prompt('Hora inicio (HH:MM):');
+  const fin=prompt('Hora fin (HH:MM):');
+  const maxR=parseInt(prompt('Máx riders:','2')||'2');
+  if(!inicio||!fin) return;
+  const {error}=await sb.from('turnos_config').insert({nombre,hora_inicio:inicio,hora_fin:fin,max_riders:maxR});
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Turno creado'); renderTurnos();
+}
+async function eliminarTurno(id) {
+  if(!confirm('¿Eliminar este turno?')) return;
+  await sb.from('turnos_config').update({activo:false}).eq('id',id);
+  toast('Turno eliminado'); renderTurnos();
+}
+async function asignarTurnoManual(turnoId,turnoNombre) {
+  if(!S.riders?.length){toast('No hay riders','danger');return;}
+  const fecha=document.getElementById('turnos-fecha')?.value||new Date(Date.now()+86400000).toISOString().split('T')[0];
+  const div=document.createElement('div');
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center';
+  div.innerHTML=`<div style="background:var(--g1);border:1px solid var(--g4);border-radius:16px;padding:24px;min-width:300px">
+    <div style="font-size:14px;font-weight:700;margin-bottom:12px">Asignar: ${turnoNombre}</div>
+    <select id="_ts" style="width:100%;background:var(--g3);border:1px solid var(--g5);border-radius:8px;padding:10px;color:var(--tx);font-size:14px;margin-bottom:14px">
+      ${S.riders.map((r,i)=>`<option value="${i}">${r.nombre}</option>`).join('')}
+    </select>
+    <div style="display:flex;gap:8px">
+      <button onclick="this.closest('div[style*=fixed]').remove()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--g5);background:none;color:var(--td);cursor:pointer">Cancelar</button>
+      <button id="_tc" style="flex:2;padding:10px;border-radius:8px;border:none;background:var(--or);color:#000;font-weight:700;cursor:pointer">Confirmar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(div);
+  document.getElementById('_tc').onclick=async()=>{
+    const idx=parseInt(document.getElementById('_ts').value);
+    div.remove();
+    const rider=S.riders[idx]; if(!rider) return;
+    const agente=document.getElementById('u-name')?.textContent||'Despacho';
+    const {error}=await sb.from('reservaciones_turno').upsert({
+      turno_id:turnoId,delivery_id:rider.id,fecha,estatus:'CONFIRMADO',asignado_por:agente
+    },{onConflict:'turno_id,delivery_id,fecha'});
+    if(error){toast('Error: '+error.message,'danger');return;}
+    toast('✅ '+rider.nombre+' asignado'); renderTurnos();
+  };
+}
+async function confirmarReserva(id) {
+  await sb.from('reservaciones_turno').update({estatus:'CONFIRMADO'}).eq('id',id);
+  toast('✅ Confirmado'); renderTurnos();
+}
+async function cancelarReserva(id) {
+  await sb.from('reservaciones_turno').update({estatus:'CANCELADO'}).eq('id',id);
+  toast('Cancelado'); renderTurnos();
+}
+
+// ════════════════════════════════════════════════════════════
+// LIQUIDACIONES A RIDERS
+// ════════════════════════════════════════════════════════════
+async function cargarLiquidaciones(estatus='PENDIENTE') {
+  const el=document.getElementById('liq-lista');
+  if(!el) return;
+  el.innerHTML='<div class="empty">Cargando...</div>';
+  const {data,error}=await sb.from('liquidaciones_delivery')
+    .select('*,delivery(nombre,celular,cuenta_bancaria,banco)')
+    .eq('estatus',estatus).order('creado_at',{ascending:false});
+  if(error){el.innerHTML='<div class="empty">Error: '+error.message+'</div>';return;}
+  if(!data?.length){el.innerHTML='<div class="empty">Sin liquidaciones '+estatus.toLowerCase()+'s</div>';return;}
+  const b=document.getElementById('badge-liq');
+  if(estatus==='PENDIENTE'&&b){b.textContent=data.length;b.style.display=data.length>0?'inline':'none';}
+  el.innerHTML=data.map(l=>{
+    const rider=l.delivery;
+    const nombre=rider?.nombre||rider?.[0]?.nombre||'—';
+    const banco=rider?.banco||rider?.[0]?.banco||'';
+    const cuenta=rider?.cuenta_bancaria||rider?.[0]?.cuenta_bancaria||'';
+    return `<div class="dep-card">
+      <div class="dep-hdr">
+        <div class="ch-av" style="border:2px solid var(--az)">${inic(nombre)}</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:700">${nombre}</div>
+          ${banco?`<div style="font-size:11px;color:var(--td)">${banco} · ${cuenta}</div>`:''}
+          <div style="font-size:11px;color:var(--td)">${fmtFecha(l.creado_at)}</div>
+        </div>
+        <div style="font-size:20px;font-weight:900;color:var(--az)">L. ${parseFloat(l.monto_liquidar).toFixed(2)}</div>
+      </div>
+      ${estatus==='PENDIENTE'?`
+        <div class="dep-footer" style="flex-direction:column;gap:8px;align-items:stretch">
+          <label style="flex:1;display:flex;align-items:center;gap:6px;background:var(--g3);border:1px dashed var(--g5);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:12px;color:var(--td)">
+            📎 <span id="comp-lbl-${l.id}">Seleccionar comprobante...</span>
+            <input type="file" accept="image/*" id="comp-file-${l.id}" style="display:none" onchange="(function(e,id){const f=e.target.files[0];if(!f)return;document.getElementById('comp-lbl-'+id).textContent=f.name;})(event,'${l.id}')">
+          </label>
+          <button class="btn btn-success btn-sm" onclick="liquidar('${l.id}')">✓ Liquidar</button>
+        </div>`:`<div style="padding-top:8px;border-top:1px solid var(--g3);margin-top:4px;font-size:12px;color:var(--verde)">✅ Liquidado ${l.liquidado_at?fmtFecha(l.liquidado_at):''}</div>`}
+    </div>`;
+  }).join('');
+}
+async function liquidar(liqId) {
+  const fileEl=document.getElementById('comp-file-'+liqId);
+  const file=fileEl?.files?.[0];
+  if(!file){toast('Selecciona el comprobante','danger');return;}
+  let comp_url='';
+  try {
+    const fd=new FormData();fd.append('file',file);fd.append('upload_preset','somar_riders');fd.append('folder','comprobantes');
+    const r=await fetch('https://api.cloudinary.com/v1_1/drkaxsziu/image/upload',{method:'POST',body:fd});
+    comp_url=(await r.json()).secure_url;
+  } catch(e){toast('Error subiendo imagen: '+e.message,'danger');return;}
+  const {error}=await sb.rpc('liquidar_pedido',{p_liq_id:liqId,p_comprobante:comp_url,p_notas:'',p_liquidado_por:document.getElementById('u-name')?.textContent||'Despacho'});
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Liquidación registrada'); cargarLiquidaciones('PENDIENTE');
+}
+function filtLiq(btn,estatus) {
+  document.querySelectorAll('#view-liquidaciones .filter-bar .fbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); cargarLiquidaciones(estatus);
+}
+
+// ════════════════════════════════════════════════════════════
+// COMPROBANTES DE PAGO
+// ════════════════════════════════════════════════════════════
+async function cargarComprobantes(estatus='PENDIENTE') {
+  const el=document.getElementById('comp-lista');
+  if(!el) return;
+  el.innerHTML='<div class="empty">Cargando...</div>';
+  let q=sb.from('pedidos').select('id,no_orden,nombre_cliente,nombre_comercio,subtotal,tarifa_envio,monto_cobrar,metodo_pago,imagen_transferencia,transferencia_validada_por,delivery_id,estatus,created_at')
+    .in('metodo_pago',['TRANSFERENCIA','TARJETA']).eq('estatus','FINALIZADO').order('created_at',{ascending:false}).limit(50);
+  if(estatus==='PENDIENTE') q=q.is('transferencia_validada_por',null);
+  else if(estatus==='APROBADO') q=q.not('transferencia_validada_por','is',null);
+  const {data,error}=await q;
+  if(error){el.innerHTML='<div class="empty">Error: '+error.message+'</div>';return;}
+  const badge=document.getElementById('badge-comp');
+  if(estatus==='PENDIENTE'&&badge){badge.textContent=data?.length||0;badge.style.display=data?.length?'inline':'none';}
+  if(!data?.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin comprobantes</div>';return;}
+  const fL=v=>'L. '+parseFloat(v||0).toFixed(2);
+  el.innerHTML=data.map(p=>{
+    const aprobado=!!p.transferencia_validada_por;
+    return `<div style="background:var(--g2);border:1px solid ${aprobado?'rgba(34,197,94,.3)':'var(--g4)'};border-radius:14px;overflow:hidden">
+      <div style="padding:12px 14px;border-bottom:1px solid var(--g4);display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div class="mono" style="font-size:12px;color:var(--or)">${p.no_orden||'—'}</div>
+          <div style="font-size:13px;font-weight:700">${p.nombre_cliente||'—'}</div>
+          <div style="font-size:11px;color:var(--td)">${p.nombre_comercio||'—'} · ${p.metodo_pago}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:18px;font-weight:900;color:var(--or)">${fL(p.monto_cobrar)}</div>
+          <div style="font-size:10px;color:var(--td)">${fmtFecha(p.created_at)}</div>
+        </div>
+      </div>
+      <div style="padding:12px 14px">
+        ${p.imagen_transferencia?`<img src="${p.imagen_transferencia}" onclick="window.open('${p.imagen_transferencia}')" style="width:100%;max-height:180px;object-fit:contain;border-radius:10px;cursor:pointer;background:#111;margin-bottom:10px">`:
+        `<div style="background:var(--g3);border:1px dashed var(--g5);border-radius:10px;padding:16px;text-align:center;font-size:12px;color:var(--td);margin-bottom:10px">📎 Sin comprobante
+          <br><label style="color:var(--or);cursor:pointer;margin-top:4px;display:inline-block">Subir<input type="file" accept="image/*" style="display:none" onchange="subirComprobante('${p.id}',event)"></label>
+        </div>`}
+        ${aprobado?
+          `<div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:8px 12px;font-size:12px;color:#22C55E">✅ Validado por ${p.transferencia_validada_por}</div>`:
+          `<div style="display:flex;gap:8px">
+            <button class="btn btn-success" style="flex:1;justify-content:center" onclick="validarTransferencia('${p.id}',true)">✅ Aprobar</button>
+            <button class="btn btn-danger" style="flex:1;justify-content:center" onclick="validarTransferencia('${p.id}',false)">❌ Rechazar</button>
+          </div>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+function filtComp(btn,estatus) {
+  document.querySelectorAll('#view-comprobantes .filter-bar .fbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); cargarComprobantes(estatus);
+}
+async function subirComprobante(pedidoId,event) {
+  const file=event.target.files[0]; if(!file) return;
+  try {
+    const fd=new FormData();fd.append('file',file);fd.append('upload_preset','somar_riders');fd.append('folder','comprobantes');
+    const r=await fetch('https://api.cloudinary.com/v1_1/drkaxsziu/image/upload',{method:'POST',body:fd});
+    await sb.from('pedidos').update({imagen_transferencia:(await r.json()).secure_url}).eq('id',pedidoId);
+    toast('✅ Comprobante subido'); cargarComprobantes();
+  } catch(e){toast('Error: '+e.message,'danger');}
+}
+async function validarTransferencia(pedidoId,aprobado) {
+  const agente=document.getElementById('u-name')?.textContent||'Despacho';
+  const {error}=await sb.from('pedidos').update({
+    transferencia_validada_por:aprobado?agente:'RECHAZADO_'+agente,
+    mt_aprobacion_trans:new Date().toISOString()
+  }).eq('id',pedidoId);
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast(aprobado?'✅ Transferencia aprobada':'❌ Rechazada');
+  cargarComprobantes('PENDIENTE');
+}
+
 // ════════════════════════════════════════════════════════════
 // MÓDULOS DE DATOS — Modal genérico + CRUD completo
 // ════════════════════════════════════════════════════════════
