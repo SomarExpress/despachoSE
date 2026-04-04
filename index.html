@@ -4468,6 +4468,535 @@ function autodetectarZonaGps(gpsStr) {
   return detectarZona(parts[0], parts[1]);
 }
 
+
+// ════════════════════════════════════════════════════════════
+// MÓDULOS DE DATOS — Modal genérico + CRUD completo
+// ════════════════════════════════════════════════════════════
+
+// ─── MODAL GENÉRICO ──────────────────────────────────────────
+function abrirModal(tipo, datos=null) {
+  MD.modalTipo = tipo;
+  MD.editId = datos?.id || null;
+  if(tipo === 'zona') { toast('Usa Mapa en Vivo → Zonas','ghost'); return; }
+  const cfgs = {
+    cliente:     { titulo: datos?'Editar Cliente':'Nuevo Cliente',       html: htmlFormCliente(datos)      },
+    comercio:    { titulo: datos?'Editar Comercio':'Nuevo Comercio',     html: htmlFormComercio(datos)     },
+    categoria:   { titulo: datos?'Editar Categoría':'Nueva Categoría',   html: htmlFormCategoria(datos)    },
+    producto:    { titulo: datos?'Editar Producto':'Nuevo Producto',      html: htmlFormProducto(datos)     },
+    cupon:       { titulo: datos?'Editar Cupón':'Nuevo Cupón',           html: htmlFormCupon(datos)        },
+    catcomercio: { titulo: datos?'Editar Categoría':'Nueva Categoría',   html: htmlFormCatcomercio(datos)  },
+    sucursal:    { titulo: datos?'Editar Sucursal':'Nueva Sucursal',     html: htmlFormSucursal?htmlFormSucursal(datos):'' },
+    usuario:     { titulo: datos?'Editar Usuario':'Nuevo Usuario',       html: htmlFormUsuario(datos)      },
+  };
+  const cfg = cfgs[tipo];
+  if(!cfg) return;
+  document.getElementById('md-titulo').textContent = cfg.titulo;
+  document.getElementById('md-cuerpo').innerHTML   = cfg.html;
+  document.getElementById('modal-datos').style.display = 'flex';
+  const mdg = document.getElementById('md-guardar');
+  if(mdg) mdg.style.display = 'flex';
+}
+function cerrarModalDatos() {
+  document.getElementById('modal-datos').style.display = 'none';
+  MD.modalTipo = null; MD.editId = null;
+  const mdg = document.getElementById('md-guardar');
+  if(mdg) mdg.style.display = 'flex';
+}
+async function guardarModal() {
+  const tipo = MD.modalTipo;
+  if(!tipo) return;
+  const btn = document.getElementById('md-guardar');
+  if(btn) { btn.disabled=true; btn.textContent='⏳ Guardando...'; }
+  try { await guardarDatos[tipo](); }
+  catch(e) { toast('Error: '+e.message,'danger'); }
+  if(btn) { btn.disabled=false; btn.textContent='💾 Guardar'; }
+}
+function gv(id){ return document.getElementById(id)?.value?.trim()||null; }
+function gn(id){ const v=parseFloat(document.getElementById(id)?.value); return isNaN(v)?null:v; }
+function gc(id){ return document.getElementById(id)?.checked||false; }
+
+// ─── CLIENTES ────────────────────────────────────────────────
+async function cargarClientes() {
+  const {data} = await sb.from('clientes').select('*').order('nombre');
+  MD.clientes = data||[];
+  if(MD.clientes.length) {
+    const nombres = MD.clientes.map(c=>c.nombre).filter(Boolean);
+    const {data:conteos} = await sb.from('pedidos').select('nombre_cliente')
+      .in('nombre_cliente',nombres).eq('estatus','FINALIZADO');
+    if(conteos) {
+      const counts={};
+      conteos.forEach(p=>{counts[p.nombre_cliente]=(counts[p.nombre_cliente]||0)+1;});
+      MD.clientes.forEach(c=>{c._pedidos_reales=counts[c.nombre]||c.total_pedidos||0;});
+    }
+  }
+  renderClientes();
+}
+function filtrarLista(tipo) {
+  const q=document.getElementById(tipo==='clientes'?'cli-search':'com-search')?.value?.toLowerCase()||'';
+  MD.filtros[tipo]=q;
+  tipo==='clientes'?renderClientes():renderComerciosList();
+}
+function renderClientes() {
+  const q=MD.filtros.clientes;
+  const lista=q?MD.clientes.filter(c=>(c.nombre+c.celular+c.ciudad).toLowerCase().includes(q)):MD.clientes;
+  const el=document.getElementById('clientes-lista');
+  if(!el) return;
+  if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin clientes</div>';return;}
+  el.innerHTML=lista.map(c=>`
+    <div class="item-card">
+      <div class="item-card-hdr">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--or);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#000;flex-shrink:0">${inic(c.nombre)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nombre}</div>
+          <div class="mono" style="font-size:11px;color:var(--td)">${c.celular||'—'}</div>
+        </div>
+        <span class="badge-estado ${c.activo?'badge-activo':'badge-inactivo'}">${c.activo?'Activo':'Inactivo'}</span>
+      </div>
+      <div class="item-card-body">
+        <div>📍 ${c.ciudad||'—'} ${c.direccion?'· '+c.direccion:''}</div>
+        ${c.correo?`<div>✉️ ${c.correo}</div>`:''}
+        ${c.notas?`<div style="margin-top:4px;font-style:italic">${c.notas}</div>`:''}
+        <div style="margin-top:6px;color:var(--or);font-weight:700">${c._pedidos_reales||c.total_pedidos||0} pedidos realizados</div>
+      </div>
+      <div class="item-card-footer">
+        ${c.celular?`<a href="https://wa.me/504${c.celular.replace(/\D/g,'')}" target="_blank" class="btn btn-ghost btn-sm" style="color:#22C55E;text-decoration:none">💬 WA</a>`:''}
+        <button class="btn btn-ghost btn-sm" onclick="abrirUbicacionesCliente('${c.id}','${c.nombre}')">📍 Ubic.</button>
+        <button class="btn btn-ghost btn-sm" onclick="verPedidosCliente('${c.nombre}')">📋 Ped.</button>
+        <button class="btn btn-ghost btn-sm" onclick="abrirModal('cliente',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('clientes','${c.id}',cargarClientes)">🗑</button>
+      </div>
+    </div>`).join('');
+}
+function htmlFormCliente(d=null){return`
+  <div class="form-grid">
+    <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="cli-nombre" value="${d?.nombre||''}"></div>
+    <div class="fg"><label class="fl">Celular</label><input class="fi" id="cli-cel" value="${d?.celular||''}"></div>
+    <div class="fg"><label class="fl">Correo</label><input class="fi" id="cli-correo" type="email" value="${d?.correo||''}"></div>
+    <div class="fg"><label class="fl">Ciudad</label>
+      <select class="fi" id="cli-ciudad" onchange="actualizarZonasFiltradas('cli-zona',this.value)">
+        <option ${d?.ciudad==='CHOLOMA'||!d?'selected':''}>CHOLOMA</option>
+        <option ${d?.ciudad==='SAN PEDRO SULA'?'selected':''}>SAN PEDRO SULA</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Dirección</label><input class="fi" id="cli-dir" value="${d?.direccion||''}"></div>
+    <div class="fg"><label class="fl">Colonia</label><input class="fi" id="cli-colonia" value="${d?.colonia||''}"></div>
+    <div class="fg"><label class="fl">Zona</label>
+      <select class="fi" id="cli-zona">
+        <option value="">Sin zona</option>
+        ${(MD.zonas||[]).map(z=>`<option value="${z.id}" ${d?.zona_id===z.id?'selected':''}>${z.nombre} (${z.ciudad||''})</option>`).join('')}
+      </select>
+    </div>
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Notas</label><textarea class="fi" id="cli-notas" rows="2">${d?.notas||''}</textarea></div>
+  </div>`;}
+
+var guardarDatos = {};
+guardarDatos.catcomercio = async()=>{
+  const nom=gv('catc-nombre');
+  if(!nom){toast('Nombre requerido','danger');return;}
+  const comId=document.getElementById('catc-com')?.value;
+  const row={nombre:nom,icono:gv('catc-icono')||'🏷️',activo:document.getElementById('catc-activo').value==='true',comercio_id:comId?parseInt(comId):null};
+  const {error}=MD.editId?await sb.from('categorias_comercio').update(row).eq('id',MD.editId):await sb.from('categorias_comercio').insert(row);
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Categoría guardada');cerrarModalDatos();
+};
+guardarDatos.cliente = async()=>{
+  const nom=gv('cli-nombre');
+  if(!nom){toast('El nombre es requerido','danger');return;}
+  const row={nombre:nom,celular:gv('cli-cel'),correo:gv('cli-correo'),ciudad:gv('cli-ciudad'),
+    direccion:gv('cli-dir'),colonia:gv('cli-colonia'),notas:gv('cli-notas'),
+    zona_id:document.getElementById('cli-zona')?.value||null};
+  Object.keys(row).forEach(k=>{if(row[k]===null||row[k]==='')delete row[k];});
+  const {error}=MD.editId
+    ?await sb.from('clientes').update(row).eq('id',MD.editId)
+    :await sb.from('clientes').insert(row);
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Cliente guardado');cerrarModalDatos();cargarClientes();
+};
+async function verPedidosCliente(nombre) {
+  nav('pedidos');
+  setTimeout(()=>{const s=document.getElementById('ped-search');if(s){s.value=nombre;renderTablaPedidos();}},300);
+}
+
+// ─── CATEGORÍAS (tipos de comercio) ──────────────────────────
+async function cargarCategorias() {
+  const {data}=await sb.from('categorias').select('*').order('nombre');
+  MD.categorias=data||[];renderCategorias();
+}
+function renderCategorias(){
+  const el=document.getElementById('categorias-lista');
+  if(!el) return;
+  if(!MD.categorias.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin categorías</div>';return;}
+  el.innerHTML=MD.categorias.map(c=>`
+    <div class="item-card">
+      <div class="item-card-hdr">
+        <div style="font-size:28px">${c.icono||'🏪'}</div>
+        <div style="flex:1"><div style="font-size:14px;font-weight:700">${c.nombre}</div></div>
+        <span class="badge-estado ${c.estatus==='ACTIVA'?'badge-activo':'badge-inactivo'}">${c.estatus||'ACTIVA'}</span>
+      </div>
+      <div class="item-card-footer">
+        <button class="btn btn-ghost btn-sm" onclick="abrirModal('categoria',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️ Editar</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('categorias','${c.id}',cargarCategorias)">🗑</button>
+      </div>
+    </div>`).join('');
+}
+function htmlFormCategoria(d=null){return`
+  <div class="form-grid">
+    <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="cat-nombre" value="${d?.nombre||''}"></div>
+    <div class="fg"><label class="fl">Ícono</label><input class="fi" id="cat-icono" value="${d?.icono||'🏪'}" maxlength="4" style="font-size:24px;text-align:center"></div>
+    <div class="fg"><label class="fl">Estado</label>
+      <select class="fi" id="cat-activo"><option value="ACTIVA" ${d?.estatus!=='INACTIVA'?'selected':''}>Activa</option><option value="INACTIVA" ${d?.estatus==='INACTIVA'?'selected':''}>Inactiva</option></select>
+    </div>
+  </div>`;}
+guardarDatos.categoria = async()=>{
+  const nom=gv('cat-nombre');
+  if(!nom){toast('El nombre es requerido','danger');return;}
+  const row={nombre:nom,icono:gv('cat-icono')||'🏪',estatus:document.getElementById('cat-activo').value||'ACTIVA'};
+  if(!MD.editId) row.id=crypto.randomUUID();
+  const {error}=MD.editId
+    ?await sb.from('categorias').update(row).eq('id',MD.editId)
+    :await sb.from('categorias').insert(row);
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Categoría guardada');cerrarModalDatos();cargarCategorias();
+};
+
+// ─── COMERCIOS ───────────────────────────────────────────────
+async function cargarComerciosList() {
+  const {data}=await sb.from('comercios').select('*').order('nombre');
+  if(data?.length && MD.categorias.length) {
+    data.forEach(com=>{com.categoria=MD.categorias.find(cat=>cat.id===com.categoria_id)||null;});
+  } else if(data?.length) {
+    const {data:cats}=await sb.from('categorias').select('id,nombre,icono');
+    if(cats) data.forEach(com=>{com.categoria=cats.find(cat=>cat.id===com.categoria_id)||null;});
+  }
+  MD.comercios=data||[];
+  const sel=document.getElementById('prod-comercio-filter');
+  if(sel){
+    const opts=MD.comercios.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+    sel.innerHTML='<option value="">Todos los comercios</option>'+opts;
+  }
+  renderComerciosList();
+}
+function renderComerciosList(){
+  const q=MD.filtros.comercios;
+  const lista=q?MD.comercios.filter(c=>(c.nombre+c.ciudad).toLowerCase().includes(q)):MD.comercios;
+  const el=document.getElementById('comercios-lista');
+  if(!el) return;
+  if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin comercios</div>';return;}
+  el.innerHTML=lista.map(c=>`
+    <div class="item-card">
+      <div class="item-card-hdr">
+        <div style="font-size:26px">${c.categoria?.icono||'🏪'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nombre}</div>
+          <div style="font-size:11px;color:var(--td)">${c.categoria?.nombre||'Sin categoría'}</div>
+        </div>
+        <span class="badge-estado ${c.activo?'badge-activo':'badge-inactivo'}">${c.activo?'Activo':'Inactivo'}</span>
+      </div>
+      <div class="item-card-body">
+        ${c.telefono?`<div>📞 ${c.telefono}</div>`:''}
+        <div>📍 ${c.ciudad||'—'}${c.direccion?' · '+c.direccion:''}</div>
+        ${c.apertura?`<div>🕐 ${c.apertura.slice(0,5)}–${c.cierre?.slice(0,5)||'?'}</div>`:''}
+        ${c.comision_pct?`<div style="color:var(--or)">Comisión: ${c.comision_pct}%</div>`:''}
+      </div>
+      <div class="item-card-footer">
+        ${c.whatsapp?`<a href="https://wa.me/504${c.whatsapp.replace(/\D/g,'')}" target="_blank" class="btn btn-ghost btn-sm" style="color:#22C55E;text-decoration:none">💬 WA</a>`:''}
+        <button class="btn btn-ghost btn-sm" onclick="gestionarCatsComercio(${c.id},'${c.nombre}')">🏷 Cats</button>
+        <button class="btn btn-ghost btn-sm" onclick="verProductosComercio(${c.id})">📦 Prod.</button>
+        <button class="btn btn-ghost btn-sm" onclick="abrirModal('comercio',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('comercios',${c.id},cargarComerciosList)">🗑</button>
+      </div>
+    </div>`).join('');
+}
+function htmlFormComercio(d=null){
+  const zonasOpts=MD.zonas.map(z=>`<option value="${z.id}" ${d?.zona_id===z.id?'selected':''}>${z.nombre} (${z.ciudad})</option>`).join('');
+  const catOpts=MD.categorias.map(c=>`<option value="${c.id}" ${d?.categoria_id===c.id?'selected':''}>${c.icono} ${c.nombre}</option>`).join('');
+  return`
+  <div class="form-grid">
+    <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="com-nombre" value="${d?.nombre||''}"></div>
+    <div class="fg"><label class="fl">Categoría</label><select class="fi" id="com-cat"><option value="">Sin categoría</option>${catOpts}</select></div>
+    <div class="fg"><label class="fl">Teléfono</label><input class="fi" id="com-tel" value="${d?.telefono||''}"></div>
+    <div class="fg"><label class="fl">WhatsApp</label><input class="fi" id="com-wa" value="${d?.whatsapp||''}"></div>
+    <div class="fg"><label class="fl">Correo</label><input class="fi" id="com-correo" type="email" value="${d?.correo||''}"></div>
+    <div class="fg"><label class="fl">Ciudad</label>
+      <select class="fi" id="com-ciudad"><option ${d?.ciudad==='CHOLOMA'||!d?'selected':''}>CHOLOMA</option><option ${d?.ciudad==='SAN PEDRO SULA'?'selected':''}>SAN PEDRO SULA</option></select>
+    </div>
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Dirección</label><input class="fi" id="com-dir" value="${d?.direccion||''}"></div>
+    <div class="fg"><label class="fl">Abre</label><input class="fi" id="com-abre" type="time" value="${d?.apertura?.slice(0,5)||''}"></div>
+    <div class="fg"><label class="fl">Cierra</label><input class="fi" id="com-cierra" type="time" value="${d?.cierre?.slice(0,5)||''}"></div>
+    <div class="fg"><label class="fl">Zona</label><select class="fi" id="com-zona"><option value="">Sin zona</option>${zonasOpts}</select></div>
+    <div class="fg"><label class="fl">Comisión %</label><input class="fi" id="com-com" type="number" value="${d?.comision_pct||0}" min="0" max="100" step="0.5"></div>
+    <div class="fg"><label class="fl">Tipo comisión</label>
+      <select class="fi" id="com-comtipo">
+        <option value="INCLUIDA" ${d?.comision_tipo==='INCLUIDA'||!d?.comision_tipo?'selected':''}>Incluida en el precio</option>
+        <option value="ADICIONAL" ${d?.comision_tipo==='ADICIONAL'?'selected':''}>Se suma al precio</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Estado</label>
+      <select class="fi" id="com-activo"><option value="true" ${d?.activo!==false?'selected':''}>Activo</option><option value="false" ${d?.activo===false?'selected':''}>Inactivo</option></select>
+    </div>
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Notas</label><textarea class="fi" id="com-notas" rows="2">${d?.notas||''}</textarea></div>
+  </div>`;}
+guardarDatos.comercio = async()=>{
+  const nom=gv('com-nombre');
+  if(!nom){toast('El nombre es requerido','danger');return;}
+  const catId=document.getElementById('com-cat')?.value;
+  const zonaId=document.getElementById('com-zona')?.value||null;
+  const row={nombre:nom,categoria_id:catId||null,telefono:gv('com-tel'),whatsapp:gv('com-wa'),
+    correo:gv('com-correo'),ciudad:gv('com-ciudad'),direccion:gv('com-dir'),
+    apertura:gv('com-abre')||null,cierre:gv('com-cierra')||null,
+    comision_pct:gn('com-com')||0,comision_tipo:document.getElementById('com-comtipo')?.value||'INCLUIDA',
+    zona_id:zonaId||null,notas:gv('com-notas'),activo:document.getElementById('com-activo').value==='true',visible:true};
+  Object.keys(row).forEach(k=>{if(row[k]===null||row[k]==='')delete row[k];});
+  const {error}=MD.editId?await sb.from('comercios').update(row).eq('id',MD.editId):await sb.from('comercios').insert(row);
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Comercio guardado');cerrarModalDatos();cargarComerciosList();
+};
+async function verProductosComercio(id){
+  nav('productos');
+  setTimeout(()=>{const s=document.getElementById('prod-comercio-filter');if(s){s.value=id;cargarProductos();}},200);
+}
+
+// ─── PRODUCTOS ───────────────────────────────────────────────
+async function cargarProductos(){
+  const comId=document.getElementById('prod-comercio-filter')?.value;
+  let q=sb.from('productos').select('*,comercio:comercio_id(nombre)').order('nombre');
+  if(comId) q=q.eq('comercio_id',parseInt(comId));
+  const {data}=await q;
+  MD.productos=data||[];
+  renderProductos();
+}
+function renderProductos(){
+  const el=document.getElementById('productos-lista');
+  if(!el) return;
+  if(!MD.productos.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin productos</div>';return;}
+  el.innerHTML=MD.productos.map(p=>`
+    <div class="item-card">
+      <div class="item-card-hdr" style="gap:10px">
+        ${p.imagen_url?`<img src="${p.imagen_url}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0">`:'<div style="width:44px;height:44px;border-radius:8px;background:var(--g4);display:flex;align-items:center;justify-content:center;font-size:20px">📦</div>'}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700">${p.nombre}</div>
+          <div style="font-size:11px;color:var(--td)">${p.comercio?.nombre||'—'}</div>
+          <div style="font-size:14px;font-weight:800;color:var(--or)">L. ${parseFloat(p.precio||0).toFixed(2)}</div>
+        </div>
+        <span class="badge-estado ${p.estatus==='activo'?'badge-activo':'badge-inactivo'}">${p.estatus==='activo'?'Disponible':p.estatus==='agotado'?'Agotado':'Inactivo'}</span>
+      </div>
+      ${p.descripcion?`<div class="item-card-body">${p.descripcion}</div>`:''}
+      <div class="item-card-footer">
+        <button class="btn btn-ghost btn-sm" onclick="abrirModal('producto',${JSON.stringify(p).replace(/"/g,'&quot;')})">✏️ Editar</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('productos',${p.id},cargarProductos)">🗑</button>
+      </div>
+    </div>`).join('');
+}
+function htmlFormProducto(d=null){
+  const comOpts=MD.comercios.map(c=>`<option value="${c.id}" ${d?.comercio_id===c.id?'selected':''}>${c.nombre}</option>`).join('');
+  return`
+  <div class="form-grid">
+    <div class="fg"><label class="fl">Comercio *</label>
+      <select class="fi" id="prod-com" onchange="cargarCatsComercioEnForm(this.value,'${d?.categoria_id||''}')">
+        <option value="">Seleccionar...</option>${comOpts}
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="prod-nombre" value="${d?.nombre||''}"></div>
+    <div class="fg"><label class="fl">Precio (L.) *</label><input class="fi" id="prod-precio" type="number" value="${d?.precio||''}"></div>
+    <div class="fg"><label class="fl">Categoría del comercio</label>
+      <select class="fi" id="prod-cat-sel"><option value="">Sin categoría</option></select>
+    </div>
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Descripción</label><textarea class="fi" id="prod-desc" rows="2">${d?.descripcion||''}</textarea></div>
+    <div class="fg"><label class="fl">URL de imagen</label><input class="fi" id="prod-img" value="${d?.imagen_url||''}"></div>
+    <div class="fg"><label class="fl">Estado</label>
+      <select class="fi" id="prod-disp">
+        <option value="activo" ${d?.estatus==='activo'||!d?'selected':''}>Disponible</option>
+        <option value="agotado" ${d?.estatus==='agotado'?'selected':''}>Agotado</option>
+        <option value="inactivo" ${d?.estatus==='inactivo'?'selected':''}>Inactivo</option>
+      </select>
+    </div>
+  </div>`;}
+guardarDatos.producto = async()=>{
+  const nom=gv('prod-nombre'),comId=document.getElementById('prod-com')?.value,precio=gn('prod-precio');
+  if(!nom||!comId||precio===null){toast('Nombre, comercio y precio son requeridos','danger');return;}
+  const row={comercio_id:parseInt(comId),nombre:nom,descripcion:gv('prod-desc'),precio,
+    categoria_id:document.getElementById('prod-cat-sel')?.value||null,
+    imagen_url:gv('prod-img')||null,estatus:document.getElementById('prod-disp').value};
+  Object.keys(row).forEach(k=>{if(row[k]===null)delete row[k];});
+  const {error}=MD.editId
+    ?await sb.from('productos').update(row).eq('id',MD.editId)
+    :await sb.from('productos').insert({...row,id:crypto.randomUUID()});
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Producto guardado');cerrarModalDatos();cargarProductos();
+};
+
+// ─── CUPONES ─────────────────────────────────────────────────
+async function cargarCupones(){
+  const {data}=await sb.from('cupones').select('*').order('created_at',{ascending:false});
+  MD.cupones=data||[];renderCupones();
+}
+function filtCup(btn,f){document.querySelectorAll('#view-cupones .fbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');MD.cupFiltro=f;renderCupones();}
+function renderCupones(){
+  const ahora=new Date();
+  let lista=MD.cupones;
+  if(MD.cupFiltro==='activos') lista=lista.filter(c=>c.activo&&(!c.expira_at||new Date(c.expira_at)>ahora)&&(c.usos_max===null||c.usos_actuales<c.usos_max));
+  if(MD.cupFiltro==='vencidos') lista=lista.filter(c=>!c.activo||(c.expira_at&&new Date(c.expira_at)<=ahora)||(c.usos_max!==null&&c.usos_actuales>=c.usos_max));
+  const el=document.getElementById('cupones-lista');
+  if(!el) return;
+  if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin cupones</div>';return;}
+  el.innerHTML=lista.map(c=>{
+    const vencido=c.expira_at&&new Date(c.expira_at)<=ahora;
+    const agotado=(c.usos_max!=null)&&(c.usos_actuales||0)>=c.usos_max;
+    const vigente=c.activo&&!vencido&&!agotado;
+    return`<div class="item-card">
+      <div class="item-card-hdr">
+        <div class="mono" style="font-size:16px;font-weight:900;color:var(--or);letter-spacing:1px">${c.codigo}</div>
+        <div style="flex:1"></div>
+        <span class="badge-estado ${vigente?'badge-activo':'badge-inactivo'}">${vigente?'Vigente':vencido?'Vencido':agotado?'Agotado':'Inactivo'}</span>
+      </div>
+      <div class="item-card-body">
+        <div style="font-size:20px;font-weight:900;color:var(--verde)">${c.tipo==='PORCENTAJE'?c.valor+'% OFF':'L. '+c.valor+' OFF'}</div>
+        ${c.descripcion?`<div>${c.descripcion}</div>`:''}
+        <div>Usos: ${c.usos_actuales||0}/${c.usos_max??'∞'}</div>
+        ${c.min_pedido?`<div>Mínimo: L. ${c.min_pedido}</div>`:''}
+        ${c.expira_at?`<div>Vence: ${new Date(c.expira_at).toLocaleDateString('es-HN',{timeZone:'America/Tegucigalpa'})}</div>`:''}
+      </div>
+      <div class="item-card-footer">
+        <button class="btn btn-ghost btn-sm" onclick="abrirModal('cupon',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️ Editar</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('cupones','${c.id}',cargarCupones)">🗑</button>
+      </div>
+    </div>`;}).join('');
+}
+function htmlFormCupon(d=null){return`
+  <div class="form-grid">
+    <div class="fg"><label class="fl">Código *</label><input class="fi" id="cup-codigo" value="${d?.codigo||''}" style="text-transform:uppercase"></div>
+    <div class="fg"><label class="fl">Tipo *</label>
+      <select class="fi" id="cup-tipo"><option value="PORCENTAJE" ${d?.tipo==='PORCENTAJE'||!d?'selected':''}>Porcentaje (%)</option><option value="FIJO" ${d?.tipo==='FIJO'?'selected':''}>Monto fijo (L.)</option></select>
+    </div>
+    <div class="fg"><label class="fl">Valor *</label><input class="fi" id="cup-valor" type="number" value="${d?.valor||''}"></div>
+    <div class="fg"><label class="fl">Mínimo de pedido (L.)</label><input class="fi" id="cup-min" type="number" value="${d?.min_pedido||0}"></div>
+    <div class="fg"><label class="fl">Usos máximos</label><input class="fi" id="cup-usos" type="number" value="${d?.usos_max||1}"></div>
+    <div class="fg"><label class="fl">Expira el</label><input class="fi" id="cup-hasta" type="date" value="${d?.expira_at?d.expira_at.slice(0,10):''}"></div>
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Descripción</label><input class="fi" id="cup-desc" value="${d?.descripcion||''}"></div>
+    <div class="fg"><label class="fl">Estado</label>
+      <select class="fi" id="cup-activo"><option value="true" ${d?.activo!==false?'selected':''}>Activo</option><option value="false" ${d?.activo===false?'selected':''}>Inactivo</option></select>
+    </div>
+  </div>`;}
+guardarDatos.cupon = async()=>{
+  const cod=gv('cup-codigo'),tipo=gv('cup-tipo'),val=gn('cup-valor');
+  if(!cod||!tipo||val===null){toast('Código, tipo y valor son requeridos','danger');return;}
+  const hasta=gv('cup-hasta');
+  const row={codigo:cod.toUpperCase(),tipo,valor:val,min_pedido:gn('cup-min')||0,
+    usos_max:parseInt(document.getElementById('cup-usos')?.value)||1,
+    descripcion:gv('cup-desc'),expira_at:hasta?new Date(hasta+'T23:59:59-06:00').toISOString():null,
+    activo:document.getElementById('cup-activo').value==='true'};
+  Object.keys(row).forEach(k=>{if(row[k]===null)delete row[k];});
+  const {error}=MD.editId?await sb.from('cupones').update(row).eq('id',MD.editId):await sb.from('cupones').insert(row);
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Cupón guardado');cerrarModalDatos();cargarCupones();
+};
+
+// ─── USUARIOS ────────────────────────────────────────────────
+async function cargarUsuarios(){
+  const {data}=await sb.from('perfiles').select('*').order('nombre');
+  MD.usuarios=data||[];renderUsuarios();
+}
+function filtUsr(btn,f){document.querySelectorAll('#view-usuarios .fbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');MD.usrFiltro=f;renderUsuarios();}
+function renderUsuarios(){
+  const lista=MD.usrFiltro==='todos'?MD.usuarios:MD.usuarios.filter(u=>u.rol===MD.usrFiltro);
+  const el=document.getElementById('usuarios-lista');
+  if(!el) return;
+  const rolColor={STAFF:'var(--or)',DELIVERY:'var(--az)',CLIENTE:'var(--verde)',COMERCIO:'#a855f7',ADMIN:'var(--rojo)'};
+  if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin usuarios</div>';return;}
+  el.innerHTML=lista.map(u=>`
+    <div class="item-card">
+      <div class="item-card-hdr">
+        <div style="width:36px;height:36px;border-radius:50%;background:${rolColor[u.rol]||'var(--g4)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#000;flex-shrink:0">${inic(u.nombre||'?')}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700">${u.nombre||'Sin nombre'}</div>
+          <div style="font-size:11px;color:var(--td)">${u.correo||u.celular||'—'}</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;color:${rolColor[u.rol]||'var(--td)'};background:${rolColor[u.rol]||'var(--g4)'}22;padding:3px 8px;border-radius:20px">${u.rol||'—'}</span>
+      </div>
+      <div class="item-card-footer">
+        <button class="btn btn-ghost btn-sm" onclick="abrirModal('usuario',${JSON.stringify(u).replace(/"/g,'&quot;')})">✏️ Editar</button>
+      </div>
+    </div>`).join('');
+}
+function htmlFormUsuario(d=null){return`
+  <div class="form-grid">
+    <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="usr-nombre" value="${d?.nombre||''}"></div>
+    <div class="fg"><label class="fl">Correo</label><input class="fi" id="usr-correo" type="email" value="${d?.correo||''}"></div>
+    <div class="fg"><label class="fl">Celular</label><input class="fi" id="usr-cel" value="${d?.celular||''}"></div>
+    <div class="fg"><label class="fl">Rol *</label>
+      <select class="fi" id="usr-rol">
+        <option ${d?.rol==='STAFF'?'selected':''}>STAFF</option>
+        <option ${d?.rol==='ADMIN'?'selected':''}>ADMIN</option>
+        <option ${d?.rol==='DELIVERY'?'selected':''}>DELIVERY</option>
+        <option ${d?.rol==='CLIENTE'?'selected':''}>CLIENTE</option>
+        <option ${d?.rol==='COMERCIO'?'selected':''}>COMERCIO</option>
+      </select>
+    </div>
+  </div>
+  ${!d?'<div style="font-size:11px;color:var(--td);margin-top:8px">⚠️ El usuario debe registrarse en la app — aquí solo se edita su perfil</div>':''}`;} 
+guardarDatos.usuario = async()=>{
+  const nom=gv('usr-nombre');
+  if(!nom){toast('El nombre es requerido','danger');return;}
+  const row={nombre:nom,correo:gv('usr-correo'),celular:gv('usr-cel'),rol:gv('usr-rol')};
+  if(!MD.editId){toast('No se puede crear usuario directamente','danger');return;}
+  const {error}=await sb.from('perfiles').update(row).eq('id',MD.editId);
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Usuario actualizado');cerrarModalDatos();cargarUsuarios();
+};
+
+// ─── UTIL: eliminar registro ──────────────────────────────────
+async function eliminar(tabla,id,callback){
+  if(!confirm('¿Eliminar este registro?')) return;
+  const {error}=await sb.from(tabla).delete().eq('id',id);
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Eliminado');
+  if(callback) callback();
+}
+
+// ─── CONFIGURACIÓN ───────────────────────────────────────────
+async function cargarConfig() {
+  const {data,error}=await sb.from('configuracion').select('*').order('clave');
+  if(error){console.error('[config]',error.message);return;}
+  S.config={};
+  data?.forEach(r=>{S.config[r.clave]=r.valor;});
+  console.log('[config] cargada:',S.config);
+}
+async function guardarConfigClave(clave,valor,btn) {
+  if(btn){btn.disabled=true;btn.textContent='Guardando...';}
+  const {error}=await sb.from('configuracion').upsert({clave,valor:String(valor),updated_at:new Date().toISOString()},{onConflict:'clave'});
+  if(error){toast('Error: '+error.message,'danger');}
+  else{S.config[clave]=String(valor);toast('✅ Configuración guardada','success');}
+  if(btn){btn.disabled=false;btn.textContent='Guardar';}
+}
+function renderConfig() {
+  const el=document.getElementById('config-content');
+  if(!el) return;
+  const cfg=S.config;
+  const fila=(clave,label,desc,tipo='number',min=0,max=9999,step=0.5)=>`
+    <div style="padding:14px 0;border-bottom:1px solid var(--g4);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:180px;">
+          <div style="font-size:13px;font-weight:700;margin-bottom:3px;">${label}</div>
+          <div style="font-size:11px;color:var(--td);">${desc}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+          <input type="${tipo}" id="cfg-${clave}" value="${cfg[clave]||''}" min="${min}" max="${max}" step="${step}"
+            style="width:100px;background:var(--g3);border:1px solid var(--g5);border-radius:6px;padding:7px 10px;color:var(--tx);font-size:14px;font-weight:700;text-align:center;">
+          <button class="btn btn-primary btn-sm" onclick="guardarConfigClave('${clave}',document.getElementById('cfg-${clave}').value,this)">Guardar</button>
+        </div>
+      </div>
+    </div>`;
+  el.innerHTML=`
+    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">🗺️ Zonas</div>
+    ${fila('zona_radio_km','Radio de zona (km)','Distancia máxima del rider al centro de la zona','number',0.5,20,0.5)}
+    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-top:16px;margin-bottom:2px;">💰 Comisiones</div>
+    ${fila('comision_bronce','Comisión Bronce (%)','','number',0,100,1)}
+    ${fila('comision_plata','Comisión Plata (%)','75+ pedidos/mes','number',0,100,1)}
+    ${fila('comision_oro','Comisión Oro (%)','150+ pedidos/mes','number',0,100,1)}
+    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-top:16px;margin-bottom:2px;">👛 Billetera</div>
+    ${fila('saldo_minimo','Saldo mínimo (L.)','Para operar','number',0,9999,10)}`;
+}
+
 // ════════════════════════════════════════════════════════════
 // NAVEGACIÓN
 // ════════════════════════════════════════════════════════════
