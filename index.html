@@ -4126,28 +4126,6 @@ async function abrirModalSucursal(comercioId, datos=null) {
   document.getElementById('modal-datos').style.display='flex';
 }
 
-guardarDatos.sucursal = async()=>{
-  const nom = gv('suc-nombre');
-  if(!nom){toast('El nombre es requerido','danger');return;}
-  const zonaId = document.getElementById('suc-zona')?.value;
-  const row = {
-    comercio_id:  MD.sucursalComercioId,
-    nombre:       nom,
-    ciudad:       gv('suc-ciudad'),
-    zona_id:      zonaId?parseInt(zonaId):null,
-    direccion:    gv('suc-dir'),
-    telefono:     gv('suc-tel'),
-    ubicacion_gps: gv('suc-gps'),
-    es_principal: document.getElementById('suc-principal')?.checked||false,
-    activo:       true,
-  };
-  Object.keys(row).forEach(k=>{if(row[k]===null)delete row[k];});
-  const {error} = MD.editId
-    ? await sb.from('sucursales_comercio').update(row).eq('id',MD.editId)
-    : await sb.from('sucursales_comercio').insert(row);
-  if(error){toast('Error: '+error.message,'danger');return;}
-  toast('✅ Sucursal guardada'); cerrarModalDatos();
-};
 
 // ─── UBICACIONES DE CLIENTE ──────────────────────────────────
 async function abrirUbicacionesCliente(clienteId, clienteNombre) {
@@ -4590,6 +4568,29 @@ function htmlFormCliente(d=null){return`
   </div>`;}
 
 var guardarDatos = {};
+
+guardarDatos.sucursal = async()=>{
+  const nom = gv('suc-nombre');
+  if(!nom){toast('El nombre es requerido','danger');return;}
+  const zonaId = document.getElementById('suc-zona')?.value;
+  const row = {
+    comercio_id:  MD.sucursalComercioId,
+    nombre:       nom,
+    ciudad:       gv('suc-ciudad'),
+    zona_id:      zonaId?parseInt(zonaId):null,
+    direccion:    gv('suc-dir'),
+    telefono:     gv('suc-tel'),
+    ubicacion_gps: gv('suc-gps'),
+    es_principal: document.getElementById('suc-principal')?.checked||false,
+    activo:       true,
+  };
+  Object.keys(row).forEach(k=>{if(row[k]===null)delete row[k];});
+  const {error} = MD.editId
+    ? await sb.from('sucursales_comercio').update(row).eq('id',MD.editId)
+    : await sb.from('sucursales_comercio').insert(row);
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Sucursal guardada'); cerrarModalDatos();
+};
 guardarDatos.catcomercio = async()=>{
   const nom=gv('catc-nombre');
   if(!nom){toast('Nombre requerido','danger');return;}
@@ -4954,6 +4955,52 @@ async function eliminar(tabla,id,callback){
 }
 
 // ─── CONFIGURACIÓN ───────────────────────────────────────────
+
+async function cargarNotifsDespacho() {
+  try {
+    const {data} = await sb.from('notificaciones_despacho')
+      .select('*').order('created_at',{ascending:false}).limit(30);
+    if(data) S.notifs = data;
+    renderBadgeNotifs();
+  } catch(e) {
+    // Tabla puede no existir aún
+    console.warn('[notifs]', e.message);
+  }
+}
+function renderBadgeNotifs() {
+  const badge = document.getElementById('notif-badge');
+  const unread = (S.notifs||[]).filter(n=>!n.leida).length;
+  if(badge) { badge.textContent=unread; badge.style.display=unread>0?'flex':'none'; }
+}
+function toggleNotifs() {
+  S.showNotifs = !S.showNotifs;
+  renderNotifsPanel();
+}
+function renderNotifsPanel() {
+  const panel = document.getElementById('notifs-panel');
+  if(!panel) return;
+  panel.style.display = S.showNotifs ? 'flex' : 'none';
+  if(!S.showNotifs) return;
+  panel.innerHTML = `
+    <div style="padding:12px 14px;border-bottom:1px solid var(--g4);display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:13px;font-weight:700">🔔 Notificaciones</div>
+      <button onclick="limpiarNotifs()" style="background:none;border:none;color:var(--or);font-size:11px;font-weight:700;cursor:pointer">Limpiar</button>
+    </div>
+    <div style="overflow-y:auto;flex:1;max-height:400px">
+      ${(S.notifs||[]).length===0
+        ?'<div style="padding:20px;text-align:center;font-size:12px;color:var(--td)">Sin notificaciones</div>'
+        :(S.notifs||[]).map(n=>`<div style="padding:10px 14px;border-bottom:1px solid var(--g3);font-size:12px">
+          <div style="font-weight:700">${n.titulo||''}</div>
+          <div style="color:var(--td)">${n.cuerpo||''}</div>
+        </div>`).join('')}
+    </div>`;
+}
+async function limpiarNotifs() {
+  try { await sb.from('notificaciones_despacho').update({leida:true}).eq('leida',false); } catch(e){}
+  S.notifs = (S.notifs||[]).map(n=>({...n,leida:true}));
+  renderBadgeNotifs(); renderNotifsPanel();
+}
+
 async function cargarConfig() {
   const {data,error}=await sb.from('configuracion').select('*').order('clave');
   if(error){console.error('[config]',error.message);return;}
