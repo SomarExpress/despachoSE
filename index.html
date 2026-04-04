@@ -3428,7 +3428,8 @@ async function wizCalcularTarifa() {
         const prev = document.getElementById('tarifa-preview');
         if(prev) {
           prev.style.display='block';
-          prev.innerHTML = `📏 <b>${km.toFixed(1)} km</b> · Tarifa: <b>L. ${tarifa.toFixed(0)}</b> ${data.entre_ciudades?'(entre ciudades)':'(misma ciudad)'}`;
+          const minimoAplicado = parseFloat(data.tarifa) === parseFloat(data.minimo) || parseFloat(data.tarifa_bruta) < parseFloat(data.minimo);
+          prev.innerHTML = `📏 <b>${km.toFixed(1)} km</b> · Tarifa: <b>L. ${tarifa.toFixed(0)}</b> ${data.entre_ciudades?'(entre ciudades)':'(misma ciudad)'}${minimoAplicado?' · <span style="color:var(--am)">mínimo aplicado</span>':''}`;
         }
       }
     } catch(e) { console.warn('[tarifa RPC]', e); }
@@ -3462,6 +3463,18 @@ function haversineKm(lat1,lon1,lat2,lon2) {
   const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
   const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// Cálculo local de tarifa (mismo algoritmo que el RPC)
+// Mínimo misma ciudad: L.50 | Mínimo entre ciudades: L.150
+function calcularTarifaLocal(km, ciudadOrigen, ciudadDestino) {
+  const entre = ciudadOrigen.toUpperCase() !== ciudadDestino.toUpperCase();
+  const base   = entre ? 40  : 30;
+  const minimo = entre ? 150 : 50;
+  const bruta  = base + (km * 9);
+  const conMinimo = Math.max(bruta, minimo);
+  // Redondear al siguiente múltiplo de 5
+  return Math.ceil(conMinimo / 5) * 5;
 }
 
 // Override calcTarifa para usar la nueva función
