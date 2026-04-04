@@ -906,8 +906,14 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
             <div class="fg"><label class="fl">Dirección de Recolecta</label>
               <input type="text" id="f-dir-rec" class="fi" placeholder="Calle, colonia...">
             </div>
-            <div class="fg"><label class="fl">GPS Recolecta</label>
-              <input type="text" id="f-gps-rec" class="fi" placeholder="15.6133,-87.9480">
+            <div class="fg" style="grid-column:1/-1">
+              <label class="fl">GPS Recolecta <span style="color:var(--td);font-weight:400">(opcional)</span></label>
+              <div style="display:flex;gap:6px">
+                <input class="fi" id="f-gps-rec" placeholder="15.6133,-87.9480" style="flex:1" oninput="ubiAutodetectarZona(this.value,'wiz-rec')">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="wizPegaGpsRec()" title="Pegar">📋</button>
+              </div>
+              <div id="wiz-rec-zona-detectada" style="font-size:10px;color:var(--verde);margin-top:2px;display:none"></div>
+              <div id="wiz-rec-minimapa" style="display:none;height:130px;border-radius:10px;overflow:hidden;border:1px solid var(--g4);margin-top:8px"></div>
             </div>
             <div class="fg"><label class="fl">¿Pagar en establecimiento?</label>
               <div class="tog-grp">
@@ -954,7 +960,17 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
               <div style="display:flex;gap:6px;margin-bottom:6px">
                 <input type="text" id="f-dir-ent" class="fi" placeholder="Colonia, calle, referencias..." style="flex:1">
               </div>
-              <input type="text" id="f-gps-ent" class="fi" placeholder="GPS: 15.6200,-87.9350 (opcional)">
+<!-- f-gps-ent movido arriba -->
+            </div>
+            <!-- GPS de entrega con mini mapa -->
+            <div class="fg" style="grid-column:1/-1">
+              <label class="fl">GPS Entrega <span style="color:var(--td);font-weight:400">(opcional — pega desde Google Maps)</span></label>
+              <div style="display:flex;gap:6px">
+                <input class="fi" id="f-gps-ent" placeholder="15.6200,-87.9350" style="flex:1" oninput="ubiAutodetectarZona(this.value,'wiz-ent')">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="wizPegaGpsEnt()" title="Pegar">📋</button>
+              </div>
+              <div id="wiz-ent-zona-detectada" style="font-size:10px;color:var(--verde);margin-top:2px;display:none"></div>
+              <div id="wiz-ent-minimapa" style="display:none;height:140px;border-radius:10px;overflow:hidden;border:1px solid var(--g4);margin-top:8px"></div>
             </div>
             <!-- Calcular tarifa -->
             <div class="fg" style="grid-column:1/-1">
@@ -5005,10 +5021,14 @@ async function abrirUbicacionesCliente(clienteId, clienteNombre) {
         <div class="fg" style="grid-column:1/-1">
           <label class="fl">Coordenadas GPS <span style="color:var(--td);font-weight:400">(pega desde Google Maps)</span></label>
           <div style="display:flex;gap:6px">
-            <input class="fi" id="ubi-gps" placeholder="15.6133,-87.9480" style="flex:1" oninput="ubiAutodetectarZona(this.value)">
+            <input class="fi" id="ubi-gps" placeholder="15.6133,-87.9480" style="flex:1" oninput="ubiAutodetectarZona(this.value,'ubi')">
             <button type="button" class="btn btn-ghost btn-sm" onclick="ubiPegaGps()" title="Pegar del portapapeles">📋</button>
           </div>
-          <div id="ubi-zona-detectada" style="display:none;margin-top:6px;padding:6px 10px;background:rgba(255,140,0,.1);border:1px solid rgba(255,140,0,.3);border-radius:8px;font-size:12px;color:var(--or)"></div>
+          <div id="ubi-zona-detectada" style="font-size:10px;color:var(--verde);margin-top:2px;display:none"></div>
+        </div>
+        <!-- Mini mapa -->
+        <div class="fg" style="grid-column:1/-1">
+          <div id="ubi-minimapa" style="display:none;height:160px;border-radius:10px;overflow:hidden;border:1px solid var(--g4)"></div>
         </div>
         <div class="fg" style="grid-column:1/-1"><label class="fl">Referencia</label>
           <input class="fi" id="ubi-ref" placeholder="Frente al parque, casa azul...">
@@ -5146,24 +5166,67 @@ async function cargarCatsComercioEnForm(comercioId, catIdActual='') {
 
 
 // Autodetectar zona al escribir GPS en modal ubicaciones
-function ubiAutodetectarZona(gpsStr) {
-  const zona = autodetectarZonaGps(gpsStr);
-  const badge = document.getElementById('ubi-zona-detectada');
-  const sel   = document.getElementById('ubi-zona');
-  if(zona && badge) {
-    badge.style.display = 'block';
-    badge.innerHTML = `🗺️ Zona detectada: <b>${zona.nombre}</b> (${zona.ciudad})`;
-    if(sel) sel.value = zona.id;
-    // Auto-rellenar ciudad
-    if(zona.ciudad) {
-      const selCiudad = document.getElementById('ubi-ciudad');
-      if(selCiudad) selCiudad.value = zona.ciudad;
+function ubiAutodetectarZona(gpsStr, prefijo='ubi') {
+  if(!gpsStr?.trim()) { ubiMiniMapaLimpiar(prefijo); return; }
+  const parts = gpsStr.split(',').map(s=>parseFloat(s.trim()));
+  if(parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+  const [lat, lng] = parts;
+
+  // Detectar zona por polígono
+  const zona = detectarZona(lat, lng);
+  if(zona) {
+    // Mapeo de IDs: algunos prefijos usan IDs diferentes
+    const idMap = {
+      'wiz-ent': { colonia: null,       ciudad: 'f-ciudad',  zona: null },
+      'wiz-rec': { colonia: null,       ciudad: 'f-ciudad',  zona: null },
+      'ubi':     { colonia: 'ubi-colonia', ciudad: 'ubi-ciudad', zona: 'ubi-zona' },
+    };
+    const ids = idMap[prefijo] || { colonia: prefijo+'-colonia', ciudad: prefijo+'-ciudad', zona: prefijo+'-zona' };
+    const elColonia = ids.colonia ? document.getElementById(ids.colonia) : null;
+    const elCiudad  = ids.ciudad  ? document.getElementById(ids.ciudad)  : null;
+    const elZona    = ids.zona    ? document.getElementById(ids.zona)    : null;
+    // Solo rellenar colonia si está vacía
+    if(elColonia && !elColonia.value) elColonia.value = zona.nombre;
+    if(elCiudad)  elCiudad.value  = zona.ciudad||'CHOLOMA';
+    if(elZona)    elZona.value    = zona.id;
+    // Mostrar confirmación sutil
+    const badge = document.getElementById(prefijo+'-zona-detectada');
+    if(badge) {
+      badge.style.display='block';
+      badge.innerHTML=`✓ ${zona.nombre} detectada`;
+      badge.style.cssText='display:block;font-size:10px;color:var(--verde);margin-top:3px';
     }
-  } else if(badge) {
-    badge.style.display = gpsStr?.trim() ? 'block' : 'none';
-    badge.style.color = 'var(--td)';
-    badge.innerHTML = gpsStr?.trim() ? '⚠️ Punto fuera de zonas registradas' : '';
   }
+  // Mostrar mini mapa
+  ubiMiniMapaRender(lat, lng, prefijo);
+}
+
+function ubiMiniMapaRender(lat, lng, prefijo='ubi') {
+  const containerId = prefijo+'-minimapa';
+  let el = document.getElementById(containerId);
+  if(!el) return;
+  el.style.display = 'block';
+  // Inicializar mapa Leaflet en el container
+  if(el._mapaInst) {
+    el._mapaInst.setView([lat,lng], 16);
+    el._markerInst.setLatLng([lat,lng]);
+    return;
+  }
+  el.style.height = '160px';
+  el.style.borderRadius = '10px';
+  el.style.overflow = 'hidden';
+  el.style.marginTop = '8px';
+  const m = L.map(containerId, {zoomControl:false, attributionControl:false}).setView([lat,lng], 16);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(m);
+  const marker = L.marker([lat,lng]).addTo(m);
+  el._mapaInst  = m;
+  el._markerInst = marker;
+  setTimeout(()=>m.invalidateSize(), 100);
+}
+
+function ubiMiniMapaLimpiar(prefijo='ubi') {
+  const el = document.getElementById(prefijo+'-minimapa');
+  if(el) el.style.display='none';
 }
 
 async function ubiPegaGps() {
@@ -5171,6 +5234,23 @@ async function ubiPegaGps() {
     const txt = await navigator.clipboard.readText();
     const el = document.getElementById('ubi-gps');
     if(el) { el.value = txt.trim(); ubiAutodetectarZona(txt.trim()); }
+  } catch(e) { toast('Permite acceso al portapapeles','ghost'); }
+}
+
+
+async function wizPegaGpsEnt() {
+  try {
+    const txt = await navigator.clipboard.readText();
+    const el = document.getElementById('f-gps-ent');
+    if(el) { el.value = txt.trim(); ubiAutodetectarZona(txt.trim(),'wiz-ent'); wizCalcularTarifa(); }
+  } catch(e) { toast('Permite acceso al portapapeles','ghost'); }
+}
+
+async function wizPegaGpsRec() {
+  try {
+    const txt = await navigator.clipboard.readText();
+    const el = document.getElementById('f-gps-rec');
+    if(el) { el.value = txt.trim(); ubiAutodetectarZona(txt.trim(),'wiz-rec'); wizCalcularTarifa(); }
   } catch(e) { toast('Permite acceso al portapapeles','ghost'); }
 }
 
