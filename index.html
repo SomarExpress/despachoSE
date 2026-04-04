@@ -3400,54 +3400,60 @@ function wizSetDestinatario(tipo) {
 
 function wizCiudadCambio() { wizCalcularTarifa(); }
 
-function wizCalcularTarifa() {
-  // Tarifa base: L.30 + L.9/km dentro ciudad, L.40 entre ciudades
+async function wizCalcularTarifa() {
   const ciudadOrigen  = _wizComSel?.ciudad || document.getElementById('f-ciudad')?.value || 'CHOLOMA';
   const ciudadDestino = document.getElementById('f-ciudad')?.value || 'CHOLOMA';
-  const entreCiudades = ciudadOrigen.toUpperCase() !== ciudadDestino.toUpperCase();
+  const gpsRec = document.getElementById('f-gps-rec')?.value?.trim()||null;
+  const gpsEnt = document.getElementById('f-gps-ent')?.value?.trim()||null;
 
-  let tarifa = entreCiudades ? 40 : 30; // base
+  // Parsear GPS
+  let lat1=null,lng1=null,lat2=null,lng2=null;
+  if(gpsRec) { const p=gpsRec.split(',').map(parseFloat); if(!isNaN(p[0])) { lat1=p[0]; lng1=p[1]; } }
+  if(gpsEnt) { const p=gpsEnt.split(',').map(parseFloat); if(!isNaN(p[0])) { lat2=p[0]; lng2=p[1]; } }
 
-  // Intentar calcular km si hay GPS
-  const gpsRec = document.getElementById('f-gps-rec')?.value?.trim();
-  const gpsEnt = document.getElementById('f-gps-ent')?.value?.trim();
-  if(gpsRec && gpsEnt) {
-    const [lat1,lng1] = gpsRec.split(',').map(parseFloat);
-    const [lat2,lng2] = gpsEnt.split(',').map(parseFloat);
-    if(!isNaN(lat1)&&!isNaN(lng1)&&!isNaN(lat2)&&!isNaN(lng2)) {
-      const km = haversineKm(lat1,lng1,lat2,lng2);
-      tarifa = Math.max(tarifa, (entreCiudades?40:30) + (km * 9));
-      tarifa = Math.round(tarifa / 5) * 5; // redondear a múltiplo de 5
-      const prev = document.getElementById('tarifa-preview');
-      if(prev) {
-        prev.style.display='block';
-        prev.innerHTML = `📏 Distancia aprox: <b>${km.toFixed(1)} km</b> · Tarifa calculada: <b>L. ${tarifa.toFixed(0)}</b> ${entreCiudades?'(entre ciudades)':'(misma ciudad)'}`;
+  let tarifa, km=null;
+
+  if(lat1&&lng1&&lat2&&lng2) {
+    // Llamar RPC de Supabase — lógica protegida en el servidor
+    try {
+      const {data, error} = await sb.rpc('calcular_tarifa_envio', {
+        p_lat1: lat1, p_lng1: lng1,
+        p_lat2: lat2, p_lng2: lng2,
+        p_ciudad_origen:  ciudadOrigen,
+        p_ciudad_destino: ciudadDestino
+      });
+      if(!error && data) {
+        tarifa = parseFloat(data.tarifa);
+        km     = parseFloat(data.km);
+        const prev = document.getElementById('tarifa-preview');
+        if(prev) {
+          prev.style.display='block';
+          prev.innerHTML = `📏 <b>${km.toFixed(1)} km</b> · Tarifa: <b>L. ${tarifa.toFixed(0)}</b> ${data.entre_ciudades?'(entre ciudades)':'(misma ciudad)'}`;
+        }
       }
-    }
+    } catch(e) { console.warn('[tarifa RPC]', e); }
   }
 
-  // Aplicar modificador dinámico
+  // Fallback local si no hay GPS o falló el RPC
+  if(!tarifa) {
+    const entre = ciudadOrigen.toUpperCase() !== ciudadDestino.toUpperCase();
+    tarifa = entre ? 40 : 30;
+  }
+
+  // Aplicar tarifa dinámica
   const modos = {NORMAL:1,LLUVIA:1.2,HORA_PICO:1.3,NOCTURNO:1.15};
   const mod = modos[document.getElementById('f-tarifa-din')?.value||'NORMAL']||1;
   tarifa = parseFloat((tarifa * mod).toFixed(2));
 
-  // Actualizar stepper de tarifa
   S.stepVals['sv-envio'] = tarifa;
   const el = document.getElementById('sv-envio');
   if(el) el.textContent = tarifa.toFixed(2);
 
-  // Calcular comisión de producto si hay comercio seleccionado
+  // Comisión de comercio
   if(_wizComSel?.comision_pct) {
     const prod = S.stepVals['sv-prod']||0;
-    const comPct = parseFloat(_wizComSel.comision_pct||0);
-    const comTipo = _wizComSel.comision_tipo||'SUMA';
     const pctEl = document.getElementById('f-pct-comision');
-    if(pctEl) pctEl.value = comPct;
-    if(comTipo==='SUMA' && prod>0) {
-      // La comisión se suma al total
-      const comMonto = parseFloat((prod * comPct / 100).toFixed(2));
-      document.getElementById('f-com-label') && (document.getElementById('f-com-label').textContent = `Comisión incluida: L.${comMonto.toFixed(2)}`);
-    }
+    if(pctEl) pctEl.value = parseFloat(_wizComSel.comision_pct||0);
   }
   actualizarResumen();
 }
@@ -3459,7 +3465,7 @@ function haversineKm(lat1,lon1,lat2,lon2) {
 }
 
 // Override calcTarifa para usar la nueva función
-function calcTarifa() { wizCalcularTarifa(); }
+function calcTarifa() { wizCalcularTarifa(); } // async - fire and forget
 
 async function cargarComerciosDL() { /* legacy — no usar */ }
 
@@ -4209,7 +4215,21 @@ guardarDatos.categoria = async()=>{
 
 // ─── COMERCIOS ───────────────────────────────────────────────
 async function cargarComerciosList() {
-  const {data} = await sb.from('comercios').select('*,categoria:categorias(nombre,icono)').order('nombre');
+  const {data} = await sb.from('comercios').select('*').order('nombre');
+  // Enriquecer con categorias (join manual por FK ambigua)
+  if(data?.length && MD.categorias.length) {
+    data.forEach(com => {
+      com.categoria = MD.categorias.find(cat => cat.id === com.categoria_id) || null;
+    });
+  } else if(data?.length) {
+    // Cargar categorias si no están en MD aún
+    const {data:cats} = await sb.from('categorias').select('id,nombre,icono');
+    if(cats) {
+      data.forEach(com => {
+        com.categoria = cats.find(cat => cat.id === com.categoria_id) || null;
+      });
+    }
+  }
   MD.comercios = data||[];
   // Poblar selector de comercios en productos
   const sel = document.getElementById('prod-comercio-filter');
