@@ -1,6 +1,6 @@
 // SERVICE WORKER — Somar Despacho PWA
 // Repo: somarexpress/despachoSE
-const CACHE_NAME = 'somar-despacho-v2.1.17';
+const CACHE_NAME = 'somar-despacho-v2.1.18';
 const STATIC = ['./index.html', './manifest-despacho.json'];
 
 self.addEventListener('install', event => {
