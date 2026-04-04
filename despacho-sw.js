@@ -1,73 +1,45 @@
-// SERVICE WORKER — Somar Despacho PWA
-// Repo: somarexpress/despachoSE
-const CACHE_NAME = 'somar-despacho-v2.1.25';
-const STATIC = ['./index.html', './manifest-despacho.json'];
+// Somar Despacho — Service Worker
+// Cambiar CACHE_VERSION para forzar actualización en todos los browsers
+const CACHE_VERSION = 'somar-despacho-v1.0.2';
+const STATIC = ['./despacho-app.html', './manifest-delivery.json'];
 
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => Promise.allSettled(STATIC.map(url => cache.add(url).catch(() => {}))))
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE_VERSION)
+      .then(c => c.addAll(STATIC).catch(() => {}))
       .then(() => self.skipWaiting())
   );
 });
 
-self.addEventListener('activate', event => {
-  event.waitUntil(
+self.addEventListener('activate', e => {
+  e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+      .then(keys => Promise.all(
+        keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k))
+      ))
       .then(() => self.clients.claim())
   );
 });
 
-self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
-  // Supabase: siempre red (tiempo real)
-  if (url.hostname.includes('supabase.co')) return;
-  // Cloudinary: red primero
-  if (url.hostname.includes('cloudinary.com')) {
-    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+// Network-first: siempre intentar la red primero, cache solo como fallback
+self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+  if (url.origin !== location.origin) {
+    e.respondWith(fetch(e.request).catch(() => new Response('', { status: 503 })));
     return;
   }
-  // HTML principal: Network First
-  if (url.pathname.endsWith('index.html') || url.pathname.endsWith('/despachoSE/')) {
-    event.respondWith(
-      fetch(event.request)
-        .then(r => { caches.open(CACHE_NAME).then(c => c.put(event.request, r.clone())); return r; })
-        .catch(() => caches.match('./index.html'))
-    );
-    return;
-  }
-  // Resto: Cache First
-  event.respondWith(
-    caches.match(event.request).then(cached => cached ||
-      fetch(event.request).then(r => {
-        if (r && r.ok) caches.open(CACHE_NAME).then(c => c.put(event.request, r.clone()));
+  e.respondWith(
+    fetch(e.request)
+      .then(r => {
+        if (r && r.status === 200) {
+          const clone = r.clone();
+          caches.open(CACHE_VERSION).then(c => c.put(e.request, clone));
+        }
         return r;
-      }).catch(() => new Response('', { status: 503 }))
-    )
-  );
-});
-
-self.addEventListener('push', event => {
-  if (!event.data) return;
-  const data = event.data.json();
-  event.waitUntil(self.registration.showNotification(data.title || 'Somar Despacho', {
-    body:    data.body || '',
-    icon:    'https://res.cloudinary.com/drkaxsziu/image/upload/v1767871213/Somar_Express_2048_x_2048_px_18_x_18_in__20250623_221102_0000_o0bv7a.png',
-    badge:   'https://res.cloudinary.com/drkaxsziu/image/upload/v1767871213/Somar_Express_2048_x_2048_px_18_x_18_in__20250623_221102_0000_o0bv7a.png',
-    vibrate: [200, 100, 200],
-    tag:     data.tag || 'despacho',
-  }));
-});
-
-self.addEventListener('notificationclick', event => {
-  event.notification.close();
-  event.waitUntil(
-    clients.matchAll({ type: 'window' }).then(clientList => {
-      const c = clientList.find(x => x.url.includes('despachoSE') || x.url.includes('index.html'));
-      if (c) return c.focus();
-      return clients.openWindow('./index.html');
-    })
+      })
+      .catch(() =>
+        caches.match(e.request).then(r => r || new Response('', { status: 503 }))
+      )
   );
 });
 
