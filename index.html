@@ -4088,6 +4088,7 @@ function renderClientes() {
   const q = MD.filtros.clientes;
   const lista = q ? MD.clientes.filter(c=>(c.nombre+c.celular+c.ciudad).toLowerCase().includes(q)) : MD.clientes;
   const el = document.getElementById('clientes-lista');
+  if(!el) return;
   if(!lista.length){ el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin clientes</div>'; return; }
   el.innerHTML = lista.map(c=>`
     <div class="item-card">
@@ -4171,6 +4172,7 @@ async function cargarCategorias() {
 }
 function renderCategorias(){
   const el = document.getElementById('categorias-lista');
+  if(!el) return;
   if(!MD.categorias.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin categorías</div>';return;}
   el.innerHTML = MD.categorias.map(c=>`
     <div class="item-card">
@@ -4221,6 +4223,7 @@ function renderComerciosList(){
   const q = MD.filtros.comercios;
   const lista = q ? MD.comercios.filter(c=>(c.nombre+c.ciudad).toLowerCase().includes(q)) : MD.comercios;
   const el = document.getElementById('comercios-lista');
+  if(!el) return;
   if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin comercios</div>';return;}
   el.innerHTML = lista.map(c=>`
     <div class="item-card">
@@ -4329,6 +4332,7 @@ async function cargarProductos(){
 }
 function renderProductos(){
   const el = document.getElementById('productos-lista');
+  if(!el) return;
   if(!MD.productos.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin productos</div>';return;}
   el.innerHTML = MD.productos.map(p=>`
     <div class="item-card">
@@ -4404,6 +4408,7 @@ function renderCupones(){
   if(MD.cupFiltro==='activos') lista=lista.filter(c=>c.activo&&(!c.valido_hasta||new Date(c.valido_hasta)>ahora)&&(c.usos_maximos===null||c.usos_actuales<c.usos_maximos));
   if(MD.cupFiltro==='vencidos') lista=lista.filter(c=>!c.activo||(c.valido_hasta&&new Date(c.valido_hasta)<=ahora)||(c.usos_maximos!==null&&c.usos_actuales>=c.usos_maximos));
   const el=document.getElementById('cupones-lista');
+  if(!el) return;
   if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin cupones</div>';return;}
   el.innerHTML=lista.map(c=>{
     const vencido=c.expira_at&&new Date(c.expira_at)<=ahora;
@@ -4479,6 +4484,7 @@ function filtUsr(btn,f){document.querySelectorAll('#view-usuarios .fbtn').forEac
 function renderUsuarios(){
   const lista=MD.usrFiltro==='todos'?MD.usuarios:MD.usuarios.filter(u=>u.rol===MD.usrFiltro);
   const el=document.getElementById('usuarios-lista');
+  if(!el) return;
   const rolColor={STAFF:'var(--or)',DELIVERY:'var(--az)',CLIENTE:'var(--verde)',COMERCIO:'#a855f7',ADMIN:'var(--rojo)'};
   if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin usuarios</div>';return;}
   el.innerHTML=lista.map(u=>`
