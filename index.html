@@ -830,56 +830,68 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
           <div class="wiz-tab" id="wt-3" onclick="wizGo(3)">4 · Pago</div>
         </div>
 
-        <!-- PASO 0: GENERALES -->
+        <!-- PASO 0: CLIENTE -->
         <div id="ws-0">
           <div class="form-grid">
-            <div class="fg"><label class="fl">Tipo de Pedido</label>
+
+            <!-- Búsqueda cliente/comercio -->
+            <div class="fg" style="grid-column:1/-1">
+              <label class="fl">Cliente que solicita <span class="r">*</span></label>
+              <div style="position:relative">
+                <input type="text" id="f-cli-nom" class="fi" placeholder="Buscar cliente o comercio..." oninput="wizBuscarCliente(this.value)" autocomplete="off">
+                <div id="cli-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--g2);border:1px solid var(--g4);border-radius:0 0 10px 10px;z-index:300;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4)"></div>
+              </div>
+              <!-- Chip cliente seleccionado -->
+              <div id="cli-seleccionado" style="display:none;margin-top:6px;padding:10px 12px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:10px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <div>
+                    <span id="cli-sel-nombre" style="font-weight:700;font-size:13px"></span>
+                    <span id="cli-sel-tel" style="color:var(--td);margin-left:8px;font-size:12px"></span>
+                  </div>
+                  <button onclick="wizLimpiarCliente()" style="background:none;border:none;color:var(--td);cursor:pointer;font-size:18px;padding:0 4px">✕</button>
+                </div>
+                <div id="cli-sel-dir" style="color:var(--td);font-size:11px;margin-top:2px"></div>
+              </div>
+              <!-- Botón agregar nuevo cliente -->
+              <button type="button" class="btn btn-ghost btn-sm" style="margin-top:6px;font-size:11px" onclick="wizAgregarNuevoCliente()">
+                + Agregar nuevo cliente
+              </button>
+            </div>
+
+            <!-- Tipo de pedido (solo 2) -->
+            <div class="fg" style="grid-column:1/-1">
+              <label class="fl">Tipo de Pedido</label>
               <div class="tog-grp">
-                <div class="tog-btn on" id="tt-MANDADO" onclick="setTipo('MANDADO')">🛒 Compra/Mandado</div>
-                <div class="tog-btn" id="tt-DELIVERY" onclick="setTipo('DELIVERY')">📦 Delivery</div>
+                <div class="tog-btn on" id="tt-MANDADO" onclick="setTipo('MANDADO')">🛒 Compra</div>
                 <div class="tog-btn" id="tt-TRASLADO" onclick="setTipo('TRASLADO')">🚗 Traslado</div>
               </div>
             </div>
-            <!-- Cliente con búsqueda -->
-            <div class="fg" style="grid-column:1/-1">
-              <label class="fl">Cliente <span class="r">*</span></label>
-              <div style="position:relative">
-                <input type="text" id="f-cli-nom" class="fi" placeholder="Buscar cliente por nombre o teléfono..." oninput="wizBuscarCliente(this.value)" autocomplete="off">
-                <div id="cli-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--g2);border:1px solid var(--g4);border-radius:0 0 10px 10px;z-index:200;max-height:200px;overflow-y:auto"></div>
-              </div>
-              <div id="cli-seleccionado" style="display:none;margin-top:6px;padding:8px 12px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:10px;font-size:12px">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                  <div>
-                    <span id="cli-sel-nombre" style="font-weight:700"></span>
-                    <span id="cli-sel-tel" style="color:var(--td);margin-left:8px"></span>
-                  </div>
-                  <button onclick="wizLimpiarCliente()" style="background:none;border:none;color:var(--td);cursor:pointer;font-size:16px">✕</button>
-                </div>
-                <div id="cli-sel-dir" style="color:var(--td);margin-top:2px"></div>
-              </div>
-            </div>
+
             <!-- Teléfono -->
             <div class="fg">
-              <label class="fl">Teléfono</label>
+              <label class="fl">Teléfono de contacto</label>
               <input type="tel" id="f-cli-tel" class="fi" placeholder="9999-9999">
             </div>
+
             <!-- Ciudad -->
             <div class="fg">
               <label class="fl">Ciudad</label>
-              <select id="f-ciudad" class="fs" onchange="wizCiudadCambio()">
+              <select id="f-ciudad" class="fi" onchange="wizCiudadCambio()">
                 <option value="CHOLOMA">CHOLOMA</option>
                 <option value="SAN PEDRO SULA">SAN PEDRO SULA</option>
                 <option value="LA LIMA">LA LIMA</option>
                 <option value="VILLANUEVA">VILLANUEVA</option>
               </select>
             </div>
-            <!-- Ubicaciones del cliente -->
+
+            <!-- Ubicaciones guardadas del cliente -->
             <div class="fg" id="cli-ubics-grp" style="display:none;grid-column:1/-1">
               <label class="fl">Dirección de entrega guardada</label>
               <select id="f-cli-ubic" class="fi" onchange="wizSeleccionarUbicCli()">
                 <option value="">Ingresar dirección manual...</option>
               </select>
             </div>
+
           </div>
           <div class="wiz-footer">
             <button class="btn btn-primary" onclick="wizGo(1)">Siguiente →</button>
@@ -889,47 +901,93 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
         <!-- PASO 1: RECOLECTA -->
         <div id="ws-1" style="display:none">
           <div class="form-grid">
-            <div class="fg full">
-              <label class="fl">Comercio / Establecimiento</label>
-              <div style="position:relative">
-                <input type="text" id="f-comercio" class="fi" placeholder="Buscar comercio..." oninput="wizBuscarComercio(this.value)" autocomplete="off">
-                <div id="com-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--g2);border:1px solid var(--g4);border-radius:0 0 10px 10px;z-index:200;max-height:180px;overflow-y:auto"></div>
-              </div>
-              <!-- Sucursales del comercio seleccionado -->
-              <div id="com-suc-grp" style="display:none;margin-top:6px">
-                <label class="fl" style="font-size:11px">Sucursal / Dirección de recolecta</label>
-                <select id="f-com-sucursal" class="fi" onchange="wizSeleccionarSucursal()">
-                  <option value="">Ingresar manual...</option>
-                </select>
-              </div>
-            </div>
-            <div class="fg"><label class="fl">Dirección de Recolecta</label>
-              <input type="text" id="f-dir-rec" class="fi" placeholder="Calle, colonia...">
-            </div>
+
+            <!-- Quien entrega: comercio o persona -->
             <div class="fg" style="grid-column:1/-1">
-              <label class="fl">GPS Recolecta <span style="color:var(--td);font-weight:400">(opcional)</span></label>
+              <label class="fl">¿Quién entrega / establece el pedido?</label>
+              <div style="position:relative">
+                <input type="text" id="f-comercio" class="fi" placeholder="Buscar comercio o persona..." oninput="wizBuscarComercio(this.value)" autocomplete="off">
+                <div id="com-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--g2);border:1px solid var(--g4);border-radius:0 0 10px 10px;z-index:300;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4)"></div>
+              </div>
+            </div>
+
+            <!-- Sucursales / ubicaciones del comercio -->
+            <div class="fg" id="com-suc-grp" style="display:none;grid-column:1/-1">
+              <label class="fl">Sucursal de recolecta</label>
+              <select id="f-com-sucursal" class="fi" onchange="wizSeleccionarSucursal()">
+                <option value="">Seleccionar sucursal...</option>
+              </select>
+            </div>
+
+            <!-- Dirección de recolecta (se rellena automático) -->
+            <div class="fg" style="grid-column:1/-1">
+              <label class="fl">Dirección de recolecta</label>
+              <input type="text" id="f-dir-rec" class="fi" placeholder="Se rellena automático al elegir sucursal...">
+            </div>
+
+            <!-- Ciudad y zona (se rellenan automático) -->
+            <div class="fg">
+              <label class="fl">Ciudad de recolecta</label>
+              <select id="f-ciudad-rec" class="fi">
+                <option value="CHOLOMA">CHOLOMA</option>
+                <option value="SAN PEDRO SULA">SAN PEDRO SULA</option>
+                <option value="LA LIMA">LA LIMA</option>
+                <option value="VILLANUEVA">VILLANUEVA</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label class="fl">Zona de recolecta</label>
+              <select id="f-zona-rec" class="fi">
+                <option value="">—</option>
+              </select>
+            </div>
+
+            <!-- GPS con mini mapa -->
+            <div class="fg" style="grid-column:1/-1">
+              <label class="fl">Coordenadas GPS <span style="color:var(--td);font-weight:400">(opcional)</span></label>
               <div style="display:flex;gap:6px">
-                <input class="fi" id="f-gps-rec" placeholder="15.6133,-87.9480" style="flex:1" oninput="ubiAutodetectarZona(this.value,'wiz-rec')">
+                <input class="fi" id="f-gps-rec" placeholder="15.6133,-87.9480" style="flex:1" oninput="ubiAutodetectarZona(this.value,'wiz-rec');wizCalcularTarifa()">
                 <button type="button" class="btn btn-ghost btn-sm" onclick="wizPegaGpsRec()" title="Pegar">📋</button>
               </div>
               <div id="wiz-rec-zona-detectada" style="font-size:10px;color:var(--verde);margin-top:2px;display:none"></div>
               <div id="wiz-rec-minimapa" style="display:none;height:130px;border-radius:10px;overflow:hidden;border:1px solid var(--g4);margin-top:8px"></div>
             </div>
-            <div class="fg"><label class="fl">¿Pagar en establecimiento?</label>
+
+            <!-- ¿Pagar en establecimiento? -->
+            <div class="fg" style="grid-column:1/-1">
+              <label class="fl">¿Se paga en el establecimiento?</label>
               <div class="tog-grp">
-                <div class="tog-btn" id="tp-si" onclick="setPagar(true)">Sí, pagaremos</div>
-                <div class="tog-btn on" id="tp-no" onclick="setPagar(false)">No / Ya pagado</div>
+                <div class="tog-btn" id="tp-si" onclick="setPagar(true)">💵 Sí, pagamos ahí</div>
+                <div class="tog-btn on" id="tp-no" onclick="setPagar(false)">✓ No / Ya pagado</div>
               </div>
             </div>
-            <div class="fg" id="g-monto-estab" style="display:none"><label class="fl">Monto a pagar</label>
+            <div class="fg" id="g-monto-estab" style="display:none;grid-column:1/-1">
+              <label class="fl">Monto a pagar en el establecimiento (L.)</label>
               <input type="number" id="f-monto-estab" class="fi" placeholder="0.00" step="0.01">
             </div>
-            <div class="fg"><label class="fl">N° Encargado (orden del local)</label>
-              <input type="text" id="f-encargado" class="fi" placeholder="Ej: 7555">
+
+            <!-- N° de orden -->
+            <div class="fg">
+              <label class="fl">N° Orden del establecimiento</label>
+              <input type="text" id="f-encargado" class="fi" placeholder="Ej: 7555 (opcional)">
             </div>
-            <div class="fg full"><label class="fl">Detalles del pedido / descripción</label>
-              <textarea id="f-descripcion" class="fi" rows="3" placeholder="Ej: 1x Combo Familiar, 2x Refrescos..."></textarea>
+
+            <!-- Descripción del pedido -->
+            <div class="fg" style="grid-column:1/-1">
+              <label class="fl">Descripción / Detalle del pedido</label>
+              <textarea id="f-descripcion" class="fi" rows="2" placeholder="Ej: 1x Combo Familiar, 2x Refrescos..."></textarea>
             </div>
+
+            <!-- Productos del comercio -->
+            <div class="fg" id="grp-productos-wiz" style="display:none;grid-column:1/-1">
+              <label class="fl">Productos del comercio <span style="color:var(--td);font-weight:400">(opcional)</span></label>
+              <div id="productos-wiz-lista" style="max-height:200px;overflow-y:auto;border:1px solid var(--g4);border-radius:10px;padding:6px"></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding:6px 10px;background:var(--g3);border-radius:8px;font-size:12px">
+                <span style="color:var(--td)">Subtotal productos:</span>
+                <span style="font-weight:800;color:var(--or)" id="wiz-subtotal-prod">L. 0.00</span>
+              </div>
+            </div>
+
           </div>
           <div class="wiz-footer">
             <button class="btn btn-ghost" onclick="wizGo(0)">← Atrás</button>
@@ -940,48 +998,55 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
         <!-- PASO 2: ENTREGA -->
         <div id="ws-2" style="display:none">
           <div class="form-grid">
+
             <!-- ¿Quién recibe? -->
             <div class="fg" style="grid-column:1/-1">
               <label class="fl">¿Quién recibe?</label>
-              <div class="tog-grp" style="margin-bottom:8px">
+              <div class="tog-grp">
                 <div class="tog-btn on" id="tr-mismo" onclick="wizSetDestinatario('mismo')">👤 Mismo cliente</div>
                 <div class="tog-btn" id="tr-otro" onclick="wizSetDestinatario('otro')">👥 Otra persona</div>
               </div>
             </div>
-            <div class="fg"><label class="fl">Nombre de quien recibe</label>
+            <div class="fg">
+              <label class="fl">Nombre de quien recibe</label>
               <input type="text" id="f-dest-nom" class="fi" placeholder="Quien recibe">
             </div>
-            <div class="fg"><label class="fl">Teléfono de quien recibe</label>
+            <div class="fg">
+              <label class="fl">Teléfono</label>
               <input type="tel" id="f-dest-tel" class="fi" placeholder="9999-9999">
             </div>
+
+            <!-- Ubicaciones guardadas del cliente -->
+            <div class="fg" id="ent-ubics-grp" style="display:none;grid-column:1/-1">
+              <label class="fl">Dirección guardada del cliente</label>
+              <select id="f-ent-ubic" class="fi" onchange="wizSeleccionarUbicEnt()">
+                <option value="">Ingresar manual...</option>
+              </select>
+            </div>
+
             <!-- Dirección de entrega -->
             <div class="fg" style="grid-column:1/-1">
-              <label class="fl">Dirección de Entrega</label>
-              <div style="display:flex;gap:6px;margin-bottom:6px">
-                <input type="text" id="f-dir-ent" class="fi" placeholder="Colonia, calle, referencias..." style="flex:1">
-              </div>
-<!-- f-gps-ent movido arriba -->
+              <label class="fl">Dirección de entrega</label>
+              <input type="text" id="f-dir-ent" class="fi" placeholder="Colonia, calle, referencias...">
             </div>
-            <!-- GPS de entrega con mini mapa -->
+
+            <!-- GPS con mini mapa -->
             <div class="fg" style="grid-column:1/-1">
-              <label class="fl">GPS Entrega <span style="color:var(--td);font-weight:400">(opcional — pega desde Google Maps)</span></label>
+              <label class="fl">Coordenadas GPS <span style="color:var(--td);font-weight:400">(pega desde Google Maps)</span></label>
               <div style="display:flex;gap:6px">
-                <input class="fi" id="f-gps-ent" placeholder="15.6200,-87.9350" style="flex:1" oninput="ubiAutodetectarZona(this.value,'wiz-ent')">
+                <input class="fi" id="f-gps-ent" placeholder="15.6200,-87.9350" style="flex:1" oninput="ubiAutodetectarZona(this.value,'wiz-ent');wizCalcularTarifa()">
                 <button type="button" class="btn btn-ghost btn-sm" onclick="wizPegaGpsEnt()" title="Pegar">📋</button>
               </div>
               <div id="wiz-ent-zona-detectada" style="font-size:10px;color:var(--verde);margin-top:2px;display:none"></div>
               <div id="wiz-ent-minimapa" style="display:none;height:140px;border-radius:10px;overflow:hidden;border:1px solid var(--g4);margin-top:8px"></div>
             </div>
-            <!-- Calcular tarifa -->
+
+            <!-- Observaciones -->
             <div class="fg" style="grid-column:1/-1">
-              <button type="button" class="btn btn-ghost btn-sm" onclick="wizCalcularTarifa()" style="width:100%;justify-content:center">
-                📏 Calcular tarifa automáticamente
-              </button>
-              <div id="tarifa-preview" style="display:none;margin-top:8px;padding:8px 12px;background:var(--g3);border-radius:8px;font-size:12px"></div>
-            </div>
-            <div class="fg full"><label class="fl">Observaciones</label>
+              <label class="fl">Observaciones</label>
               <textarea id="f-obs" class="fi" rows="2" placeholder="Notas adicionales..."></textarea>
             </div>
+
           </div>
           <div class="wiz-footer">
             <button class="btn btn-ghost" onclick="wizGo(1)">← Atrás</button>
@@ -989,87 +1054,113 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
           </div>
         </div>
 
-        <!-- PASO 3: PAGO Y RESUMEN -->
+        <!-- PASO 3: PAGO -->
         <div id="ws-3" style="display:none">
           <div class="form-grid">
-            <div class="fg"><label class="fl">Método de Pago</label>
+
+            <!-- Método de pago -->
+            <div class="fg" style="grid-column:1/-1">
+              <label class="fl">Método de Pago</label>
               <div class="tog-grp">
                 <div class="tog-btn on" id="tpago-EFECTIVO" onclick="setMetodoPago('EFECTIVO')">💵 Efectivo</div>
                 <div class="tog-btn" id="tpago-TRANSFERENCIA" onclick="setMetodoPago('TRANSFERENCIA')">📲 Transfer.</div>
                 <div class="tog-btn" id="tpago-TARJETA" onclick="setMetodoPago('TARJETA')">💳 Tarjeta</div>
               </div>
             </div>
-            <div class="fg"><label class="fl">Tarifa Dinámica</label>
-              <select id="f-tarifa-din" class="fs" onchange="calcTarifa()">
+
+            <!-- Tarifa dinámica -->
+            <div class="fg">
+              <label class="fl">Condición de entrega</label>
+              <select id="f-tarifa-din" class="fi" onchange="calcTarifa()">
                 <option value="NORMAL">Normal</option>
                 <option value="LLUVIA">🌧 Lluvia (+20%)</option>
                 <option value="HORA_PICO">⚡ Hora Pico (+30%)</option>
                 <option value="NOCTURNO">🌙 Nocturno (+15%)</option>
               </select>
             </div>
-            <div class="fg"><label class="fl">Monto Producto / Compra (L.)</label>
-              <div class="stepper">
-                <button class="stepper-btn" onclick="stepVal('sv-prod',-5)">−</button>
-                <span class="stepper-val" id="sv-prod">0.00</span>
-                <button class="stepper-btn" onclick="stepVal('sv-prod',5)">+</button>
-              </div>
-            </div>
-            <div class="fg"><label class="fl">Tarifa Envío (L.)</label>
-              <div class="stepper">
-                <button class="stepper-btn" onclick="stepVal('sv-envio',-5)">−</button>
-                <span class="stepper-val" id="sv-envio">50.00</span>
-                <button class="stepper-btn" onclick="stepVal('sv-envio',5)">+</button>
-              </div>
-            </div>
-            <div class="fg"><label class="fl">Propina (L.)</label>
-              <div class="stepper">
-                <button class="stepper-btn" onclick="stepVal('sv-propina',-5)">−</button>
-                <span class="stepper-val" id="sv-propina">0.00</span>
-                <button class="stepper-btn" onclick="stepVal('sv-propina',5)">+</button>
-              </div>
-            </div>
-            <div class="fg"><label class="fl">¿Quién Paga el Envío?</label>
-              <select id="f-quien-paga" class="fs">
-                <option value="DESTINATARIO">Destinatario (cliente)</option>
-                <option value="REMITENTE">Remitente (quien envía)</option>
+
+            <!-- Quién paga -->
+            <div class="fg">
+              <label class="fl">¿Quién paga el envío?</label>
+              <select id="f-quien-paga" class="fi">
+                <option value="DESTINATARIO">Cliente destino</option>
+                <option value="REMITENTE">Quien envía</option>
                 <option value="COMERCIO">Comercio</option>
               </select>
             </div>
-            <div class="fg"><label class="fl">% Comisión Producto</label>
-              <select id="f-pct-comision" class="fs" onchange="actualizarResumen()">
-                <option value="0">Sin comisión de producto</option>
-                <option value="8">8% del subtotal</option>
-                <option value="9">9% del subtotal</option>
-                <option value="10">10% del subtotal</option>
+
+            <!-- Tarifa calculada automáticamente -->
+            <div class="fg" style="grid-column:1/-1">
+              <div id="tarifa-preview" style="padding:10px 14px;background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.2);border-radius:10px;font-size:12px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="color:var(--td)">📏 Tarifa calculada automáticamente</span>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="wizCalcularTarifa()">Recalcular</button>
+                </div>
+                <div id="tarifa-detalle" style="margin-top:4px;font-size:11px;color:var(--td)">Ingresa las coordenadas GPS en Recolecta y Entrega</div>
+              </div>
+            </div>
+
+            <!-- Montos editables directamente -->
+            <div class="fg">
+              <label class="fl">Monto Producto / Compra (L.)</label>
+              <input type="number" id="sv-prod-inp" class="fi" value="0" min="0" step="1" oninput="syncStepVal('sv-prod',this.value)">
+            </div>
+
+            <div class="fg">
+              <label class="fl">Tarifa Envío (L.)</label>
+              <input type="number" id="sv-envio-inp" class="fi" value="50" min="0" step="5" oninput="syncStepVal('sv-envio',this.value)">
+            </div>
+
+            <div class="fg">
+              <label class="fl">Propina (L.)</label>
+              <input type="number" id="sv-propina-inp" class="fi" value="0" min="0" step="5" oninput="syncStepVal('sv-propina',this.value)">
+            </div>
+
+            <div class="fg">
+              <label class="fl">% Comisión Producto</label>
+              <select id="f-pct-comision" class="fi" onchange="actualizarResumen()">
+                <option value="0">Sin comisión</option>
+                <option value="8">8%</option>
+                <option value="9">9%</option>
+                <option value="10">10%</option>
               </select>
             </div>
-            <div class="fg full"><label class="fl">Cupón de descuento</label>
-              <div style="display:flex;gap:8px;">
-                <input type="text" id="f-cupon" class="fi" placeholder="Código cupón (ej: SOMAR10)" style="flex:1;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+
+            <!-- Cupón -->
+            <div class="fg" style="grid-column:1/-1">
+              <label class="fl">Cupón de descuento</label>
+              <div style="display:flex;gap:8px">
+                <input type="text" id="f-cupon" class="fi" placeholder="Código cupón" style="flex:1;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
                 <button type="button" class="btn btn-ghost btn-sm" onclick="validarCupon()">✓ Validar</button>
               </div>
               <div id="cupon-status" style="font-size:12px;margin-top:6px;display:none;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.05)"></div>
             </div>
-            <div class="fg"><label class="fl">Cliente Pagará Con (L.)</label>
+
+            <!-- Cliente pagará con -->
+            <div class="fg">
+              <label class="fl">Cliente pagará con (L.)</label>
               <input type="number" id="f-paga-con" class="fi" placeholder="0.00" step="0.01">
             </div>
+
           </div>
-          <div class="resumen" style="margin-bottom:16px">
+
+          <!-- Resumen -->
+          <div class="resumen" style="margin:12px 0">
             <div class="res-row"><span>Cliente</span><span id="r-cliente">—</span></div>
             <div class="res-row"><span>Tipo</span><span id="r-tipo">—</span></div>
             <div class="res-row"><span>Recolecta</span><span id="r-recolecta">—</span></div>
             <div class="res-row"><span>Entrega</span><span id="r-entrega">—</span></div>
-            <div class="res-row"><span>Pago</span><span id="r-pago">—</span></div>
             <div class="res-row"><span>Monto Producto</span><span id="r-prod">L. 0.00</span></div>
             <div class="res-row"><span>Tarifa Envío</span><span id="r-envio">L. 50.00</span></div>
-            <div class="res-row"><span>TOTAL A COBRAR</span><span id="r-total">L. 50.00</span></div>
+            <div class="res-row" style="font-size:14px;font-weight:800;border-top:1px solid var(--g4);padding-top:8px"><span>TOTAL A COBRAR</span><span id="r-total" style="color:var(--or)">L. 50.00</span></div>
+            <div id="r-desglose"></div>
           </div>
+
           <div class="wiz-footer">
             <button class="btn btn-ghost" onclick="wizGo(2)">← Atrás</button>
             <button class="btn btn-primary" id="btn-guardar" onclick="guardarPedido()">💾 Guardar Pedido</button>
           </div>
         </div>
-      </div>
 
       <!-- ═══ MAPA ══════════════════════════════════════════════ -->
       <div class="view" id="view-mapa" style="margin:-16px;overflow:hidden;display:none;flex-direction:column;height:calc(100vh - 52px)">
@@ -3060,7 +3151,7 @@ function wizGo(step) {
     if(ws) ws.style.display = i===step ? 'block' : 'none';
     if(wt) { wt.classList.remove('active','done'); if(i===step) wt.classList.add('active'); else if(i<step) wt.classList.add('done'); }
   }
-  if(step === 3) actualizarResumen();
+  if(step === 3) { wizCalcularTarifa(); actualizarResumen(); }
 }
 
 function setTipo(v) {
@@ -3126,9 +3217,9 @@ function actualizarResumen() {
   const cli   = document.getElementById('f-cli-nom')?.value || '—';
   const rec   = document.getElementById('f-comercio')?.value || '—';
   const ent   = document.getElementById('f-dir-ent')?.value || document.getElementById('f-gps-ent')?.value || '—';
-  const prod  = S.stepVals['sv-prod'] || 0;
-  const envio = S.stepVals['sv-envio'] || 50;
-  const prop  = S.stepVals['sv-propina'] || 0;
+  const prod  = parseFloat(document.getElementById('sv-prod-inp')?.value||0)  || S.stepVals['sv-prod']  || 0;
+  const envio = parseFloat(document.getElementById('sv-envio-inp')?.value||0) || S.stepVals['sv-envio'] || 50;
+  const prop  = parseFloat(document.getElementById('sv-propina-inp')?.value||0)||S.stepVals['sv-propina']||0;
   const desc  = S.cuponData ? parseFloat(S.cuponData.descuento) : 0;
   const pctCom= parseFloat(document.getElementById('f-pct-comision')?.value || 0);
   const baseApp = parseFloat(((prod * pctCom) / 100).toFixed(2));
@@ -3162,9 +3253,9 @@ async function guardarPedido() {
   if(!cli) return toast('El nombre del cliente es requerido', 'danger');
   const btn = document.getElementById('btn-guardar');
   btn.disabled = true; btn.textContent = '⏳ Guardando...';
-  const prod  = S.stepVals['sv-prod'] || 0;
-  const envio = S.stepVals['sv-envio'] || 50;
-  const prop  = S.stepVals['sv-propina'] || 0;
+  const prod  = parseFloat(document.getElementById('sv-prod-inp')?.value||0)  || S.stepVals['sv-prod']  || 0;
+  const envio = parseFloat(document.getElementById('sv-envio-inp')?.value||0) || S.stepVals['sv-envio'] || 50;
+  const prop  = parseFloat(document.getElementById('sv-propina-inp')?.value||0)||S.stepVals['sv-propina']||0;
   const total = prod + envio + prop;
   const ingDelivery = parseFloat((envio * 0.7).toFixed(2));
   // Calcular multiplicador de tarifa dinámica
@@ -3190,7 +3281,7 @@ async function guardarPedido() {
 
     // Comercio / recolecta
     nombre_comercio:          document.getElementById('f-comercio')?.value?.trim() || null,
-    ciudad_origen:            document.getElementById('f-ciudad')?.value?.trim() || 'CHOLOMA',
+    ciudad_origen:            document.getElementById('f-ciudad-rec')?.value?.trim() || _wizComSel?.ciudad || 'CHOLOMA',
     direccion_recogida:       document.getElementById('f-dir-rec')?.value?.trim() || null,
     ubicacion_recogida_gps:   document.getElementById('f-gps-rec')?.value?.trim() || null,
     ya_encargado:             !!document.getElementById('f-encargado')?.value?.trim(),
@@ -3243,7 +3334,20 @@ async function guardarPedido() {
   }
   sonarPedidoNuevo();
   // Reset wizard
-  ['f-cli-nom','f-cli-tel','f-comercio','f-dir-rec','f-gps-rec','f-encargado','f-descripcion','f-dir-ent','f-gps-ent','f-obs','f-cupon'].forEach(id => { const el=document.getElementById(id); if(el)el.value=''; });
+  ['f-cli-nom','f-cli-tel','f-comercio','f-dir-rec','f-gps-rec','f-encargado',
+    'f-descripcion','f-dir-ent','f-gps-ent','f-obs','f-cupon',
+    'sv-prod-inp','sv-propina-inp'].forEach(id => { const el=document.getElementById(id); if(el)el.value=''; });
+  const envioInp=document.getElementById('sv-envio-inp'); if(envioInp) envioInp.value='50';
+  _wizCliSel=null; _wizComSel=null; _wizProductos=[];
+  document.getElementById('cli-seleccionado').style.display='none';
+  document.getElementById('com-suc-grp').style.display='none';
+  document.getElementById('grp-productos-wiz').style.display='none';
+  document.getElementById('cli-ubics-grp').style.display='none';
+  document.getElementById('ent-ubics-grp').style.display='none';
+  // Limpiar mini mapas
+  ['wiz-rec-minimapa','wiz-ent-minimapa'].forEach(id=>{
+    const el=document.getElementById(id); if(el){el.style.display='none';if(el._mapaInst){el._mapaInst.remove();el._mapaInst=null;}}
+  });
   S.cuponData=null;
   const cuponSt=document.getElementById('cupon-status'); if(cuponSt)cuponSt.style.display='none';
   const pctEl=document.getElementById('f-pct-comision'); if(pctEl)pctEl.value='0';
@@ -3270,1331 +3374,402 @@ async function guardarPedido() {
   nav('pedidos');
 }
 
-// ─── WIZARD: Búsqueda inteligente ────────────────────────────
-var _wizCliTimer = null, _wizComTimer = null;
-var _wizCliSel = null, _wizComSel = null; // objetos seleccionados
 
+// ════════════════════════════════════════════════════════════
+// WIZARD NUEVO PEDIDO — JS COMPLETO
+// ════════════════════════════════════════════════════════════
+
+var _wizCliTimer = null, _wizComTimer = null;
+var _wizCliSel   = null, _wizComSel   = null;
+var _wizProductos = []; // productos seleccionados
+
+// ─── syncStepVal: sincronizar input numérico con S.stepVals ──
+function syncStepVal(id, val) {
+  const v = parseFloat(val) || 0;
+  S.stepVals[id] = v;
+  // Sincronizar con el span legacy (por si se usa en algún lado)
+  const span = document.getElementById(id);
+  if(span) span.textContent = v.toFixed(2);
+  actualizarResumen();
+}
+
+// ─── Compatibilidad con stepVal viejo ────────────────────────
+function stepVal(id, delta) {
+  S.stepVals[id] = Math.max(0, (S.stepVals[id]||0) + delta);
+  const inp = document.getElementById(id+'-inp');
+  if(inp) inp.value = S.stepVals[id].toFixed(2);
+  const span = document.getElementById(id);
+  if(span) span.textContent = S.stepVals[id].toFixed(2);
+  actualizarResumen();
+}
+
+// ─── Agregar nuevo cliente desde el wizard ───────────────────
+function wizAgregarNuevoCliente() {
+  abrirModal('cliente');
+  // Al guardar, wizSelCliente se llamará desde guardarDatos.cliente
+}
+
+// ─── Búsqueda de cliente/comercio ────────────────────────────
 async function wizBuscarCliente(q) {
   clearTimeout(_wizCliTimer);
   const dd = document.getElementById('cli-dropdown');
-  if(!q || q.length < 2) { if(dd) dd.style.display='none'; return; }
+  if(!q || q.length < 1) { if(dd) dd.style.display='none'; return; }
   _wizCliTimer = setTimeout(async()=>{
-    const {data} = await sb.from('clientes').select('id,nombre,celular,ciudad,direccion,colonia')
-      .or(`nombre.ilike.%${q}%,celular.ilike.%${q}%`).limit(8);
+    // Buscar en clientes Y comercios simultáneamente
+    const [resC, resCom] = await Promise.all([
+      sb.from('clientes').select('id,nombre,celular,ciudad,direccion,colonia')
+        .or(`nombre.ilike.%${q}%,celular.ilike.%${q}%`).limit(6),
+      sb.from('comercios').select('id,nombre,ciudad,whatsapp,telefono')
+        .ilike('nombre',`%${q}%`).eq('activo',true).limit(4)
+    ]);
     if(!dd) return;
-    if(!data?.length){dd.innerHTML='<div style="padding:10px;font-size:12px;color:var(--td)">Sin resultados</div>';dd.style.display='block';return;}
+    const clientes  = resC.data||[];
+    const comercios = resCom.data||[];
+    if(!clientes.length && !comercios.length) {
+      dd.innerHTML = '<div style="padding:10px;font-size:12px;color:var(--td)">Sin resultados — puedes agregar nuevo cliente abajo</div>';
+      dd.style.display='block'; return;
+    }
+    let html = '';
+    if(clientes.length) {
+      html += `<div style="padding:6px 12px;font-size:10px;color:var(--td);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Clientes</div>`;
+      html += clientes.map(c=>`
+        <div onclick="wizSelCliente(${JSON.stringify(c).replace(/"/g,'&quot;')},'cli')"
+          style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--g3);font-size:12px"
+          onmouseover="this.style.background='var(--g3)'" onmouseout="this.style.background=''">
+          <div style="font-weight:700">👤 ${c.nombre}</div>
+          <div style="color:var(--td)">${c.celular||''} · ${c.ciudad||''} ${c.colonia||''}</div>
+        </div>`).join('');
+    }
+    if(comercios.length) {
+      html += `<div style="padding:6px 12px;font-size:10px;color:var(--td);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Comercios</div>`;
+      html += comercios.map(c=>`
+        <div onclick="wizSelCliente(${JSON.stringify(c).replace(/"/g,'&quot;')},'com')"
+          style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--g3);font-size:12px"
+          onmouseover="this.style.background='var(--g3)'" onmouseout="this.style.background=''">
+          <div style="font-weight:700">🏪 ${c.nombre}</div>
+          <div style="color:var(--td)">${c.ciudad||''} · ${c.telefono||c.whatsapp||''}</div>
+        </div>`).join('');
+    }
+    dd.innerHTML = html;
     dd.style.display='block';
-    dd.innerHTML = data.map(c=>`
-      <div onclick="wizSelCliente(${JSON.stringify(c).replace(/"/g,'&quot;')})"
-        style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--g3);font-size:12px"
-        onmouseover="this.style.background='var(--g3)'" onmouseout="this.style.background=''">
-        <div style="font-weight:700">${c.nombre}</div>
-        <div style="color:var(--td)">${c.celular||''} · ${c.ciudad||''} ${c.colonia||''}</div>
-      </div>`).join('');
-  }, 250);
+  }, 200);
 }
 
-function wizSelCliente(c) {
-  _wizCliSel = c;
-  document.getElementById('f-cli-nom').value = c.nombre;
-  document.getElementById('f-cli-tel').value = c.celular||'';
+function wizSelCliente(c, tipo='cli') {
+  _wizCliSel = {...c, _tipo: tipo};
+  document.getElementById('f-cli-nom').value   = c.nombre;
+  document.getElementById('f-cli-tel').value   = c.celular||c.telefono||c.whatsapp||'';
   if(c.ciudad) document.getElementById('f-ciudad').value = c.ciudad;
   document.getElementById('cli-dropdown').style.display='none';
-  // Mostrar chip seleccionado
-  const chip = document.getElementById('cli-seleccionado');
+  // Chip
   document.getElementById('cli-sel-nombre').textContent = c.nombre;
-  document.getElementById('cli-sel-tel').textContent = c.celular||'';
-  document.getElementById('cli-sel-dir').textContent = [c.ciudad,c.colonia,c.direccion].filter(Boolean).join(' · ');
-  chip.style.display='block';
-  // Cargar ubicaciones del cliente
-  wizCargarUbicsCli(c.id);
-  // Prellenar destinatario como el mismo cliente
+  document.getElementById('cli-sel-tel').textContent    = c.celular||c.telefono||'';
+  document.getElementById('cli-sel-dir').textContent    = [c.ciudad,c.colonia,c.direccion].filter(Boolean).join(' · ');
+  document.getElementById('cli-seleccionado').style.display='block';
+  // Pre-llenar destinatario
   document.getElementById('f-dest-nom').value = c.nombre;
-  document.getElementById('f-dest-tel').value = c.celular||'';
+  document.getElementById('f-dest-tel').value = c.celular||c.telefono||'';
+  // Cargar ubicaciones de entrega
+  if(c.id) wizCargarUbicsCli(c.id);
+  actualizarResumen();
 }
 
 function wizLimpiarCliente() {
   _wizCliSel = null;
-  document.getElementById('f-cli-nom').value = '';
-  document.getElementById('f-cli-tel').value = '';
+  ['f-cli-nom','f-cli-tel','f-dest-nom','f-dest-tel'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
   document.getElementById('cli-seleccionado').style.display='none';
   document.getElementById('cli-ubics-grp').style.display='none';
-  document.getElementById('f-dest-nom').value = '';
-  document.getElementById('f-dest-tel').value = '';
+  document.getElementById('ent-ubics-grp').style.display='none';
 }
 
 async function wizCargarUbicsCli(clienteId) {
-  const {data} = await sb.from('ubicaciones_cliente').select('*').eq('cliente_id',clienteId).order('es_principal',{ascending:false});
-  const sel = document.getElementById('f-cli-ubic');
-  const grp = document.getElementById('cli-ubics-grp');
-  if(!data?.length){grp.style.display='none';return;}
-  grp.style.display='block';
-  sel.innerHTML = '<option value="">Ingresar dirección manual...</option>' +
-    data.map(u=>`<option value="${u.id}" data-dir="${u.direccion||''}" data-col="${u.colonia||''}" data-gps="${u.ubicacion_gps||''}">${u.es_principal?'⭐ ':''} ${u.nombre} — ${u.direccion||u.colonia||''}</option>`).join('');
+  const {data} = await sb.from('ubicaciones_cliente').select('*')
+    .eq('cliente_id',clienteId).order('es_principal',{ascending:false});
+  // Selector en paso 0
+  const grp0 = document.getElementById('cli-ubics-grp');
+  const sel0 = document.getElementById('f-cli-ubic');
+  // Selector en paso 2 (entrega)
+  const grp2 = document.getElementById('ent-ubics-grp');
+  const sel2 = document.getElementById('f-ent-ubic');
+  if(!data?.length) { if(grp0) grp0.style.display='none'; if(grp2) grp2.style.display='none'; return; }
+  const opts = '<option value="">Ingresar dirección manual...</option>' +
+    data.map(u=>`<option value="${u.id}"
+      data-dir="${u.direccion||''}" data-col="${u.colonia||''}"
+      data-gps="${u.ubicacion_gps||''}" data-ciudad="${u.ciudad||''}"
+      >${u.es_principal?'⭐':''} ${u.nombre} — ${u.direccion||u.colonia||''}</option>`).join('');
+  if(grp0 && sel0) { grp0.style.display='block'; sel0.innerHTML=opts; }
+  if(grp2 && sel2) { grp2.style.display='block'; sel2.innerHTML=opts; }
 }
 
 function wizSeleccionarUbicCli() {
   const sel = document.getElementById('f-cli-ubic');
-  const opt = sel.options[sel.selectedIndex];
+  const opt = sel?.options[sel.selectedIndex];
   if(!opt?.value) return;
-  const dir = opt.dataset.dir||'';
-  const col = opt.dataset.col||'';
-  const gps = opt.dataset.gps||'';
-  document.getElementById('f-dir-ent').value = [col,dir].filter(Boolean).join(', ');
-  document.getElementById('f-gps-ent').value = gps;
+  // Rellenar en paso 2
+  const dir = document.getElementById('f-dir-ent');
+  const gps = document.getElementById('f-gps-ent');
+  const ciudad = document.getElementById('f-ciudad');
+  if(dir) dir.value = [opt.dataset.col,opt.dataset.dir].filter(Boolean).join(', ');
+  if(gps && opt.dataset.gps) { gps.value=opt.dataset.gps; ubiAutodetectarZona(opt.dataset.gps,'wiz-ent'); }
+  if(ciudad && opt.dataset.ciudad) ciudad.value = opt.dataset.ciudad;
   wizCalcularTarifa();
 }
 
+function wizSeleccionarUbicEnt() {
+  const sel = document.getElementById('f-ent-ubic');
+  const opt = sel?.options[sel.selectedIndex];
+  if(!opt?.value) return;
+  const dir = document.getElementById('f-dir-ent');
+  const gps = document.getElementById('f-gps-ent');
+  if(dir) dir.value = [opt.dataset.col,opt.dataset.dir].filter(Boolean).join(', ');
+  if(gps && opt.dataset.gps) { gps.value=opt.dataset.gps; ubiAutodetectarZona(opt.dataset.gps,'wiz-ent'); }
+  wizCalcularTarifa();
+}
+
+// ─── Búsqueda recolecta (comercio o persona) ─────────────────
 async function wizBuscarComercio(q) {
   clearTimeout(_wizComTimer);
   const dd = document.getElementById('com-dropdown');
   if(!q || q.length < 1) { if(dd) dd.style.display='none'; return; }
   _wizComTimer = setTimeout(async()=>{
-    const {data} = await sb.from('comercios').select('id,nombre,ciudad,direccion,comision_pct,comision_tipo')
-      .ilike('nombre',`%${q}%`).eq('activo',true).limit(10);
+    const [resCom, resCli] = await Promise.all([
+      sb.from('comercios').select('id,nombre,ciudad,direccion,comision_pct,comision_tipo,categoria_id')
+        .ilike('nombre',`%${q}%`).eq('activo',true).limit(6),
+      sb.from('clientes').select('id,nombre,celular,ciudad,direccion')
+        .or(`nombre.ilike.%${q}%,celular.ilike.%${q}%`).limit(4)
+    ]);
     if(!dd) return;
-    if(!data?.length){dd.innerHTML='<div style="padding:10px;font-size:12px;color:var(--td)">Sin resultados</div>';dd.style.display='block';return;}
+    const coms  = resCom.data||[];
+    const clis  = resCli.data||[];
+    let html = '';
+    if(coms.length) {
+      html += `<div style="padding:6px 12px;font-size:10px;color:var(--td);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Comercios</div>`;
+      html += coms.map(c=>`
+        <div onclick="wizSelComercio(${JSON.stringify(c).replace(/"/g,'&quot;')})"
+          style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--g3);font-size:12px"
+          onmouseover="this.style.background='var(--g3)'" onmouseout="this.style.background=''">
+          <div style="font-weight:700">🏪 ${c.nombre}</div>
+          <div style="color:var(--td)">${c.ciudad||''} · ${c.comision_pct?'Com.'+c.comision_pct+'%':''}</div>
+        </div>`).join('');
+    }
+    if(clis.length) {
+      html += `<div style="padding:6px 12px;font-size:10px;color:var(--td);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Personas / Clientes</div>`;
+      html += clis.map(c=>`
+        <div onclick="wizSelComercioPersona(${JSON.stringify(c).replace(/"/g,'&quot;')})"
+          style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--g3);font-size:12px"
+          onmouseover="this.style.background='var(--g3)'" onmouseout="this.style.background=''">
+          <div style="font-weight:700">👤 ${c.nombre}</div>
+          <div style="color:var(--td)">${c.celular||''} · ${c.ciudad||''}</div>
+        </div>`).join('');
+    }
+    if(!html) html = '<div style="padding:10px;font-size:12px;color:var(--td)">Sin resultados</div>';
+    dd.innerHTML = html;
     dd.style.display='block';
-    dd.innerHTML = data.map(c=>`
-      <div onclick="wizSelComercio(${JSON.stringify(c).replace(/"/g,'&quot;')})"
-        style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--g3);font-size:12px"
-        onmouseover="this.style.background='var(--g3)'" onmouseout="this.style.background=''">
-        <div style="font-weight:700">${c.nombre}</div>
-        <div style="color:var(--td)">${c.ciudad||''} ${c.comision_pct?'· Com. '+c.comision_pct+'%':''}</div>
-      </div>`).join('');
-  }, 250);
+  }, 200);
 }
 
 async function wizSelComercio(c) {
   _wizComSel = c;
   document.getElementById('f-comercio').value = c.nombre;
   document.getElementById('com-dropdown').style.display='none';
+  // Ciudad de recolecta
+  if(c.ciudad) { const el=document.getElementById('f-ciudad-rec'); if(el) el.value=c.ciudad; }
   // Cargar sucursales
-  const {data:sucs} = await sb.from('sucursales_comercio').select('*').eq('comercio_id',c.id).eq('activo',true);
-  const sel = document.getElementById('f-com-sucursal');
+  const {data:sucs} = await sb.from('sucursales_comercio').select('*')
+    .eq('comercio_id',c.id).eq('activo',true).order('es_principal',{ascending:false});
   const grp = document.getElementById('com-suc-grp');
+  const sel = document.getElementById('f-com-sucursal');
   if(sucs?.length) {
     grp.style.display='block';
-    sel.innerHTML = '<option value="">Ingresar manual...</option>' +
-      sucs.map(s=>`<option value="${s.id}" data-dir="${s.direccion||''}" data-gps="${s.ubicacion_gps||''}">${s.es_principal?'⭐ ':''} ${s.nombre} — ${s.direccion||''}</option>`).join('');
-    // Si es principal, seleccionarla automáticamente
-    const principal = sucs.find(s=>s.es_principal) || sucs[0];
-    if(principal) {
-      sel.value = principal.id;
-      document.getElementById('f-dir-rec').value = principal.direccion||'';
-      document.getElementById('f-gps-rec').value = principal.ubicacion_gps||'';
-    }
+    sel.innerHTML = '<option value="">Seleccionar sucursal...</option>' +
+      sucs.map(s=>`<option value="${s.id}"
+        data-dir="${s.direccion||''}" data-gps="${s.ubicacion_gps||''}"
+        data-ciudad="${s.ciudad||c.ciudad||''}" data-zona="${s.zona_id||''}"
+        >${s.es_principal?'⭐':''} ${s.nombre} — ${s.direccion||''}</option>`).join('');
+    // Auto-seleccionar la principal
+    const prin = sucs.find(s=>s.es_principal)||sucs[0];
+    if(prin) { sel.value=prin.id; wizSeleccionarSucursal(); }
   } else {
     grp.style.display='none';
-    // Usar dirección del comercio directamente
-    document.getElementById('f-dir-rec').value = c.direccion||'';
+    // Usar dirección del comercio
+    const dir=document.getElementById('f-dir-rec'); if(dir) dir.value=c.direccion||'';
   }
+  // Cargar productos del comercio
+  wizCargarProductosComercio(c.id);
+  // Comisión
+  const pctEl = document.getElementById('f-pct-comision');
+  if(pctEl && c.comision_pct) pctEl.value = c.comision_pct;
   wizCalcularTarifa();
+}
+
+function wizSelComercioPersona(c) {
+  _wizComSel = {...c, _esPersona:true};
+  document.getElementById('f-comercio').value = c.nombre;
+  document.getElementById('com-dropdown').style.display='none';
+  document.getElementById('com-suc-grp').style.display='none';
+  document.getElementById('f-dir-rec').value = c.direccion||'';
+  if(c.ciudad) { const el=document.getElementById('f-ciudad-rec'); if(el) el.value=c.ciudad; }
+  document.getElementById('grp-productos-wiz').style.display='none';
 }
 
 function wizSeleccionarSucursal() {
   const sel = document.getElementById('f-com-sucursal');
-  const opt = sel.options[sel.selectedIndex];
+  const opt = sel?.options[sel.selectedIndex];
   if(!opt?.value) return;
-  document.getElementById('f-dir-rec').value = opt.dataset.dir||'';
-  document.getElementById('f-gps-rec').value = opt.dataset.gps||'';
+  const dir=document.getElementById('f-dir-rec'); if(dir) dir.value=opt.dataset.dir||'';
+  const gps=document.getElementById('f-gps-rec');
+  if(gps && opt.dataset.gps) { gps.value=opt.dataset.gps; ubiAutodetectarZona(opt.dataset.gps,'wiz-rec'); }
+  if(opt.dataset.ciudad) { const el=document.getElementById('f-ciudad-rec'); if(el) el.value=opt.dataset.ciudad; }
+  if(opt.dataset.zona) { const el=document.getElementById('f-zona-rec'); if(el) el.value=opt.dataset.zona; }
   wizCalcularTarifa();
 }
 
+// ─── Productos del comercio en wizard ────────────────────────
+async function wizCargarProductosComercio(comercioId) {
+  const grp = document.getElementById('grp-productos-wiz');
+  const lista = document.getElementById('productos-wiz-lista');
+  if(!grp||!lista) return;
+  const {data} = await sb.from('productos').select('id,nombre,precio,imagen_url,estatus')
+    .eq('comercio_id',comercioId).eq('estatus','activo').order('nombre');
+  if(!data?.length) { grp.style.display='none'; return; }
+  grp.style.display='block';
+  _wizProductos = [];
+  lista.innerHTML = data.map(p=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-bottom:1px solid var(--g3)">
+      <div style="flex:1;font-size:12px;font-weight:600">${p.nombre}</div>
+      <div style="font-size:12px;color:var(--or);font-weight:700;min-width:50px;text-align:right">L.${parseFloat(p.precio).toFixed(0)}</div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <button type="button" onclick="wizCantProd('${p.id}',-1)" style="width:24px;height:24px;border-radius:6px;border:1px solid var(--g4);background:var(--g3);color:var(--tx);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>
+        <span id="wiz-qty-${p.id}" style="width:24px;text-align:center;font-size:12px;font-weight:700">0</span>
+        <button type="button" onclick="wizCantProd('${p.id}',1,${p.precio},'${p.nombre.replace(/'/g,"\'")}')" style="width:24px;height:24px;border-radius:6px;border:1px solid var(--g4);background:var(--g3);color:var(--tx);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
+      </div>
+    </div>`).join('');
+}
+
+function wizCantProd(id, delta, precio=0, nombre='') {
+  const idx = _wizProductos.findIndex(p=>p.id===id);
+  if(idx >= 0) {
+    _wizProductos[idx].qty = Math.max(0, _wizProductos[idx].qty + delta);
+    if(_wizProductos[idx].qty === 0) _wizProductos.splice(idx,1);
+  } else if(delta > 0) {
+    _wizProductos.push({id, nombre, precio, qty:1});
+  }
+  const prod = _wizProductos.find(p=>p.id===id);
+  const el = document.getElementById('wiz-qty-'+id);
+  if(el) el.textContent = prod?.qty||0;
+  // Actualizar subtotal
+  const subtotal = _wizProductos.reduce((s,p)=>s+(p.precio*p.qty),0);
+  const el2 = document.getElementById('wiz-subtotal-prod');
+  if(el2) el2.textContent = `L. ${subtotal.toFixed(2)}`;
+  // Sincronizar con monto producto
+  S.stepVals['sv-prod'] = subtotal;
+  const inp = document.getElementById('sv-prod-inp');
+  if(inp) inp.value = subtotal.toFixed(2);
+  actualizarResumen();
+}
+
+// ─── wizSetDestinatario ───────────────────────────────────────
 function wizSetDestinatario(tipo) {
   document.getElementById('tr-mismo').classList.toggle('on', tipo==='mismo');
   document.getElementById('tr-otro').classList.toggle('on', tipo==='otro');
   if(tipo==='mismo' && _wizCliSel) {
     document.getElementById('f-dest-nom').value = _wizCliSel.nombre||'';
-    document.getElementById('f-dest-tel').value = _wizCliSel.celular||'';
+    document.getElementById('f-dest-tel').value = _wizCliSel.celular||_wizCliSel.telefono||'';
   } else if(tipo==='otro') {
-    document.getElementById('f-dest-nom').value = '';
-    document.getElementById('f-dest-tel').value = '';
+    document.getElementById('f-dest-nom').value='';
+    document.getElementById('f-dest-tel').value='';
     document.getElementById('f-dest-nom').focus();
   }
 }
 
-function wizCiudadCambio() { wizCalcularTarifa(); }
-
+// ─── Cálculo de tarifa — usa ciudad de sucursal ───────────────
 async function wizCalcularTarifa() {
-  const ciudadOrigen  = _wizComSel?.ciudad || document.getElementById('f-ciudad')?.value || 'CHOLOMA';
-  const ciudadDestino = document.getElementById('f-ciudad')?.value || 'CHOLOMA';
+  // Ciudad de recolecta: tomar de la sucursal seleccionada
+  const ciudadRec = document.getElementById('f-ciudad-rec')?.value ||
+                    _wizComSel?.ciudad || 'CHOLOMA';
+  // Ciudad de entrega: del selector del cliente
+  const ciudadEnt = document.getElementById('f-ciudad')?.value || 'CHOLOMA';
   const gpsRec = document.getElementById('f-gps-rec')?.value?.trim()||null;
   const gpsEnt = document.getElementById('f-gps-ent')?.value?.trim()||null;
 
-  // Parsear GPS
-  let lat1=null,lng1=null,lat2=null,lng2=null;
-  if(gpsRec) { const p=gpsRec.split(',').map(parseFloat); if(!isNaN(p[0])) { lat1=p[0]; lng1=p[1]; } }
-  if(gpsEnt) { const p=gpsEnt.split(',').map(parseFloat); if(!isNaN(p[0])) { lat2=p[0]; lng2=p[1]; } }
+  let tarifa = null, km = null;
 
-  let tarifa, km=null;
-
-  if(lat1&&lng1&&lat2&&lng2) {
-    // Llamar RPC de Supabase — lógica protegida en el servidor
-    try {
-      const {data, error} = await sb.rpc('calcular_tarifa_envio', {
-        p_lat1: lat1, p_lng1: lng1,
-        p_lat2: lat2, p_lng2: lng2,
-        p_ciudad_origen:  ciudadOrigen,
-        p_ciudad_destino: ciudadDestino
-      });
-      if(!error && data) {
-        tarifa = parseFloat(data.tarifa);
-        km     = parseFloat(data.km);
-        const prev = document.getElementById('tarifa-preview');
-        if(prev) {
-          prev.style.display='block';
-          const minimoAplicado = parseFloat(data.tarifa) === parseFloat(data.minimo) || parseFloat(data.tarifa_bruta) < parseFloat(data.minimo);
-          prev.innerHTML = `📏 <b>${km.toFixed(1)} km</b> · Tarifa: <b>L. ${tarifa.toFixed(0)}</b> ${data.entre_ciudades?'(entre ciudades)':'(misma ciudad)'}${minimoAplicado?' · <span style="color:var(--am)">mínimo aplicado</span>':''}`;
+  if(gpsRec && gpsEnt) {
+    const [lat1,lng1] = gpsRec.split(',').map(parseFloat);
+    const [lat2,lng2] = gpsEnt.split(',').map(parseFloat);
+    if(!isNaN(lat1)&&!isNaN(lng1)&&!isNaN(lat2)&&!isNaN(lng2)) {
+      try {
+        const {data, error} = await sb.rpc('calcular_tarifa_envio', {
+          p_lat1:lat1, p_lng1:lng1, p_lat2:lat2, p_lng2:lng2,
+          p_ciudad_origen:ciudadRec, p_ciudad_destino:ciudadEnt
+        });
+        if(!error && data) {
+          tarifa = parseFloat(data.tarifa);
+          km     = parseFloat(data.km);
+          const det = document.getElementById('tarifa-detalle');
+          if(det) det.innerHTML = `📏 <b>${km.toFixed(1)} km</b> · <b style="color:var(--or)">L. ${tarifa.toFixed(0)}</b> ${data.entre_ciudades?'(entre ciudades)':'(misma ciudad)'}${data.minimo>=tarifa?' · mínimo aplicado':''}`;
         }
-      }
-    } catch(e) { console.warn('[tarifa RPC]', e); }
+      } catch(e) { console.warn('[tarifa]',e); }
+    }
   }
 
-  // Fallback local si no hay GPS o falló el RPC
   if(!tarifa) {
-    const entre = ciudadOrigen.toUpperCase() !== ciudadDestino.toUpperCase();
-    tarifa = entre ? 150 : 50;
+    tarifa = calcularTarifaLocal(0, ciudadRec, ciudadEnt);
+    const det = document.getElementById('tarifa-detalle');
+    if(det) det.innerHTML = `Sin GPS — tarifa mínima: <b style="color:var(--or)">L. ${tarifa.toFixed(0)}</b>`;
   }
 
-  // Aplicar tarifa dinámica
+  // Aplicar mod dinámico
   const modos = {NORMAL:1,LLUVIA:1.2,HORA_PICO:1.3,NOCTURNO:1.15};
   const mod = modos[document.getElementById('f-tarifa-din')?.value||'NORMAL']||1;
-  tarifa = parseFloat((tarifa * mod).toFixed(2));
+  tarifa = Math.ceil((tarifa*mod)/5)*5;
 
   S.stepVals['sv-envio'] = tarifa;
-  const el = document.getElementById('sv-envio');
-  if(el) el.textContent = tarifa.toFixed(2);
-
-  // Comisión de comercio
-  if(_wizComSel?.comision_pct) {
-    const prod = S.stepVals['sv-prod']||0;
-    const pctEl = document.getElementById('f-pct-comision');
-    if(pctEl) pctEl.value = parseFloat(_wizComSel.comision_pct||0);
-  }
+  const inp = document.getElementById('sv-envio-inp');
+  if(inp) inp.value = tarifa.toFixed(2);
   actualizarResumen();
 }
 
-function haversineKm(lat1,lon1,lat2,lon2) {
-  const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
-  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+function wizCiudadCambio() { wizCalcularTarifa(); }
+
+// ─── actualizarResumen ────────────────────────────────────────
+function actualizarResumen() {
+  const prod  = parseFloat(document.getElementById('sv-prod-inp')?.value||0)  || S.stepVals['sv-prod']  || 0;
+  const envio = parseFloat(document.getElementById('sv-envio-inp')?.value||0) || S.stepVals['sv-envio'] || 50;
+  const prop  = parseFloat(document.getElementById('sv-propina-inp')?.value||0)||S.stepVals['sv-propina']||0;
+  S.stepVals['sv-prod']   = prod;
+  S.stepVals['sv-envio']  = envio;
+  S.stepVals['sv-propina']= prop;
+  const pctCom = parseFloat(document.getElementById('f-pct-comision')?.value||0);
+  const baseApp= parseFloat((prod*pctCom/100).toFixed(2));
+  const desc   = S.cuponData ? parseFloat(S.cuponData.descuento) : 0;
+  const total  = prod + envio + prop - desc;
+  const ingDel = parseFloat((envio*0.70).toFixed(2));
+  const ingSom = parseFloat((envio*0.30+baseApp).toFixed(2));
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+  set('r-cliente', _wizCliSel?.nombre||document.getElementById('f-cli-nom')?.value||'—');
+  const tipoLabel={MANDADO:'Compra',TRASLADO:'Traslado',DELIVERY:'Delivery',ENVIO:'Envío'};
+  set('r-tipo', tipoLabel[S.tipoPedido]||S.tipoPedido);
+  const rec=document.getElementById('f-comercio')?.value||document.getElementById('f-dir-rec')?.value||'—';
+  const ent=document.getElementById('f-dir-ent')?.value||'—';
+  set('r-recolecta', rec.length>30?rec.slice(0,30)+'…':rec);
+  set('r-entrega',   ent.length>30?ent.slice(0,30)+'…':ent);
+  set('r-prod',  `L. ${prod.toFixed(2)}`);
+  set('r-envio', `L. ${envio.toFixed(2)}`);
+  set('r-total', `L. ${total.toFixed(2)}`);
+  const desgEl=document.getElementById('r-desglose');
+  if(desgEl) desgEl.innerHTML=`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--td);padding-top:4px"><span>Rider: <b style="color:var(--verde)">L.${ingDel.toFixed(2)}</b></span><span>Somar: <b style="color:var(--or)">L.${ingSom.toFixed(2)}</b></span></div>`;
 }
 
-// Cálculo local de tarifa (mismo algoritmo que el RPC)
-// Mínimo misma ciudad: L.50 | Mínimo entre ciudades: L.150
-function calcularTarifaLocal(km, ciudadOrigen, ciudadDestino) {
-  const entre = ciudadOrigen.toUpperCase() !== ciudadDestino.toUpperCase();
-  const base   = entre ? 40  : 30;
-  const minimo = entre ? 150 : 50;
-  const bruta  = base + (km * 9);
-  const conMinimo = Math.max(bruta, minimo);
-  // Redondear al siguiente múltiplo de 5
-  return Math.ceil(conMinimo / 5) * 5;
+// Tipo de pedido — solo MANDADO y TRASLADO
+function setTipo(v) {
+  S.tipoPedido = v;
+  ['MANDADO','TRASLADO'].forEach(t=>document.getElementById('tt-'+t)?.classList.toggle('on',t===v));
+  actualizarResumen();
 }
 
-// Override calcTarifa para usar la nueva función
-function calcTarifa() { wizCalcularTarifa(); } // async - fire and forget
-
-async function cargarComerciosDL() { /* legacy — no usar */ }
-
-function abrirAsignarRider(dId) {
-  const pedSinAsig = S.pedidos.filter(p => ['PENDIENTE'].includes(p.estatus));
-  if(!pedSinAsig.length) { toast('No hay pedidos sin asignar', 'ghost'); return; }
-  abrirAsignar(pedSinAsig[0].id);
-  S.selRiderId = String(dId);
-  document.getElementById('btn-confirm-asig').disabled = false;
-}
-
-
-// ════════════════════════════════════════════════════════════
-// KANBAN
-// ════════════════════════════════════════════════════════════
-function renderKanban() {
-  const pend = S.pedidos.filter(p => p.estatus === 'PENDIENTE' || (p.estatus === 'ASIGNADO' && !p.delivery_id));
-  const proc = S.pedidos.filter(p => ['ASIGNADO','ACEPTADO','EN_ESTABLECIMIENTO','PEDIDO_EN_CAMINO','ENTREGANDO'].includes(p.estatus));
-  const fin  = S.pedidos.filter(p => p.estatus === 'FINALIZADO');
-  const canc = S.pedidos.filter(p => p.estatus === 'CANCELADO');
-
-  document.getElementById('kb-cnt-pend').textContent = `${pend.length} pedido${pend.length!==1?'s':''}`;
-  document.getElementById('kb-cnt-proc').textContent = `${proc.length} pedido${proc.length!==1?'s':''}`;
-  document.getElementById('kb-cnt-fin').textContent  = `${fin.length+canc.length} pedido${fin.length!==1?'s':''}`;
-
-  const card = (p, accentColor) => {
-    const rider = S.riders.find(r => r.id === p.delivery_id);
-    const ts = p.created_at || p.hora_asignado;
-    const hace = ts ? Math.round((Date.now()-new Date(ts).getTime())/60000) : null;
-    const urgente = hace !== null && hace > 20 && ['PENDIENTE','ASIGNADO'].includes(p.estatus);
-    const comercio = p.nombre_comercio || p.nombre_destinatario || '—';
-    const destino  = p.ciudad_destino || '—';
-    const tarifa   = parseFloat(p.tarifa_envio||0);
-    return `<div onclick="abrirModalPedido('${p.id}')" style="
-      background:var(--g2);border:1px solid ${urgente?'var(--rojo)':accentColor+'33'};
-      border-left:3px solid ${accentColor};border-radius:10px;padding:10px 11px;
-      cursor:pointer;transition:all .15s;
-      ${urgente?'box-shadow:0 0 8px rgba(239,68,68,.3);':''}
-    " onmouseover="this.style.background='var(--g3)'" onmouseout="this.style.background='var(--g2)'">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:5px;">
-        <div class="mono" style="font-size:10px;color:${accentColor}">${p.no_orden||'—'}</div>
-        ${ts && !['FINALIZADO','CANCELADO'].includes(p.estatus) ? `<span class='timer-badge ${hace>45?' urgent':hace>20?' warn':''}' data-ts='${new Date(ts).getTime()}'>—</span>` : hace!==null ? `<span style='font-size:10px;color:var(--td)'>${hace<60?hace+'m':Math.floor(hace/60)+'h'}</span>` : ''}
-      </div>
-      <div style="font-size:12px;font-weight:700;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${comercio}</div>
-      <div style="font-size:12px;font-weight:600;color:#ccc;margin-bottom:2px">${p.nombre_cliente||p.nombre_destinatario||''}</div>
-      <div style="font-size:11px;color:var(--td);margin-bottom:6px">📍 ${destino} · ${p.tipo||'—'}</div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        ${chipEst(p.estatus)}
-        <div style="font-size:11px;color:var(--td)">${rider?'🛵 '+rider.nombre.split(' ')[0]:'<span style="color:var(--rojo);font-size:10px">Sin rider</span>'}</div>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;">
-        <span style="color:var(--td)">${p.metodo_pago||'—'}</span>
-        <span class="mono" style="color:var(--or);font-weight:700">L.${tarifa.toFixed(0)}</span>
-      </div>
-      ${p.estatus==='PENDIENTE'?`<button class="btn btn-primary btn-sm" style="width:100%;justify-content:center;margin-top:8px" onclick="event.stopPropagation();abrirAsignar('${p.id}')">Asignar Rider</button>`:''}
-    </div>`;
-  };
-  const empty = txt => `<div style="text-align:center;padding:20px;font-size:12px;color:var(--td)">${txt}</div>`;
-
-  document.getElementById('kb-pend').innerHTML = pend.length
-    ? pend.map(p=>card(p,'#F59E0B')).join('')
-    : empty('Sin pedidos pendientes');
-
-  document.getElementById('kb-proc').innerHTML = proc.length
-    ? proc.map(p=>card(p,'#FF8C00')).join('')
-    : empty('Sin pedidos en proceso');
-
-  document.getElementById('kb-fin').innerHTML = (fin.length+canc.length)
-    ? [...fin.map(p=>card(p,'#22C55E')), ...canc.map(p=>card(p,'#EF4444'))].join('')
-    : empty('Sin pedidos finalizados hoy');
-}
-
-// Actualizar kanban cuando hay cambios en pedidos
-const _origOnPedidoChange = onPedidoChange;
-// Llamar renderKanban después de cada cambio si está activo
-function _postPedidoChange() {
-  if(document.getElementById('view-kanban').classList.contains('active')) renderKanban();
-  if(S.mapInit) actualizarPedidosEnMapa();
-}
-
-
-// ════════════════════════════════════════════════════════════
-// CONFIGURACIÓN DEL SISTEMA
-// ════════════════════════════════════════════════════════════
-async function cargarNotifsDespacho() {
-  const { data } = await sb.from('notificaciones_despacho')
-    .select('*').order('created_at', { ascending: false }).limit(30);
-  if(data) S.notifs = data;
-  renderBadgeNotifs();
-}
-
-function renderBadgeNotifs() {
-  const badge = document.getElementById('notif-badge');
-  const unread = S.notifs.filter(n => !n.leida).length;
-  if(badge) { badge.textContent = unread; badge.style.display = unread > 0 ? 'flex' : 'none'; }
-}
-
-function toggleNotifs() {
-  S.showNotifs = !S.showNotifs;
-  renderNotifsPanel();
-}
-
-function renderNotifsPanel() {
-  const panel = document.getElementById('notifs-panel');
-  if(!panel) return;
-  panel.style.display = S.showNotifs ? 'flex' : 'none';
-  if(!S.showNotifs) return;
-  const unread = S.notifs.filter(n=>!n.leida);
-  panel.innerHTML = `
-    <div style="padding:12px 14px;border-bottom:1px solid var(--g4);display:flex;justify-content:space-between;align-items:center;">
-      <div style="font-size:13px;font-weight:700">🔔 Notificaciones</div>
-      <button onclick="limpiarNotifs()" style="background:none;border:none;color:var(--or);font-size:11px;font-weight:700;cursor:pointer">Limpiar todas</button>
-    </div>
-    <div style="overflow-y:auto;flex:1;max-height:400px;">
-      ${S.notifs.length===0?'<div style="padding:20px;text-align:center;font-size:12px;color:var(--td)">Sin notificaciones</div>':
-        S.notifs.map(n=>`<div style="padding:10px 14px;border-bottom:1px solid var(--g3);background:${n.leida?'transparent':'rgba(255,140,0,.04)'}; display:flex;gap:10px;align-items:flex-start;">
-          <div style="font-size:18px;flex-shrink:0">${n.icono||'🔔'}</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:700;margin-bottom:2px">${n.titulo}</div>
-            ${n.cuerpo?`<div style="font-size:11px;color:var(--td)">${n.cuerpo}</div>`:''}
-            <div style="font-size:10px;color:var(--td);margin-top:3px">${fmtFecha(n.created_at)}</div>
-          </div>
-          ${!n.leida?'<div style="width:8px;height:8px;border-radius:50%;background:var(--or);flex-shrink:0;margin-top:4px"></div>':''}
-        </div>`).join('')}
-    </div>`;
-}
-
-async function limpiarNotifs() {
-  await sb.from('notificaciones_despacho').update({leida:true}).eq('leida',false);
-  S.notifs = S.notifs.map(n=>({...n,leida:true}));
-  renderBadgeNotifs();
-  renderNotifsPanel();
-}
-
-async function cargarConfig() {
-  const { data, error } = await sb.from('configuracion').select('*').order('clave');
-  if(error) { console.error('[config]', error.message); return; }
-  S.config = {};
-  data?.forEach(r => { S.config[r.clave] = r.valor; });
-  console.log('[config] cargada:', S.config);
-}
-
-async function guardarConfigClave(clave, valor, btn) {
-  if(btn) { btn.disabled=true; btn.textContent='Guardando...'; }
-  const { error } = await sb.from('configuracion')
-    .upsert({ clave, valor: String(valor), updated_at: new Date().toISOString() }, { onConflict:'clave' });
-  if(error) {
-    toast('Error: ' + error.message, 'danger');
-  } else {
-    S.config[clave] = String(valor);
-    toast('✅ Configuración guardada', 'success');
-    // Si es el radio de zona, actualizar el mapa
-    if(clave === 'zona_radio_km') actualizarZonaCaliente();
-  }
-  if(btn) { btn.disabled=false; btn.textContent='Guardar'; }
-}
-
-function renderConfig() {
-  const el = document.getElementById('config-content');
-  if(!el) return;
-
-  const cfg = S.config;
-  const fila = (clave, label, desc, tipo='number', min=0, max=9999, step=0.5) => `
-    <div style="padding:14px 0;border-bottom:1px solid var(--g4);">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:180px;">
-          <div style="font-size:13px;font-weight:700;margin-bottom:3px;">${label}</div>
-          <div style="font-size:11px;color:var(--td);">${desc}</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
-          <input
-            type="${tipo}" id="cfg-${clave}"
-            value="${cfg[clave]||''}"
-            min="${min}" max="${max}" step="${step}"
-            style="width:100px;background:var(--g3);border:1px solid var(--g5);border-radius:6px;padding:7px 10px;color:var(--tx);font-size:14px;font-weight:700;text-align:center;"
-            ${tipo==='number'?'':''}
-          >
-          <button class="btn btn-primary btn-sm"
-            onclick="guardarConfigClave('${clave}', document.getElementById('cfg-${clave}').value, this)">
-            Guardar
-          </button>
-        </div>
-      </div>
-    </div>`;
-
-  el.innerHTML = `
-    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">🗺️ Zonas y Cobertura</div>
-    ${fila('zona_radio_km', 'Radio de zona de cobertura (km)', 'Distancia máxima del rider al centro de la zona para recibir pedidos. La app Delivery muestra esta zona en su mapa.', 'number', 0.5, 20, 0.5)}
-
-    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-top:16px;margin-bottom:2px;">💰 Comisiones</div>
-    ${fila('comision_bronce', 'Comisión nivel Bronce (%)', 'Porcentaje que Somar cobra al rider por cada envío (nivel Bronce).', 'number', 0, 100, 1)}
-    ${fila('comision_plata',  'Comisión nivel Plata (%)',  'Porcentaje para riders con 75+ pedidos/mes.', 'number', 0, 100, 1)}
-    ${fila('comision_oro',    'Comisión nivel Oro (%)',    'Porcentaje para riders con 150+ pedidos/mes.', 'number', 0, 100, 1)}
-
-    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-top:16px;margin-bottom:2px;">👛 Billetera</div>
-    ${fila('saldo_minimo', 'Saldo mínimo para operar (L.)', 'El rider debe tener al menos este saldo en su billetera para recibir pedidos.', 'number', 0, 9999, 10)}
-
-    <div style="margin-top:16px;padding:10px 12px;background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.2);border-radius:8px;font-size:11px;color:var(--td);">
-      💡 Los cambios se aplican en tiempo real. La app Delivery lee la configuración al iniciar sesión.
-    </div>
-  `;
-}
-
-
-// ════════════════════════════════════════════════════════════
-// LIQUIDACIONES A RIDERS
-// ════════════════════════════════════════════════════════════
-async function cargarLiquidaciones(estatus='PENDIENTE') {
-  const el = document.getElementById('liq-lista');
-  el.innerHTML = '<div class="empty">Cargando...</div>';
-  const { data, error } = await sb.from('liquidaciones_delivery')
-    .select('*, delivery(nombre, celular, cuenta_bancaria, banco)')
-    .eq('estatus', estatus)
-    .order('creado_at', { ascending: false });
-  if(error) { el.innerHTML = '<div class="empty">Error: ' + error.message + '</div>'; return; }
-  if(!data?.length) { el.innerHTML = '<div class="empty">Sin liquidaciones ' + estatus.toLowerCase() + 's</div>'; return; }
-  // Badge
-  if(estatus === 'PENDIENTE') {
-    const b = document.getElementById('badge-liq');
-    if(b) { b.textContent = data.length; b.style.display = data.length > 0 ? 'inline' : 'none'; }
-  }
-  el.innerHTML = data.map(l => {
-    const rider = l.delivery;
-    const nombre = rider?.nombre || rider?.[0]?.nombre || '—';
-    const banco  = rider?.banco  || rider?.[0]?.banco  || '';
-    const cuenta = rider?.cuenta_bancaria || rider?.[0]?.cuenta_bancaria || '';
-    return `<div class="dep-card">
-      <div class="dep-hdr">
-        <div class="ch-av" style="border:2px solid var(--az)">${inic(nombre)}</div>
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:700">${nombre}</div>
-          ${banco ? `<div style="font-size:11px;color:var(--td)">${banco} · ${cuenta}</div>` : ''}
-          <div style="font-size:11px;color:var(--td)">${fmtFecha(l.creado_at)}</div>
-        </div>
-        <div style="font-size:20px;font-weight:900;color:var(--az)">L. ${parseFloat(l.monto_liquidar).toFixed(2)}</div>
-      </div>
-      <div style="font-size:12px;color:var(--td);padding:8px 0;border-top:1px solid var(--g3);margin-top:8px">${l.descripcion||'—'}</div>
-      ${estatus === 'PENDIENTE' ? `
-        <div class="dep-footer" style="flex-direction:column;gap:8px;align-items:stretch">
-          <div style="font-size:11px;color:var(--td)">Adjunta el comprobante de pago:</div>
-          <div id="comp-prev-${l.id}" style="display:none;margin-bottom:4px">
-            <img id="comp-img-${l.id}" style="height:80px;border-radius:8px;object-fit:cover">
-          </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <label style="flex:1;display:flex;align-items:center;gap:6px;background:var(--g3);border:1px dashed var(--g5);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:12px;color:var(--td)">
-              📎 <span id="comp-lbl-${l.id}">Seleccionar imagen...</span>
-              <input type="file" accept="image/*" id="comp-file-${l.id}" style="display:none"
-                onchange="(function(e,id){
-                  const f=e.target.files[0];if(!f)return;
-                  document.getElementById('comp-lbl-'+id).textContent=f.name;
-                  const prev=document.getElementById('comp-prev-'+id);
-                  if(prev){prev.style.display='block';document.getElementById('comp-img-'+id).src=URL.createObjectURL(f);}
-                })(event,'${l.id}')">
-            </label>
-            <button class="btn btn-success btn-sm" id="btn-liq-${l.id}" onclick="liquidar('${l.id}')">✓ Liquidar</button>
-          </div>
-        </div>
-      ` : `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--g3);margin-top:4px">
-          <span style="font-size:11px;color:var(--verde)">✅ Liquidado ${l.liquidado_at ? fmtFecha(l.liquidado_at) : ''}</span>
-          ${l.comprobante_url ? `<a href="${l.comprobante_url}" target="_blank" class="btn btn-ghost btn-sm">Ver comprobante ↗</a>` : ''}
-        </div>
-      `}
-    </div>`;
-  }).join('');
-}
-
-async function liquidar(liqId) {
-  const fileEl = document.getElementById('comp-file-' + liqId);
-  const file = fileEl?.files?.[0];
-  if(!file) { toast('Selecciona el comprobante de pago', 'danger'); return; }
-
-  const btn = document.getElementById('btn-liq-' + liqId);
-  if(btn) { btn.disabled = true; btn.textContent = '⏳ Subiendo...'; }
-
-  // Subir imagen a Cloudinary
-  let comp_url = '';
-  try {
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('upload_preset', 'somar_riders');
-    fd.append('folder', 'comprobantes');
-    const r = await fetch('https://api.cloudinary.com/v1_1/drkaxsziu/image/upload', { method:'POST', body:fd });
-    const d = await r.json();
-    comp_url = d.secure_url;
-  } catch(e) {
-    toast('Error subiendo imagen: ' + e.message, 'danger');
-    if(btn) { btn.disabled = false; btn.textContent = '✓ Liquidar'; }
-    return;
-  }
-
-  const { data, error } = await sb.rpc('liquidar_pedido', {
-    p_liq_id: liqId,
-    p_comprobante: comp_url,
-    p_notas: '',
-    p_liquidado_por: document.getElementById('u-name')?.textContent || 'Despacho'
-  });
-  if(error || !data?.success) {
-    toast('Error: ' + (error?.message || data?.msg), 'danger');
-    if(btn) { btn.disabled = false; btn.textContent = '✓ Liquidar'; }
-    return;
-  }
-  toast('✅ Liquidación registrada — rider notificado', 'success');
-  cargarLiquidaciones('PENDIENTE');
-}
-
-function filtLiq(btn, estatus) {
-  document.querySelectorAll('#view-liquidaciones .filter-bar .fbtn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  cargarLiquidaciones(estatus);
-}
-
-
-// ════════════════════════════════════════════════════════════
-// GESTIÓN DE TURNOS
-// ════════════════════════════════════════════════════════════
-async function renderTurnos() {
-  const hoy = new Date().toISOString().split('T')[0];
-  const fechaEl = document.getElementById('turnos-fecha');
-  if(fechaEl && !fechaEl.value) fechaEl.value = new Date(Date.now() + 86400000).toISOString().split('T')[0]; // mañana por defecto
-  const fecha = fechaEl?.value || hoy;
-
-  // Cargar turnos configurados
-  const { data: turnos } = await sb.from('turnos_config').select('*').eq('activo', true).order('hora_inicio');
-  const listaEl = document.getElementById('turnos-config-lista');
-  if(!turnos?.length) { listaEl.innerHTML = '<div class="empty">Sin turnos configurados</div>'; }
-  else {
-    listaEl.innerHTML = turnos.map(t => `
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--g4);border-radius:10px;margin-bottom:6px;">
-        <div style="flex:1">
-          <div style="font-size:13px;font-weight:700">${t.nombre}</div>
-          <div style="font-size:11px;color:var(--td)">${t.hora_inicio.slice(0,5)} – ${t.hora_fin.slice(0,5)} · Máx ${t.max_riders} riders</div>
-          <div style="font-size:10px;color:var(--td);margin-top:2px">${(t.dias||[]).join(' ')}</div>
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="asignarTurnoManual('${t.id}','${t.nombre}')">+ Asignar</button>
-        <button class="btn btn-ghost btn-sm" onclick="eliminarTurno('${t.id}')" style="color:var(--rojo)">✕</button>
-      </div>`).join('');
-  }
-
-  // Cargar reservaciones para la fecha seleccionada
-  const resEl = document.getElementById('turnos-reservaciones-lista');
-  const { data: reservas } = await sb.from('reservaciones_turno')
-    .select('*, turno:turno_id(nombre,hora_inicio,hora_fin), delivery:delivery_id(nombre,celular)')
-    .eq('fecha', fecha).order('turno_id');
-  
-  if(!reservas?.length) { resEl.innerHTML = '<div class="empty">Sin reservaciones para esta fecha</div>'; return; }
-  
-  resEl.innerHTML = reservas.map(r => {
-    const turno = r.turno;
-    const rider = Array.isArray(r.delivery) ? r.delivery[0] : r.delivery;
-    const colores = {RESERVADO:'var(--am)',CONFIRMADO:'var(--verde)',CANCELADO:'var(--rojo)',COMPLETADO:'var(--td)'};
-    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--g4);border-radius:10px;margin-bottom:6px;">
-      <div style="flex:1">
-        <div style="font-size:12px;font-weight:700">${rider?.nombre||'—'}</div>
-        <div style="font-size:11px;color:var(--td)">${turno?.nombre||'—'} · ${turno?.hora_inicio?.slice(0,5)||''} – ${turno?.hora_fin?.slice(0,5)||''}</div>
-        ${r.asignado_por?`<div style="font-size:10px;color:var(--td)">Asignado por: ${r.asignado_por}</div>`:''}
-      </div>
-      <span style="font-size:11px;font-weight:700;color:${colores[r.estatus]||'var(--td)'}">${r.estatus}</span>
-      ${r.estatus==='RESERVADO'?`<button class="btn btn-primary btn-sm" onclick="confirmarReserva('${r.id}')">Confirmar</button>`:''}
-      ${r.estatus!=='CANCELADO'&&r.estatus!=='COMPLETADO'?`<button class="btn btn-ghost btn-sm" onclick="cancelarReserva('${r.id}')" style="color:var(--rojo)">Cancelar</button>`:''}
-    </div>`;
-  }).join('');
-}
-
-async function abrirCrearTurno() {
-  const nombre   = prompt('Nombre del turno (ej: Mañana, Tarde, Noche):');
-  if(!nombre) return;
-  const inicio   = prompt('Hora de inicio (HH:MM):');
-  const fin      = prompt('Hora de fin (HH:MM):');
-  const maxR     = parseInt(prompt('Máximo de riders:', S.config.max_riders_turno || '2') || '2');
-  if(!inicio || !fin) return;
-  const { error } = await sb.from('turnos_config').insert({
-    nombre, hora_inicio: inicio, hora_fin: fin, max_riders: maxR
-  });
-  if(error) { toast('Error: ' + error.message, 'danger'); return; }
-  toast('✅ Turno creado');
-  renderTurnos();
-}
-
-async function eliminarTurno(id) {
-  if(!confirm('¿Eliminar este turno?')) return;
-  await sb.from('turnos_config').update({activo:false}).eq('id', id);
-  toast('Turno eliminado');
-  renderTurnos();
-}
-
-async function asignarTurnoManual(turnoId, turnoNombre) {
-  if(!S.riders?.length) { toast('No hay riders disponibles', 'danger'); return; }
-  const fecha = document.getElementById('turnos-fecha')?.value || new Date(Date.now()+86400000).toISOString().split('T')[0];
-  // Mostrar modal de selección en lugar de prompt con saltos de línea
-  const opciones = S.riders.map((r,i) => `<option value="${i}">${r.nombre}</option>`).join('');
-  const div = document.createElement('div');
-  div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
-  div.innerHTML = `<div style="background:var(--g1);border:1px solid var(--g4);border-radius:16px;padding:24px;min-width:300px;max-width:400px;">
-    <div style="font-size:14px;font-weight:700;margin-bottom:4px">Asignar turno: ${turnoNombre}</div>
-    <div style="font-size:12px;color:var(--td);margin-bottom:16px">Fecha: ${fecha}</div>
-    <select id="_turno_rider_sel" style="width:100%;background:var(--g3);border:1px solid var(--g5);border-radius:8px;padding:10px;color:var(--tx);font-size:14px;margin-bottom:14px">
-      ${opciones}
-    </select>
-    <div style="display:flex;gap:8px">
-      <button onclick="this.closest('div[style*=fixed]').remove()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--g5);background:none;color:var(--td);cursor:pointer">Cancelar</button>
-      <button id="_turno_confirmar_btn" style="flex:2;padding:10px;border-radius:8px;border:none;background:var(--or);color:#000;font-weight:700;cursor:pointer">Confirmar</button>
-    </div>
-  </div>`;
-  document.body.appendChild(div);
-  document.getElementById('_turno_confirmar_btn').onclick = async () => {
-    const idx = parseInt(document.getElementById('_turno_rider_sel').value);
-    div.remove();
-    const rider = S.riders[idx];
-    if(!rider) return;
-    const agente = document.getElementById('u-name')?.textContent || 'Despacho';
-    const { error } = await sb.from('reservaciones_turno').upsert({
-      turno_id: turnoId, delivery_id: rider.id, fecha,
-      estatus: 'CONFIRMADO', asignado_por: agente
-    }, { onConflict: 'turno_id,delivery_id,fecha' });
-    if(error) { toast('Error: ' + error.message, 'danger'); return; }
-    toast('✅ ' + rider.nombre + ' asignado al turno ' + turnoNombre);
-    renderTurnos();
-  };
-}
-async function confirmarReserva(id) {
-  await sb.from('reservaciones_turno').update({estatus:'CONFIRMADO'}).eq('id',id);
-  toast('✅ Reservación confirmada');
-  renderTurnos();
-}
-
-async function cancelarReserva(id) {
-  await sb.from('reservaciones_turno').update({estatus:'CANCELADO'}).eq('id',id);
-  toast('Reservación cancelada');
-  renderTurnos();
-}
-
-
-// ════════════════════════════════════════════════════════════
-// COMPROBANTES DE PAGO (transferencia / tarjeta)
-// ════════════════════════════════════════════════════════════
-async function cargarComprobantes(estatus='PENDIENTE') {
-  const el = document.getElementById('comp-lista');
-  el.innerHTML = '<div class="empty">Cargando...</div>';
-
-  // Pedidos con metodo_pago TRANSFERENCIA o TARJETA, finalizados, sin validar
-  let query = sb.from('pedidos')
-    .select('id,no_orden,nombre_cliente,nombre_comercio,subtotal,tarifa_envio,total,monto_cobrar,metodo_pago,imagen_transferencia,transferencia_validada_por,delivery_id,estatus,created_at')
-    .in('metodo_pago', ['TRANSFERENCIA','TARJETA'])
-    .eq('estatus', 'FINALIZADO')
-    .order('created_at', { ascending: false })
-    .limit(50);
-
-  if(estatus === 'PENDIENTE') query = query.is('transferencia_validada_por', null);
-  else if(estatus === 'APROBADO') query = query.not('transferencia_validada_por', 'is', null);
-
-  const { data, error } = await query;
-  if(error) { el.innerHTML = '<div class="empty">Error: ' + error.message + '</div>'; return; }
-
-  // Badge
-  const badge = document.getElementById('badge-comp');
-  if(estatus === 'PENDIENTE' && badge) {
-    badge.textContent = data?.length || 0;
-    badge.style.display = data?.length ? 'inline' : 'none';
-  }
-
-  if(!data?.length) { el.innerHTML = '<div class="empty" style="grid-column:1/-1">Sin comprobantes ' + estatus.toLowerCase() + 's</div>'; return; }
-
-  el.innerHTML = data.map(p => {
-    const rider = S.riders.find(r => r.id === p.delivery_id);
-    const fL = v => 'L. ' + parseFloat(v||0).toFixed(2);
-    const aprobado = !!p.transferencia_validada_por;
-    return `<div style="background:var(--g2);border:1px solid ${aprobado?'rgba(34,197,94,.3)':'var(--g4)'};border-radius:14px;overflow:hidden;">
-      <!-- Header -->
-      <div style="padding:12px 14px;border-bottom:1px solid var(--g4);display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div class="mono" style="font-size:12px;color:var(--or);font-weight:700">${p.no_orden||'—'}</div>
-          <div style="font-size:13px;font-weight:700;margin-top:2px">${p.nombre_cliente||'—'}</div>
-          <div style="font-size:11px;color:var(--td)">${p.nombre_comercio||'—'} · ${p.metodo_pago}</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:18px;font-weight:900;color:var(--or)">${fL(p.monto_cobrar)}</div>
-          <div style="font-size:10px;color:var(--td)">${fmtFecha(p.created_at)}</div>
-        </div>
-      </div>
-      <!-- Desglose -->
-      <div style="padding:10px 14px;border-bottom:1px solid var(--g4);display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px">
-        <div><div style="color:var(--td)">Producto</div><div style="font-weight:700">${fL(p.subtotal)}</div></div>
-        <div><div style="color:var(--td)">Envío</div><div style="font-weight:700">${fL(p.tarifa_envio)}</div></div>
-        <div><div style="color:var(--td)">Rider</div><div style="font-weight:700">${rider?.nombre?.split(' ')[0]||'—'}</div></div>
-      </div>
-      <!-- Comprobante -->
-      <div style="padding:12px 14px">
-        ${p.imagen_transferencia
-          ? `<img src="${p.imagen_transferencia}" onclick="window.open('${p.imagen_transferencia}')"
-              style="width:100%;max-height:200px;object-fit:contain;border-radius:10px;cursor:pointer;background:#111;margin-bottom:10px">`
-          : `<div style="background:var(--g3);border:1px dashed var(--g5);border-radius:10px;padding:20px;text-align:center;font-size:12px;color:var(--td);margin-bottom:10px">
-              📎 Sin comprobante adjunto
-              <br><label style="color:var(--or);cursor:pointer;margin-top:6px;display:inline-block">
-                Subir ahora
-                <input type="file" accept="image/*" style="display:none" onchange="subirComprobante('${p.id}',event)">
-              </label>
-            </div>`
-        }
-        ${aprobado
-          ? `<div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:8px 12px;font-size:12px;color:#22C55E">
-              ✅ Validado por ${p.transferencia_validada_por}
-            </div>`
-          : `<div style="display:flex;gap:8px">
-              <button class="btn btn-success" style="flex:1;justify-content:center" onclick="validarTransferencia('${p.id}',true)">✅ Aprobar</button>
-              <button class="btn btn-danger" style="flex:1;justify-content:center" onclick="validarTransferencia('${p.id}',false)">❌ Rechazar</button>
-            </div>`
-        }
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function filtComp(btn, estatus) {
-  document.querySelectorAll('#view-comprobantes .filter-bar .fbtn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  cargarComprobantes(estatus);
-}
-
-async function subirComprobante(pedidoId, event) {
-  const file = event.target.files[0];
-  if(!file) return;
-  try {
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('upload_preset', 'somar_riders');
-    fd.append('folder', 'comprobantes');
-    const r = await fetch('https://api.cloudinary.com/v1_1/drkaxsziu/image/upload', { method:'POST', body:fd });
-    const d = await r.json();
-    await sb.from('pedidos').update({ imagen_transferencia: d.secure_url }).eq('id', pedidoId);
-    toast('✅ Comprobante subido');
-    cargarComprobantes();
-  } catch(e) { toast('Error: ' + e.message, 'danger'); }
-}
-
-async function validarTransferencia(pedidoId, aprobado) {
-  const agente = document.getElementById('u-name')?.textContent || 'Despacho';
-  const { error } = await sb.from('pedidos').update({
-    transferencia_validada_por: aprobado ? agente : 'RECHAZADO_' + agente,
-    mt_aprobacion_trans: new Date().toISOString(),
-  }).eq('id', pedidoId);
-  if(error) { toast('Error: ' + error.message, 'danger'); return; }
-  toast(aprobado ? '✅ Transferencia aprobada' : '❌ Transferencia rechazada');
-  cargarComprobantes('PENDIENTE');
-}
-
-
-// ════════════════════════════════════════════════════════════
-// MÓDULOS DE DATOS — Clientes, Comercios, Categorías,
-//                    Productos, Cupones, Usuarios
-// ════════════════════════════════════════════════════════════
-
-// Estado local de módulos
-var MD = {
-  clientes:[], comercios:[], categorias:[], productos:[], cupones:[], usuarios:[], zonas:[],
-  filtros:{ clientes:'', comercios:'', productos_comercio:'' },
-  cupFiltro:'todos', usrFiltro:'todos',
-  modalTipo:null, editId:null
-};
-
-
-// ─── Stubs de formularios pendientes ─────────────────────────
-function htmlFormCatcomercio(d=null){ return `
-  <div class="form-grid">
-    <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="catc-nombre" value="${d?.nombre||''}"></div>
-    <div class="fg"><label class="fl">Ícono</label><input class="fi" id="catc-icono" value="${d?.icono||'🏷️'}" maxlength="4" style="font-size:20px;text-align:center"></div>
-    <div class="fg"><label class="fl">Comercio</label><select class="fi" id="catc-com">${(MD.comercios||[]).map(c=>`<option value="${c.id}" ${d?.comercio_id===c.id?'selected':''}>${c.nombre}</option>`).join('')}</select></div>
-    <div class="fg"><label class="fl">Estado</label><select class="fi" id="catc-activo"><option value="true" ${d?.activo!==false?'selected':''}>Activa</option><option value="false" ${d?.activo===false?'selected':''}>Inactiva</option></select></div>
-  </div>`; }
-
-function htmlFormSucursal(d=null){ return '<div style="padding:12px;color:var(--td);font-size:13px">Usa el botón 📍 Suc. en la card del comercio para gestionar sucursales.</div>'; }
-
-// ─── MODAL GENÉRICO ──────────────────────────────────────────
-function abrirModal(tipo, datos=null) {
-  MD.modalTipo = tipo;
-  MD.editId = datos?.id || null;
-  const cfgs = {
-    cliente:     { titulo: datos ? 'Editar Cliente'    : 'Nuevo Cliente',    html: htmlFormCliente(datos)   },
-    comercio:    { titulo: datos ? 'Editar Comercio'   : 'Nuevo Comercio',   html: htmlFormComercio(datos)  },
-    categoria:   { titulo: datos ? 'Editar Categoría'  : 'Nueva Categoría',  html: htmlFormCategoria(datos) },
-    producto:    { titulo: datos ? 'Editar Producto'   : 'Nuevo Producto',   html: htmlFormProducto(datos)  },
-    cupon:       { titulo: datos ? 'Editar Cupón'      : 'Nuevo Cupón',      html: htmlFormCupon(datos)     },
-    catcomercio: { titulo: datos ? 'Editar Categoría'  : 'Nueva Categoría',  html: htmlFormCatcomercio(datos)},
-    sucursal:    { titulo: datos ? 'Editar Sucursal'   : 'Nueva Sucursal',   html: htmlFormSucursal ? htmlFormSucursal(datos) : '' },
-    usuario:     { titulo: datos ? 'Editar Usuario'    : 'Nuevo Usuario',    html: htmlFormUsuario(datos)   },
-  };
-  // Zonas: manejadas directamente por el mapa (zonaClickEditar)
-  if(tipo === 'zona') { toast('Usa el Mapa en Vivo → Zonas para editar zonas','danger'); return; }
-  const cfg = cfgs[tipo];
-  if(!cfg) return;
-  document.getElementById('md-titulo').textContent = cfg.titulo;
-  document.getElementById('md-cuerpo').innerHTML = cfg.html;
-  document.getElementById('modal-datos').style.display='flex';
-}
-function cerrarModalDatos() {
-  document.getElementById('modal-datos').style.display='none';
-  MD.modalTipo=null; MD.editId=null;
-  document.getElementById('md-guardar').style.display='flex';
-}
-async function guardarModal() {
-  const tipo = MD.modalTipo;
-  if(!tipo) return;
-  const btn = document.getElementById('md-guardar');
-  btn.disabled=true; btn.textContent='⏳ Guardando...';
-  try {
-    await guardarDatos[tipo]();
-  } catch(e) { toast('Error: '+e.message,'danger'); }
-  btn.disabled=false; btn.textContent='💾 Guardar';
-}
-function gv(id){ return document.getElementById(id)?.value?.trim()||null; }
-function gn(id){ const v=parseFloat(document.getElementById(id)?.value); return isNaN(v)?null:v; }
-function gc(id){ return document.getElementById(id)?.checked||false; }
-
-// ─── CLIENTES ────────────────────────────────────────────────
-async function cargarClientes() {
-  const { data } = await sb.from('clientes').select('*').order('nombre');
-  MD.clientes = data||[];
-  // Enriquecer con conteo real de pedidos
-  if(MD.clientes.length) {
-    const nombres = MD.clientes.map(c=>c.nombre).filter(Boolean);
-    // Contar pedidos finalizados por nombre_cliente
-    const {data:conteos} = await sb.from('pedidos')
-      .select('nombre_cliente')
-      .in('nombre_cliente', nombres)
-      .eq('estatus','FINALIZADO');
-    if(conteos) {
-      const counts = {};
-      conteos.forEach(p => { counts[p.nombre_cliente] = (counts[p.nombre_cliente]||0)+1; });
-      MD.clientes.forEach(c => { c._pedidos_reales = counts[c.nombre]||c.total_pedidos||0; });
-    }
-  }
-  renderClientes();
-}
-function filtrarLista(tipo) {
-  const q = document.getElementById(tipo==='clientes'?'cli-search':'com-search')?.value?.toLowerCase()||'';
-  MD.filtros[tipo] = q;
-  tipo==='clientes' ? renderClientes() : renderComerciosList();
-}
-function renderClientes() {
-  const q = MD.filtros.clientes;
-  const lista = q ? MD.clientes.filter(c=>(c.nombre+c.celular+c.ciudad).toLowerCase().includes(q)) : MD.clientes;
-  const el = document.getElementById('clientes-lista');
-  if(!el) return;
-  if(!lista.length){ el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin clientes</div>'; return; }
-  el.innerHTML = lista.map(c=>`
-    <div class="item-card">
-      <div class="item-card-hdr">
-        <div style="width:36px;height:36px;border-radius:50%;background:var(--or);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#000;flex-shrink:0">${inic(c.nombre)}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nombre}</div>
-          <div class="mono" style="font-size:11px;color:var(--td)">${c.celular||'—'}</div>
-        </div>
-        <span class="badge-estado ${c.activo?'badge-activo':'badge-inactivo'}">${c.activo?'Activo':'Inactivo'}</span>
-      </div>
-      <div class="item-card-body">
-        <div>📍 ${c.ciudad||'—'} ${c.direccion?'· '+c.direccion:''}</div>
-        ${c.correo?`<div>✉️ ${c.correo}</div>`:''}
-        ${c.notas?`<div style="margin-top:4px;font-style:italic">${c.notas}</div>`:''}
-        <div style="margin-top:6px;color:var(--or);font-weight:700">${c._pedidos_reales||c.total_pedidos||0} pedidos realizados</div>
-      </div>
-      <div class="item-card-footer">
-        ${c.celular?`<a href="https://wa.me/504${c.celular.replace(/\D/g,'')}" target="_blank" class="btn btn-ghost btn-sm" style="color:#22C55E;text-decoration:none">💬 WA</a>`:''}
-        <button class="btn btn-ghost btn-sm" onclick="abrirUbicacionesCliente('${c.id}','${c.nombre}')">📍 Ubic.</button>
-        <button class="btn btn-ghost btn-sm" onclick="verPedidosCliente('${c.nombre}')">📋 Ped.</button>
-        <button class="btn btn-ghost btn-sm" onclick="abrirModal('cliente',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️</button>
-        <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('clientes','${c.id}',cargarClientes)">🗑</button>
-      </div>
-    </div>`).join('');
-}
-function htmlFormCliente(d=null){ return `
-  <div class="form-grid">
-    <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="cli-nombre" value="${d?.nombre||''}"></div>
-    <div class="fg"><label class="fl">Celular</label><input class="fi" id="cli-cel" value="${d?.celular||''}"></div>
-    <div class="fg"><label class="fl">Correo</label><input class="fi" id="cli-correo" type="email" value="${d?.correo||''}"></div>
-    <div class="fg"><label class="fl">Ciudad</label>
-      <select class="fi" id="cli-ciudad" onchange="actualizarZonasFiltradas('cli-zona',this.value)">
-        <option ${d?.ciudad==='CHOLOMA'||!d?'selected':''}>CHOLOMA</option>
-        <option ${d?.ciudad==='SAN PEDRO SULA'?'selected':''}>SAN PEDRO SULA</option>
-      </select>
-    </div>
-    <div class="fg"><label class="fl">Dirección</label><input class="fi" id="cli-dir" value="${d?.direccion||''}"></div>
-    <div class="fg"><label class="fl">Colonia</label><input class="fi" id="cli-colonia" value="${d?.colonia||''}"></div>
-    <div class="fg"><label class="fl">Zona</label>
-      <select class="fi" id="cli-zona">
-        <option value="">Sin zona</option>
-        ${(MD.zonas||[]).map(z=>`<option value="${z.id}" ${d?.zona_id===z.id?'selected':''}>${z.nombre} (${z.ciudad||''})</option>`).join('')}
-      </select>
-    </div>
-    <div class="fg" style="grid-column:1/-1"><label class="fl">Notas</label><textarea class="fi" id="cli-notas" rows="2">${d?.notas||''}</textarea></div>
-  </div>`; }
-var guardarDatos = {};
-guardarDatos.catcomercio = async()=>{
-  const nom=gv('catc-nombre');
-  if(!nom){toast('Nombre requerido','danger');return;}
-  const comId=document.getElementById('catc-com')?.value;
-  const row={nombre:nom,icono:gv('catc-icono')||'🏷️',activo:document.getElementById('catc-activo').value==='true',comercio_id:comId?parseInt(comId):null};
-  const {error}=MD.editId?await sb.from('categorias_comercio').update(row).eq('id',MD.editId):await sb.from('categorias_comercio').insert(row);
-  if(error){toast('Error: '+error.message,'danger');return;}
-  toast('✅ Categoría guardada');cerrarModalDatos();
-};
-guardarDatos.cliente = async()=>{
-  const nom = gv('cli-nombre');
-  if(!nom){ toast('El nombre es requerido','danger'); return; }
-  const row = { nombre:nom, celular:gv('cli-cel'), correo:gv('cli-correo'), ciudad:gv('cli-ciudad'), direccion:gv('cli-dir'), colonia:gv('cli-colonia'), notas:gv('cli-notas'), zona_id:document.getElementById('cli-zona')?.value||null };
-  Object.keys(row).forEach(k=>{ if(row[k]===null||row[k]==='') delete row[k]; });
-  const {error} = MD.editId
-    ? await sb.from('clientes').update(row).eq('id',MD.editId)
-    : await sb.from('clientes').insert(row);
-  if(error){toast('Error: '+error.message,'danger');return;}
-  toast('✅ Cliente guardado'); cerrarModalDatos(); cargarClientes();
-};
-async function verPedidosCliente(nombre) {
-  nav('pedidos');
-  setTimeout(()=>{
-    const s=document.getElementById('ped-search'); if(s){s.value=nombre; renderTablaPedidos();}
-  },300);
-}
-
-// ─── CATEGORÍAS ──────────────────────────────────────────────
-async function cargarCategorias() {
-  // 'categorias' = tipos de comercio (Restaurante, Farmacia...)
-  const {data} = await sb.from('categorias').select('*').order('nombre');
-  MD.categorias = data||[];
-  renderCategorias();
-}
-function renderCategorias(){
-  const el = document.getElementById('categorias-lista');
-  if(!el) return;
-  if(!MD.categorias.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin categorías</div>';return;}
-  el.innerHTML = MD.categorias.map(c=>`
-    <div class="item-card">
-      <div class="item-card-hdr">
-        <div style="font-size:28px">${c.icono||'🏪'}</div>
-        <div style="flex:1"><div style="font-size:14px;font-weight:700">${c.nombre}</div></div>
-        <span class="badge-estado ${c.estatus==='ACTIVA'?'badge-activo':'badge-inactivo'}">${c.estatus||'ACTIVA'}</span>
-      </div>
-      <div class="item-card-footer">
-        <button class="btn btn-ghost btn-sm" onclick="abrirModal('categoria',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️ Editar</button>
-        <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('categorias','${c.id}',cargarCategorias)">🗑</button>
-      </div>
-    </div>`).join('');
-}
-function htmlFormCategoria(d=null){ return `
-  <div class="form-grid">
-    <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="cat-nombre" value="${d?.nombre||''}"></div>
-    <div class="fg"><label class="fl">Ícono (emoji)</label><input class="fi" id="cat-icono" value="${d?.icono||'🏪'}" maxlength="4" style="font-size:24px;text-align:center"></div>
-    <div class="fg"><label class="fl">Estado</label>
-      <select class="fi" id="cat-activo"><option value="ACTIVA" ${d?.estatus!=='INACTIVA'?'selected':''}>Activa</option><option value="INACTIVA" ${d?.estatus==='INACTIVA'?'selected':''}>Inactiva</option></select>
-    </div>
-  </div>`; }
-guardarDatos.categoria = async()=>{
-  const nom = gv('cat-nombre');
-  if(!nom){toast('El nombre es requerido','danger');return;}
-  const row = {nombre:nom, icono:gv('cat-icono')||'🏪', estatus:document.getElementById('cat-activo').value||'ACTIVA'};
-  if(!MD.editId) row.id = crypto.randomUUID();
-  const {error} = MD.editId
-    ? await sb.from('categorias').update(row).eq('id',MD.editId)
-    : await sb.from('categorias').insert(row);
-  if(error){toast('Error: '+error.message,'danger');return;}
-  toast('✅ Categoría guardada'); cerrarModalDatos(); cargarCategorias();
-};
-
-// ─── COMERCIOS ───────────────────────────────────────────────
-async function cargarComerciosList() {
-  const {data} = await sb.from('comercios').select('*').order('nombre');
-  // Enriquecer con categorias (join manual por FK ambigua)
-  if(data?.length && MD.categorias.length) {
-    data.forEach(com => {
-      com.categoria = MD.categorias.find(cat => cat.id === com.categoria_id) || null;
-    });
-  } else if(data?.length) {
-    // Cargar categorias si no están en MD aún
-    const {data:cats} = await sb.from('categorias').select('id,nombre,icono');
-    if(cats) {
-      data.forEach(com => {
-        com.categoria = cats.find(cat => cat.id === com.categoria_id) || null;
-      });
-    }
-  }
-  MD.comercios = data||[];
-  // Poblar selector de comercios en productos
-  const sel = document.getElementById('prod-comercio-filter');
-  if(sel) {
-    const opts = MD.comercios.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
-    sel.innerHTML = '<option value="">Todos los comercios</option>' + opts;
-  }
-  renderComerciosList();
-}
-function renderComerciosList(){
-  const q = MD.filtros.comercios;
-  const lista = q ? MD.comercios.filter(c=>(c.nombre+c.ciudad).toLowerCase().includes(q)) : MD.comercios;
-  const el = document.getElementById('comercios-lista');
-  if(!el) return;
-  if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin comercios</div>';return;}
-  el.innerHTML = lista.map(c=>`
-    <div class="item-card">
-      <div class="item-card-hdr">
-        <div style="font-size:26px">${c.categoria?.icono||'🏪'}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nombre}</div>
-          <div style="font-size:11px;color:var(--td)">${c.categoria?.nombre||'Sin categoría'}</div>
-        </div>
-        <span class="badge-estado ${c.activo?'badge-activo':'badge-inactivo'}">${c.activo?'Activo':'Inactivo'}</span>
-      </div>
-      <div class="item-card-body">
-        ${c.telefono?`<div>📞 ${c.telefono}</div>`:''}
-        <div>📍 ${c.ciudad||'—'}${c.direccion?' · '+c.direccion:''}</div>
-        ${c.apertura?`<div>🕐 ${c.apertura.slice(0,5)}–${c.cierre?.slice(0,5)||'?'}</div>`:''}
-        ${c.comision_pct?`<div style="color:var(--or)">Comisión: ${c.comision_pct}%</div>`:''}
-      </div>
-      <div class="item-card-footer">
-        ${c.whatsapp?`<a href="https://wa.me/504${c.whatsapp.replace(/\D/g,'')}" target="_blank" class="btn btn-ghost btn-sm" style="color:#22C55E;text-decoration:none">💬 WA</a>`:''}
-        <button class="btn btn-ghost btn-sm" onclick="gestionarCatsComercio(${c.id},'${c.nombre}')">🏷 Cats</button>
-        <button class="btn btn-ghost btn-sm" onclick="verProductosComercio(${c.id})">📦 Prod.</button>
-        <button class="btn btn-ghost btn-sm" onclick="abrirModal('comercio',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️</button>
-        <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('comercios',${c.id},cargarComerciosList)">🗑</button>
-      </div>
-    </div>`).join('');
-}
-function htmlFormComercio(d=null){
-  // Zonas filtradas por ciudad seleccionada
-  const zonasOpts = MD.zonas.map(z=>`<option value="${z.id}" ${d?.zona_id===z.id?'selected':''}>${z.nombre} (${z.ciudad})</option>`).join('');
-  const catOpts = MD.categorias.map(c=>`<option value="${c.id}" ${d?.categoria_id===c.id?'selected':''}>${c.icono} ${c.nombre}</option>`).join('');
-  return `
-  <div class="form-grid">
-    <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="com-nombre" value="${d?.nombre||''}"></div>
-    <div class="fg"><label class="fl">Categoría</label><select class="fi" id="com-cat"><option value="">Sin categoría</option>${catOpts}</select></div>
-    <div class="fg"><label class="fl">Teléfono</label><input class="fi" id="com-tel" value="${d?.telefono||''}"></div>
-    <div class="fg"><label class="fl">WhatsApp</label><input class="fi" id="com-wa" value="${d?.whatsapp||''}"></div>
-    <div class="fg"><label class="fl">Correo</label><input class="fi" id="com-correo" type="email" value="${d?.correo||''}"></div>
-    <div class="fg"><label class="fl">Ciudad</label>
-      <select class="fi" id="com-ciudad">
-        <option ${d?.ciudad==='CHOLOMA'||!d?'selected':''}>CHOLOMA</option>
-        <option ${d?.ciudad==='SAN PEDRO SULA'?'selected':''}>SAN PEDRO SULA</option>
-      </select>
-    </div>
-    <div class="fg" style="grid-column:1/-1"><label class="fl">Dirección</label><input class="fi" id="com-dir" value="${d?.direccion||''}"></div>
-    <div class="fg"><label class="fl">Abre</label><input class="fi" id="com-abre" type="time" value="${d?.horario_apertura?.slice(0,5)||''}"></div>
-    <div class="fg"><label class="fl">Cierra</label><input class="fi" id="com-cierra" type="time" value="${d?.horario_cierre?.slice(0,5)||''}"></div>
-    <div class="fg"><label class="fl">Estado</label>
-      <select class="fi" id="com-activo"><option value="true" ${d?.activo!==false?'selected':''}>Activo</option><option value="false" ${d?.activo===false?'selected':''}>Inactivo</option></select>
-    </div>
-    <div class="fg"><label class="fl">Zona</label>
-      <select class="fi" id="com-zona"><option value="">Sin zona</option>${zonasOpts}</select>
-    </div>
-    <div class="fg"><label class="fl">Comisión %</label><input class="fi" id="com-com" type="number" value="${d?.comision_pct||0}" min="0" max="100" step="0.5"></div>
-    <div class="fg"><label class="fl">Tipo comisión</label>
-      <select class="fi" id="com-comtipo">
-        <option value="INCLUIDA"  ${d?.comision_tipo==='INCLUIDA' ||!d?.comision_tipo?'selected':''}>Incluida en el precio</option>
-        <option value="ADICIONAL" ${d?.comision_tipo==='ADICIONAL'?'selected':''}>Se suma al precio</option>
-      </select>
-    </div>
-    <div class="fg" style="grid-column:1/-1"><label class="fl">Notas</label><textarea class="fi" id="com-notas" rows="2">${d?.notas||''}</textarea></div>
-  </div>`;}
-guardarDatos.comercio = async()=>{
-  const nom = gv('com-nombre');
-  if(!nom){toast('El nombre es requerido','danger');return;}
-  const catId = document.getElementById('com-cat')?.value;
-  // Usar columnas reales de la tabla comercios
-  const zonaId = document.getElementById('com-zona')?.value||null;
-  const row = {
-    nombre:        nom,
-    categoria_id:  catId||null,   // uuid de tabla 'categorias' (tipos de comercio)
-    telefono:      gv('com-tel'),
-    whatsapp:      gv('com-wa'),
-    correo:        gv('com-correo'),
-    ciudad:        gv('com-ciudad'),
-    direccion:     gv('com-dir'),
-    apertura:      gv('com-abre')||null,
-    cierre:        gv('com-cierra')||null,
-    comision_pct:  gn('com-com')||0,
-    comision_tipo: document.getElementById('com-comtipo')?.value||'INCLUIDA',
-    zona_id:       zonaId||null,
-    notas:         gv('com-notas'),
-    activo:        document.getElementById('com-activo').value==='true',
-    visible:       true,
-  };
-  // Limpiar nulls
-  Object.keys(row).forEach(k=>{ if(row[k]===null||row[k]==='') delete row[k]; });
-  const {error} = MD.editId
-    ? await sb.from('comercios').update(row).eq('id',MD.editId)
-    : await sb.from('comercios').insert(row);
-  if(error){toast('Error: '+error.message,'danger');return;}
-  toast('✅ Comercio guardado'); cerrarModalDatos(); cargarComerciosList();
-};
-async function verProductosComercio(id){
-  nav('productos');
-  setTimeout(()=>{ const s=document.getElementById('prod-comercio-filter'); if(s){s.value=id;cargarProductos();} },200);
-}
-
-// ─── PRODUCTOS ───────────────────────────────────────────────
-async function cargarProductos(){
-  const comId = document.getElementById('prod-comercio-filter')?.value;
-  let q = sb.from('productos').select('*,comercio:comercio_id(nombre)').order('nombre');
-  if(comId) q = q.eq('comercio_id',parseInt(comId));  // comercio_id es integer
-  const {data} = await q;
-  MD.productos = data||[];
-  renderProductos();
-}
-function renderProductos(){
-  const el = document.getElementById('productos-lista');
-  if(!el) return;
-  if(!MD.productos.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin productos</div>';return;}
-  el.innerHTML = MD.productos.map(p=>`
-    <div class="item-card">
-      <div class="item-card-hdr" style="gap:10px">
-        ${p.imagen_url?`<img src="${p.imagen_url}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0">`:'<div style="width:44px;height:44px;border-radius:8px;background:var(--g4);display:flex;align-items:center;justify-content:center;font-size:20px">📦</div>'}
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700">${p.nombre}</div>
-          <div style="font-size:11px;color:var(--td)">${p.comercio?.nombre||'—'}</div>
-          <div style="font-size:14px;font-weight:800;color:var(--or)">L. ${parseFloat(p.precio||0).toFixed(2)}</div>
-        </div>
-        <span class="badge-estado ${p.estatus==='activo'?'badge-activo':'badge-inactivo'}">${p.estatus==='activo'?'Disponible':p.estatus==='agotado'?'Agotado':'Inactivo'}</span>
-      </div>
-      ${p.descripcion?`<div class="item-card-body">${p.descripcion}</div>`:''}
-      <div class="item-card-footer">
-        <button class="btn btn-ghost btn-sm" onclick="abrirModal('producto',${JSON.stringify(p).replace(/"/g,'&quot;')})">✏️ Editar</button>
-        <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('productos',${p.id},cargarProductos)">🗑</button>
-      </div>
-    </div>`).join('');
-}
-function htmlFormProducto(d=null){
-  const comOpts = MD.comercios.map(c=>`<option value="${c.id}" ${d?.comercio_id===c.id?'selected':''}>${c.nombre}</option>`).join('');
-  return `
-  <div class="form-grid">
-    <div class="fg"><label class="fl">Comercio *</label>
-      <select class="fi" id="prod-com" onchange="cargarCatsComercioEnForm(this.value,'${d?.categoria_id||''}')">
-        <option value="">Seleccionar...</option>${comOpts}
-      </select>
-    </div>
-    <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="prod-nombre" value="${d?.nombre||''}"></div>
-    <div class="fg"><label class="fl">Precio (L.) *</label><input class="fi" id="prod-precio" type="number" value="${d?.precio||''}"></div>
-    <div class="fg"><label class="fl">Categoría del comercio</label>
-      <select class="fi" id="prod-cat-sel">
-        <option value="">Sin categoría</option>
-      </select>
-    </div>
-    <div class="fg" style="grid-column:1/-1"><label class="fl">Descripción</label><textarea class="fi" id="prod-desc" rows="2">${d?.descripcion||''}</textarea></div>
-    <div class="fg"><label class="fl">URL de imagen</label><input class="fi" id="prod-img" value="${d?.imagen_url||''}"></div>
-    <div class="fg"><label class="fl">Estado</label>
-      <select class="fi" id="prod-disp">
-        <option value="activo"   ${d?.estatus==='activo'  ||!d?'selected':''}>Disponible</option>
-        <option value="agotado"  ${d?.estatus==='agotado'         ?'selected':''}>Agotado</option>
-        <option value="inactivo" ${d?.estatus==='inactivo'        ?'selected':''}>Inactivo</option>
-      </select>
-    </div>
-  </div>`;}
-guardarDatos.producto = async()=>{
-  const nom=gv('prod-nombre'), comId=document.getElementById('prod-com')?.value, precio=gn('prod-precio');
-  if(!nom||!comId||precio===null){toast('Nombre, comercio y precio son requeridos','danger');return;}
-  const estatus = document.getElementById('prod-disp').value;
-  const row={
-    comercio_id: parseInt(comId),
-    nombre: nom,
-    descripcion: gv('prod-desc'),
-    precio,
-    categoria_id: document.getElementById('prod-cat-sel')?.value||null,
-    imagen_url: gv('prod-img')||null,
-    estatus,  // 'activo', 'inactivo', 'agotado'
-  };
-  Object.keys(row).forEach(k=>{ if(row[k]===null) delete row[k]; });
-  const {error}=MD.editId
-    ? await sb.from('productos').update(row).eq('id',MD.editId)
-    : await sb.from('productos').insert({...row, id: crypto.randomUUID()});
-  if(error){toast('Error: '+error.message,'danger');return;}
-  toast('✅ Producto guardado');cerrarModalDatos();cargarProductos();
-};
-
-// ─── CUPONES ─────────────────────────────────────────────────
-async function cargarCupones(){
-  const {data}=await sb.from('cupones').select('*').order('created_at',{ascending:false});
-  MD.cupones=data||[];
-  renderCupones();
-}
-function filtCup(btn,f){document.querySelectorAll('#view-cupones .fbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');MD.cupFiltro=f;renderCupones();}
-function renderCupones(){
-  const ahora=new Date();
-  let lista=MD.cupones;
-  if(MD.cupFiltro==='activos') lista=lista.filter(c=>c.activo&&(!c.valido_hasta||new Date(c.valido_hasta)>ahora)&&(c.usos_maximos===null||c.usos_actuales<c.usos_maximos));
-  if(MD.cupFiltro==='vencidos') lista=lista.filter(c=>!c.activo||(c.valido_hasta&&new Date(c.valido_hasta)<=ahora)||(c.usos_maximos!==null&&c.usos_actuales>=c.usos_maximos));
-  const el=document.getElementById('cupones-lista');
-  if(!el) return;
-  if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin cupones</div>';return;}
-  el.innerHTML=lista.map(c=>{
-    const vencido=c.expira_at&&new Date(c.expira_at)<=ahora;
-    const agotado=c.usos_maximos!==null&&c.usos_actuales>=c.usos_maximos;
-    const vigente=c.activo&&!vencido&&!agotado;
-    return`<div class="item-card">
-      <div class="item-card-hdr">
-        <div class="mono" style="font-size:16px;font-weight:900;color:var(--or);letter-spacing:1px">${c.codigo}</div>
-        <div style="flex:1"></div>
-        <span class="badge-estado ${vigente?'badge-activo':'badge-inactivo'}">${vigente?'Vigente':vencido?'Vencido':agotado?'Agotado':'Inactivo'}</span>
-      </div>
-      <div class="item-card-body">
-        <div style="font-size:20px;font-weight:900;color:var(--verde);margin-bottom:4px">${c.tipo==='PORCENTAJE'?c.valor+'% OFF':'L. '+c.valor+' OFF'}</div>
-        ${c.descripcion?`<div>${c.descripcion}</div>`:''}
-        <div>Usos: ${c.usos_actuales||0}/${c.usos_max??'∞'}</div>
-        ${c.min_pedido?`<div>Mínimo: L. ${c.min_pedido}</div>`:''}
-        ${c.expira_at?`<div>Vence: ${new Date(c.expira_at).toLocaleDateString('es-HN',{timeZone:'America/Tegucigalpa'})}</div>`:''}
-      </div>
-      <div class="item-card-footer">
-        <button class="btn btn-ghost btn-sm" onclick="abrirModal('cupon',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️ Editar</button>
-        <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('cupones','${c.id}',cargarCupones)">🗑</button>
-      </div>
-    </div>`;}).join('');
-}
-function htmlFormCupon(d=null){return`
-  <div class="form-grid">
-    <div class="fg"><label class="fl">Código *</label><input class="fi" id="cup-codigo" value="${d?.codigo||''}" style="text-transform:uppercase"></div>
-    <div class="fg"><label class="fl">Tipo *</label>
-      <select class="fi" id="cup-tipo">
-        <option value="PORCENTAJE" ${d?.tipo==='PORCENTAJE'||!d?'selected':''}>Porcentaje (%)</option>
-        <option value="FIJO" ${d?.tipo==='FIJO'?'selected':''}>Monto fijo (L.)</option>
-      </select>
-    </div>
-    <div class="fg"><label class="fl">Valor *</label><input class="fi" id="cup-valor" type="number" value="${d?.valor||''}"></div>
-    <div class="fg"><label class="fl">Mínimo de pedido (L.)</label><input class="fi" id="cup-min" type="number" value="${d?.min_pedido||0}"></div>
-    <div class="fg"><label class="fl">Usos máximos</label><input class="fi" id="cup-usos" type="number" value="${d?.usos_max||1}"></div>
-    <div class="fg"><label class="fl">Expira el</label><input class="fi" id="cup-hasta" type="date" value="${d?.expira_at?d.expira_at.slice(0,10):''}"></div>
-    <div class="fg" style="grid-column:1/-1"><label class="fl">Descripción</label><input class="fi" id="cup-desc" value="${d?.descripcion||''}"></div>
-    <div class="fg"><label class="fl">Estado</label>
-      <select class="fi" id="cup-activo"><option value="true" ${d?.activo!==false?'selected':''}>Activo</option><option value="false" ${d?.activo===false?'selected':''}>Inactivo</option></select>
-    </div>
-  </div>`;}
-guardarDatos.cupon = async()=>{
-  const cod=gv('cup-codigo'), tipo=gv('cup-tipo'), val=gn('cup-valor');
-  if(!cod||!tipo||val===null){toast('Código, tipo y valor son requeridos','danger');return;}
-  const hasta=gv('cup-hasta');
-  // Columnas reales: min_pedido, usos_max, expira_at
-  const row={
-    codigo:      cod.toUpperCase(),
-    tipo,
-    valor:       val,
-    min_pedido:  gn('cup-min')||0,
-    usos_max:    parseInt(document.getElementById('cup-usos')?.value)||1,
-    descripcion: gv('cup-desc'),
-    expira_at:   hasta?new Date(hasta+'T23:59:59-06:00').toISOString():null,
-    activo:      document.getElementById('cup-activo').value==='true',
-  };
-  Object.keys(row).forEach(k=>{ if(row[k]===null) delete row[k]; });
-  const {error}=MD.editId
-    ? await sb.from('cupones').update(row).eq('id',MD.editId)
-    : await sb.from('cupones').insert(row);
-  if(error){toast('Error: '+error.message,'danger');return;}
-  toast('✅ Cupón guardado');cerrarModalDatos();cargarCupones();
-};
-
-// ─── USUARIOS ────────────────────────────────────────────────
-async function cargarUsuarios(){
-  const {data}=await sb.from('perfiles').select('*').order('nombre');
-  MD.usuarios=data||[];
-  renderUsuarios();
-}
-function filtUsr(btn,f){document.querySelectorAll('#view-usuarios .fbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');MD.usrFiltro=f;renderUsuarios();}
-function renderUsuarios(){
-  const lista=MD.usrFiltro==='todos'?MD.usuarios:MD.usuarios.filter(u=>u.rol===MD.usrFiltro);
-  const el=document.getElementById('usuarios-lista');
-  if(!el) return;
-  const rolColor={STAFF:'var(--or)',DELIVERY:'var(--az)',CLIENTE:'var(--verde)',COMERCIO:'#a855f7',ADMIN:'var(--rojo)'};
-  if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin usuarios</div>';return;}
-  el.innerHTML=lista.map(u=>`
-    <div class="item-card">
-      <div class="item-card-hdr">
-        <div style="width:36px;height:36px;border-radius:50%;background:${rolColor[u.rol]||'var(--g4)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#000;flex-shrink:0">${inic(u.nombre||'?')}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700">${u.nombre||'Sin nombre'}</div>
-          <div style="font-size:11px;color:var(--td)">${u.correo||u.celular||'—'}</div>
-        </div>
-        <span style="font-size:10px;font-weight:700;color:${rolColor[u.rol]||'var(--td)'};background:${rolColor[u.rol]||'var(--g4)'}22;padding:3px 8px;border-radius:20px">${u.rol||'—'}</span>
-      </div>
-      <div class="item-card-footer">
-        <button class="btn btn-ghost btn-sm" onclick="abrirModal('usuario',${JSON.stringify(u).replace(/"/g,'&quot;')})">✏️ Editar</button>
-      </div>
-    </div>`).join('');
-}
-function htmlFormUsuario(d=null){return`
-  <div class="form-grid">
-    <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="usr-nombre" value="${d?.nombre||''}"></div>
-    <div class="fg"><label class="fl">Correo</label><input class="fi" id="usr-correo" type="email" value="${d?.correo||''}"></div>
-    <div class="fg"><label class="fl">Celular</label><input class="fi" id="usr-cel" value="${d?.celular||''}"></div>
-    <div class="fg"><label class="fl">Rol *</label>
-      <select class="fi" id="usr-rol">
-        <option ${d?.rol==='STAFF'?'selected':''}>STAFF</option>
-        <option ${d?.rol==='ADMIN'?'selected':''}>ADMIN</option>
-        <option ${d?.rol==='DELIVERY'?'selected':''}>DELIVERY</option>
-        <option ${d?.rol==='CLIENTE'?'selected':''}>CLIENTE</option>
-        <option ${d?.rol==='COMERCIO'?'selected':''}>COMERCIO</option>
-      </select>
-    </div>
-  </div>
-  ${!d?'<div style="font-size:11px;color:var(--td);margin-top:8px">⚠️ El usuario debe registrarse en la app — aquí solo se edita su perfil</div>':''}`;}
-guardarDatos.usuario = async()=>{
-  const nom=gv('usr-nombre');
-  if(!nom){toast('El nombre es requerido','danger');return;}
-  const row={nombre:nom,correo:gv('usr-correo'),celular:gv('usr-cel'),rol:gv('usr-rol')};
-  if(!MD.editId){toast('No se puede crear usuario directamente — debe registrarse en la app','danger');return;}
-  const {error}=await sb.from('perfiles').update(row).eq('id',MD.editId);
-  if(error){toast('Error: '+error.message,'danger');return;}
-  toast('✅ Usuario actualizado');cerrarModalDatos();cargarUsuarios();
-};
 
 // ─── UTIL: eliminar registro ──────────────────────────────────
 async function eliminar(tabla, id, callback){
