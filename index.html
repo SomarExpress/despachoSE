@@ -1635,7 +1635,6 @@ async function init() {
   sb.from('pedidos').select('id',{count:'exact',head:true}).in('metodo_pago',['TRANSFERENCIA','TARJETA']).eq('estatus','FINALIZADO').is('transferencia_validada_por',null).then(({count})=>{ const b=document.getElementById('badge-comp');if(b&&count>0){b.textContent=count;b.style.display='inline';} });
   // Badge liquidaciones pendientes
   sb.from('liquidaciones_delivery').select('id',{count:'exact'}).eq('estatus','PENDIENTE').then(({count})=>{ if(count>0){const b=document.getElementById('badge-liq');if(b){b.textContent=count;b.style.display='inline';}} });
-  cargarComerciosDL();
   initRealtime();
 }
 
@@ -3781,6 +3780,16 @@ async function eliminar(tabla, id, callback){
 }
 
 
+
+// ─── Estado local de módulos ─────────────────────────────────
+var MD = {
+  clientes:[], comercios:[], categorias:[], productos:[], cupones:[], usuarios:[], zonas:[],
+  filtros:{ clientes:'', comercios:'', productos_comercio:'' },
+  cupFiltro:'todos', usrFiltro:'todos',
+  modalTipo:null, editId:null,
+  _catComercioId:null, _catComercioNombre:null,
+  sucursalComercioId:null,
+};
 
 async function cargarZonas() {
   const {data} = await sb.from('zonas').select('*').order('ciudad,nombre');
