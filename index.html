@@ -3782,6 +3782,18 @@ async function eliminar(tabla, id, callback){
 
 
 
+
+// ─── Cache para edición sin JSON.stringify en onclick ─────────
+function editarDesdeCache(tipo, id) {
+  if(!MD._cache) return;
+  const obj = MD._cache[tipo+'_'+id];
+  if(obj) abrirModal(tipo, obj);
+}
+function cacheObj(tipo, obj) {
+  if(!MD._cache) MD._cache = {};
+  MD._cache[tipo+'_'+obj.id] = obj;
+}
+
 // ─── Estado local de módulos ─────────────────────────────────
 var MD = {
   clientes:[], comercios:[], categorias:[], productos:[], cupones:[], usuarios:[], zonas:[],
@@ -3790,6 +3802,7 @@ var MD = {
   modalTipo:null, editId:null,
   _catComercioId:null, _catComercioNombre:null,
   sucursalComercioId:null,
+  _cache:{},
 };
 
 async function cargarZonas() {
@@ -4799,6 +4812,8 @@ function renderClientes() {
   const el=document.getElementById('clientes-lista');
   if(!el) return;
   if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin clientes</div>';return;}
+  // Guardar referencia por id para evitar JSON.stringify en onclick
+  lista.forEach(cli => { MD._cache = MD._cache||{}; MD._cache['cli_'+cli.id]=cli; });
   el.innerHTML=lista.map(c=>`
     <div class="item-card">
       <div class="item-card-hdr">
@@ -4811,15 +4826,15 @@ function renderClientes() {
       </div>
       <div class="item-card-body">
         <div>📍 ${c.ciudad||'—'} ${c.direccion?'· '+c.direccion:''}</div>
-        ${c.correo?`<div>✉️ ${c.correo}</div>`:''}
-        ${c.notas?`<div style="margin-top:4px;font-style:italic">${c.notas}</div>`:''}
+        ${c.correo?'<div>✉️ '+c.correo+'</div>':''}
+        ${c.notas?'<div style="margin-top:4px;font-style:italic">'+c.notas+'</div>':''}
         <div style="margin-top:6px;color:var(--or);font-weight:700">${c._pedidos_reales||c.total_pedidos||0} pedidos realizados</div>
       </div>
       <div class="item-card-footer">
-        ${c.celular?`<a href="https://wa.me/504${c.celular.replace(/\D/g,'')}" target="_blank" class="btn btn-ghost btn-sm" style="color:#22C55E;text-decoration:none">💬 WA</a>`:''}
-        <button class="btn btn-ghost btn-sm" onclick="abrirUbicacionesCliente('${c.id}','${c.nombre}')">📍 Ubic.</button>
-        <button class="btn btn-ghost btn-sm" onclick="verPedidosCliente('${c.nombre}')">📋 Ped.</button>
-        <button class="btn btn-ghost btn-sm" onclick="abrirModal('cliente',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️</button>
+        ${c.celular?'<a href="https://wa.me/504'+c.celular.replace(/\D/g,'')+'" target="_blank" class="btn btn-ghost btn-sm" style="color:#22C55E;text-decoration:none">💬 WA</a>':''}
+        <button class="btn btn-ghost btn-sm" onclick="abrirUbicacionesCliente('${c.id}','${c.nombre.replace(/'/g,"\\'")}')">📍 Ubic.</button>
+        <button class="btn btn-ghost btn-sm" onclick="verPedidosCliente('${c.nombre.replace(/'/g,"\\'")}')">📋 Ped.</button>
+        <button class="btn btn-ghost btn-sm" onclick="editarDesdeCache('cli','${c.id}')">✏️</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('clientes','${c.id}',cargarClientes)">🗑</button>
       </div>
     </div>`).join('');
@@ -4906,6 +4921,7 @@ function renderCategorias(){
   const el=document.getElementById('categorias-lista');
   if(!el) return;
   if(!MD.categorias.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin categorías</div>';return;}
+  MD.categorias.forEach(cat=>cacheObj('categoria',cat));
   el.innerHTML=MD.categorias.map(c=>`
     <div class="item-card">
       <div class="item-card-hdr">
@@ -4914,7 +4930,7 @@ function renderCategorias(){
         <span class="badge-estado ${c.estatus==='ACTIVA'?'badge-activo':'badge-inactivo'}">${c.estatus||'ACTIVA'}</span>
       </div>
       <div class="item-card-footer">
-        <button class="btn btn-ghost btn-sm" onclick="abrirModal('categoria',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️ Editar</button>
+        <button class="btn btn-ghost btn-sm" onclick="editarDesdeCache('categoria','${c.id}')">✏️ Editar</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('categorias','${c.id}',cargarCategorias)">🗑</button>
       </div>
     </div>`).join('');
@@ -4964,6 +4980,7 @@ function renderComerciosList(){
   const el=document.getElementById('comercios-lista');
   if(!el) return;
   if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin comercios</div>';return;}
+  lista.forEach(com => cacheObj('comercio', com));
   el.innerHTML=lista.map(c=>`
     <div class="item-card">
       <div class="item-card-hdr">
@@ -4975,16 +4992,16 @@ function renderComerciosList(){
         <span class="badge-estado ${c.activo?'badge-activo':'badge-inactivo'}">${c.activo?'Activo':'Inactivo'}</span>
       </div>
       <div class="item-card-body">
-        ${c.telefono?`<div>📞 ${c.telefono}</div>`:''}
+        ${c.telefono?'<div>📞 '+c.telefono+'</div>':''}
         <div>📍 ${c.ciudad||'—'}${c.direccion?' · '+c.direccion:''}</div>
-        ${c.apertura?`<div>🕐 ${c.apertura.slice(0,5)}–${c.cierre?.slice(0,5)||'?'}</div>`:''}
-        ${c.comision_pct?`<div style="color:var(--or)">Comisión: ${c.comision_pct}%</div>`:''}
+        ${c.apertura?'<div>🕐 '+c.apertura.slice(0,5)+'–'+(c.cierre?.slice(0,5)||'?')+'</div>':''}
+        ${c.comision_pct?'<div style="color:var(--or)">Comisión: '+c.comision_pct+'%</div>':''}
       </div>
       <div class="item-card-footer">
-        ${c.whatsapp?`<a href="https://wa.me/504${c.whatsapp.replace(/\D/g,'')}" target="_blank" class="btn btn-ghost btn-sm" style="color:#22C55E;text-decoration:none">💬 WA</a>`:''}
-        <button class="btn btn-ghost btn-sm" onclick="gestionarCatsComercio(${c.id},'${c.nombre}')">🏷 Cats</button>
+        ${c.whatsapp?'<a href="https://wa.me/504'+c.whatsapp.replace(/\D/g,'')+'" target="_blank" class="btn btn-ghost btn-sm" style="color:#22C55E;text-decoration:none">💬 WA</a>':''}
+        <button class="btn btn-ghost btn-sm" onclick="gestionarCatsComercio(${c.id},'${c.nombre.replace(/'/g,"\\'")}')">🏷 Cats</button>
         <button class="btn btn-ghost btn-sm" onclick="verProductosComercio(${c.id})">📦 Prod.</button>
-        <button class="btn btn-ghost btn-sm" onclick="abrirModal('comercio',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️</button>
+        <button class="btn btn-ghost btn-sm" onclick="editarDesdeCache('comercio','${c.id}')">✏️</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('comercios',${c.id},cargarComerciosList)">🗑</button>
       </div>
     </div>`).join('');
@@ -5051,6 +5068,7 @@ function renderProductos(){
   const el=document.getElementById('productos-lista');
   if(!el) return;
   if(!MD.productos.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin productos</div>';return;}
+  MD.productos.forEach(p=>cacheObj('producto',p));
   el.innerHTML=MD.productos.map(p=>`
     <div class="item-card">
       <div class="item-card-hdr" style="gap:10px">
@@ -5064,7 +5082,7 @@ function renderProductos(){
       </div>
       ${p.descripcion?`<div class="item-card-body">${p.descripcion}</div>`:''}
       <div class="item-card-footer">
-        <button class="btn btn-ghost btn-sm" onclick="abrirModal('producto',${JSON.stringify(p).replace(/"/g,'&quot;')})">✏️ Editar</button>
+        <button class="btn btn-ghost btn-sm" onclick="editarDesdeCache('producto','${p.id}')">✏️ Editar</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('productos',${p.id},cargarProductos)">🗑</button>
       </div>
     </div>`).join('');
@@ -5139,7 +5157,7 @@ function renderCupones(){
         ${c.expira_at?`<div>Vence: ${new Date(c.expira_at).toLocaleDateString('es-HN',{timeZone:'America/Tegucigalpa'})}</div>`:''}
       </div>
       <div class="item-card-footer">
-        <button class="btn btn-ghost btn-sm" onclick="abrirModal('cupon',${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️ Editar</button>
+        <button class="btn btn-ghost btn-sm" onclick="editarDesdeCache('cupon','${c.id}')">✏️ Editar</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('cupones','${c.id}',cargarCupones)">🗑</button>
       </div>
     </div>`;}).join('');
@@ -5185,6 +5203,7 @@ function renderUsuarios(){
   if(!el) return;
   const rolColor={STAFF:'var(--or)',DELIVERY:'var(--az)',CLIENTE:'var(--verde)',COMERCIO:'#a855f7',ADMIN:'var(--rojo)'};
   if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin usuarios</div>';return;}
+  lista.forEach(u=>cacheObj('usuario',u));
   el.innerHTML=lista.map(u=>`
     <div class="item-card">
       <div class="item-card-hdr">
@@ -5196,7 +5215,7 @@ function renderUsuarios(){
         <span style="font-size:10px;font-weight:700;color:${rolColor[u.rol]||'var(--td)'};background:${rolColor[u.rol]||'var(--g4)'}22;padding:3px 8px;border-radius:20px">${u.rol||'—'}</span>
       </div>
       <div class="item-card-footer">
-        <button class="btn btn-ghost btn-sm" onclick="abrirModal('usuario',${JSON.stringify(u).replace(/"/g,'&quot;')})">✏️ Editar</button>
+        <button class="btn btn-ghost btn-sm" onclick="editarDesdeCache('usuario','${u.id}')">✏️ Editar</button>
       </div>
     </div>`).join('');
 }
