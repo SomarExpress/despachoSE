@@ -2423,6 +2423,9 @@ function renderRidersGrid(filtro='todos') {
         <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="event.stopPropagation();irChat(${d.id})">💬 Chat</button>
         ${d.en_turno && act < 2 ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();abrirAsignarRider(${d.id})">Asignar</button>` : ''}
       </div>
+      <div style="margin-top:6px;">
+        <button class="btn btn-success btn-sm" style="width:100%;justify-content:center" onclick="event.stopPropagation();abrirModalBono(${d.id},'${d.nombre}')">+ Recargar saldo</button>
+      </div>
     </div>`;
   }).join('');
   // Actualizar markers del mapa riders también
@@ -2433,6 +2436,115 @@ function filtRiders(btn, f) {
   document.querySelectorAll('#view-riders .filter-bar .fbtn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderRidersGrid(f);
+}
+
+// ── MODAL BONO / RECARGA DE SALDO ────────────────────────────
+const CONCEPTOS_DEFAULT = ['Bono de Internet','Bono de Combustible','Bono Especial','Bono de Inicio','Ajuste de Saldo','Otro'];
+let _bonoRiderId = null;
+let _bonoRiderNombre = '';
+
+function abrirModalBono(riderId, riderNombre) {
+  _bonoRiderId = riderId;
+  _bonoRiderNombre = riderNombre;
+  // Cargar conceptos guardados + defaults
+  const guardados = JSON.parse(localStorage.getItem('somar_conceptos_bono')||'[]');
+  const todos = [...new Set([...CONCEPTOS_DEFAULT, ...guardados])];
+  const optsHtml = todos.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  const html = `
+    <div style="margin-bottom:14px">
+      <div style="font-size:13px;color:var(--td);margin-bottom:12px">Rider: <strong>${riderNombre}</strong></div>
+      <div class="form-grid">
+        <div class="fg">
+          <label class="fl">Concepto *</label>
+          <select class="fi" id="bono-concepto" onchange="toggleOtroConcepto(this.value)">
+            ${optsHtml}
+          </select>
+        </div>
+        <div class="fg" id="bono-otro-wrap" style="display:none">
+          <label class="fl">Nuevo concepto *</label>
+          <input class="fi" id="bono-otro" placeholder="Nombre del concepto">
+        </div>
+        <div class="fg">
+          <label class="fl">Monto (L.) *</label>
+          <input class="fi" id="bono-monto" type="number" min="1" placeholder="0.00" step="0.01">
+        </div>
+        <div class="fg">
+          <label class="fl">Foto comprobante (opcional)</label>
+          <input class="fi" id="bono-foto" type="file" accept="image/*">
+        </div>
+        <div class="fg">
+          <label class="fl">Nota interna</label>
+          <input class="fi" id="bono-nota" placeholder="Opcional">
+        </div>
+      </div>
+    </div>`;
+
+  abrirModalDatos('Recargar Saldo', html, guardarBono);
+}
+
+function toggleOtroConcepto(val) {
+  const wrap = document.getElementById('bono-otro-wrap');
+  if(wrap) wrap.style.display = val === 'Otro' ? 'block' : 'none';
+}
+
+async function guardarBono() {
+  const conceptoSel = gv('bono-concepto');
+  const conceptoFinal = conceptoSel === 'Otro' ? gv('bono-otro').trim() : conceptoSel;
+  const monto = parseFloat(gv('bono-monto'));
+  const nota  = gv('bono-nota');
+  const fotoInput = document.getElementById('bono-foto');
+  const fotoFile  = fotoInput?.files?.[0] || null;
+
+  if(!conceptoFinal){ toast('El concepto es requerido','danger'); return; }
+  if(!monto || monto <= 0){ toast('Ingresa un monto válido','danger'); return; }
+
+  // Guardar concepto nuevo en localStorage para reutilizarlo
+  if(conceptoSel === 'Otro' && conceptoFinal) {
+    const guardados = JSON.parse(localStorage.getItem('somar_conceptos_bono')||'[]');
+    if(!guardados.includes(conceptoFinal)){
+      guardados.push(conceptoFinal);
+      localStorage.setItem('somar_conceptos_bono', JSON.stringify(guardados));
+    }
+  }
+
+  // Subir foto si existe
+  let fotoUrl = null;
+  if(fotoFile) {
+    const ext = fotoFile.name.split('.').pop()?.toLowerCase()||'jpg';
+    const path = `bonos/${_bonoRiderId}_${Date.now()}.${ext}`;
+    const {data:upData, error:upErr} = await sb.storage.from('delivery-docs').upload(path, fotoFile, {cacheControl:'3600', upsert:true, contentType:fotoFile.type});
+    if(!upErr && upData) {
+      const {data:urlData} = await sb.storage.from('delivery-docs').createSignedUrl(upData.path, 60*60*24*365*10);
+      fotoUrl = urlData?.signedUrl || null;
+    }
+  }
+
+  // 1. Insertar en depositos_delivery con estatus APROBADO directamente
+  const {error: depErr} = await sb.from('depositos_delivery').insert({
+    delivery_id: _bonoRiderId,
+    monto,
+    foto_url: fotoUrl,
+    estatus: 'APROBADO',
+    notas_despacho: `${conceptoFinal}${nota ? ' · '+nota : ''}`,
+    aprobado_por: 'Despacho',
+    aprobado_at: new Date().toISOString()
+  });
+  if(depErr){ toast('Error al registrar bono: '+depErr.message,'danger'); return; }
+
+  // 2. Actualizar saldo_billetera del rider
+  const {data:drv, error:drvErr} = await sb.from('delivery').select('saldo_billetera').eq('id', _bonoRiderId).single();
+  if(drvErr){ toast('Bono registrado pero error al actualizar saldo: '+drvErr.message,'danger'); return; }
+  const nuevoSaldo = parseFloat(drv?.saldo_billetera||0) + monto;
+  const {error:updErr} = await sb.from('delivery').update({saldo_billetera: nuevoSaldo}).eq('id', _bonoRiderId);
+  if(updErr){ toast('Error actualizando saldo: '+updErr.message,'danger'); return; }
+
+  // 3. Actualizar estado local inmediatamente
+  const rIdx = S.riders.findIndex(r => r.id === parseInt(_bonoRiderId));
+  if(rIdx >= 0){ S.riders[rIdx].saldo_billetera = nuevoSaldo; renderRidersGrid(); renderRidersMini(); }
+
+  toast(`✅ L.${monto.toFixed(2)} acreditados a ${_bonoRiderNombre} · ${conceptoFinal}`,'success');
+  cerrarModalDatos();
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2559,6 +2671,7 @@ async function cargarDepositos(estatus='PENDIENTE') {
         <div class="ch-av" style="border:2px solid var(--or)">${inic(nombre)}</div>
         <div style="flex:1">
           <div style="font-size:14px;font-weight:700">${nombre}</div>
+          ${d.notas_despacho ? `<div style="font-size:11px;color:var(--or);font-weight:600">${d.notas_despacho}</div>` : ''}
           <div style="font-size:11px;color:var(--td)">${fmtFecha(d.creado_at)}</div>
         </div>
         <div class="dep-monto">L. ${parseFloat(d.monto).toFixed(2)}</div>
@@ -5313,10 +5426,11 @@ function renderUsuarios(){
       </div>
     </div>`).join('');
 }
-function htmlFormUsuario(d=null){return`
+function htmlFormUsuario(d=null){
+  const esNuevo = !d;
+  return `
   <div class="form-grid">
     <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="usr-nombre" value="${d?.nombre||''}"></div>
-
     <div class="fg"><label class="fl">Celular</label><input class="fi" id="usr-cel" value="${d?.celular||''}"></div>
     <div class="fg"><label class="fl">Rol *</label>
       <select class="fi" id="usr-rol">
@@ -5327,16 +5441,50 @@ function htmlFormUsuario(d=null){return`
         <option ${d?.rol==='COMERCIO'?'selected':''}>COMERCIO</option>
       </select>
     </div>
+    ${esNuevo ? `
+    <div class="fg"><label class="fl">Correo *</label><input class="fi" id="usr-correo" type="email" placeholder="operador@somar.com"></div>
+    <div class="fg"><label class="fl">Contraseña inicial *</label>
+      <input class="fi" id="usr-pwd" type="password" placeholder="Mínimo 8 caracteres">
+      <div style="font-size:10px;color:var(--td);margin-top:4px">El operador podrá cambiarla después</div>
+    </div>
+    ` : ''}
   </div>
-  ${!d?'<div style="font-size:11px;color:var(--td);margin-top:8px">⚠️ El usuario debe registrarse en la app — aquí solo se edita su perfil</div>':''}`;} 
+
+`;}
+
 guardarDatos.usuario = async()=>{
-  const nom=gv('usr-nombre');
-  if(!nom){toast('El nombre es requerido','danger');return;}
-  const row={nombre:nom,celular:gv('usr-cel'),rol:gv('usr-rol')};
-  if(!MD.editId){toast('No se puede crear usuario directamente','danger');return;}
-  const {error}=await sb.from('perfiles').update(row).eq('id',MD.editId);
-  if(error){toast('Error: '+error.message,'danger');return;}
-  toast('✅ Usuario actualizado');cerrarModalDatos();cargarUsuarios();
+  const nom = gv('usr-nombre');
+  const rol = gv('usr-rol');
+  if(!nom){ toast('El nombre es requerido','danger'); return; }
+
+  // ── EDITAR usuario existente ──────────────────────────────────
+  if(MD.editId){
+    const {error} = await sb.from('perfiles').update({nombre:nom, celular:gv('usr-cel'), rol}).eq('id', MD.editId);
+    if(error){ toast('Error: '+error.message,'danger'); return; }
+    toast('✅ Usuario actualizado'); cerrarModalDatos(); cargarUsuarios();
+    return;
+  }
+
+  // ── CREAR usuario STAFF nuevo via Edge Function ──────────────
+  const correo = gv('usr-correo');
+  const pwd    = gv('usr-pwd');
+  if(!correo||!pwd){ toast('Correo y contraseña son requeridos','danger'); return; }
+  if(pwd.length<8){ toast('La contraseña debe tener al menos 8 caracteres','danger'); return; }
+  try {
+    const {data:{session}} = await sb.auth.getSession();
+    const res = await fetch(`${SUPA_URL}/functions/v1/crear-usuario-staff`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token}`
+      },
+      body: JSON.stringify({ nombre:nom, correo, password:pwd, rol, celular:gv('usr-cel')||'' })
+    });
+    const json = await res.json();
+    if(!res.ok){ toast('Error: '+(json.error||res.status),'danger'); return; }
+    toast(`✅ ${nom} creado — puede iniciar sesión con ${correo}`,'success');
+    cerrarModalDatos(); cargarUsuarios();
+  } catch(e){ toast('Error: '+e.message,'danger'); console.error('[crear staff]',e); }
 };
 
 // ─── UTIL: eliminar registro ──────────────────────────────────
