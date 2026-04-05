@@ -4914,10 +4914,7 @@ function abrirModal(tipo, datos=null) {
   document.getElementById('md-cuerpo').innerHTML   = cfg.html;
   document.getElementById('modal-datos').style.display = 'flex';
   const mdg = document.getElementById('md-guardar');
-  if(mdg){
-    if(tipo==='bono'){ mdg.style.display='flex'; mdg.onclick=datos?.onGuardar||null; }
-    else mdg.style.display = 'flex';
-  }
+  if(mdg){ mdg.style.display='flex'; mdg.onclick=null; }
 }
 function cerrarModalDatos() {
   document.getElementById('modal-datos').style.display = 'none';
@@ -5457,6 +5454,8 @@ function htmlFormUsuario(d=null){
   </div>
 
 `;}
+
+guardarDatos.bono = async()=>{ await guardarBono(); };
 
 guardarDatos.usuario = async()=>{
   const nom = gv('usr-nombre');
