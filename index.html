@@ -2224,8 +2224,8 @@ function renderPanel(p) {
     </div>
     <div style="background:var(--g2);border-radius:10px;overflow:hidden;margin-bottom:14px;">
       ${[
-        ['Ingreso Rider (70%)',  `<span style="color:var(--verde)">${fL(p.ingreso_delivery)}</span>`],
-        ['Ingreso Somar (30%)',  `<span style="color:var(--or)">${fL(p.ingreso_somar)}</span>`],
+        [`Ingreso Rider (${parseFloat(S.config?.pct_rider_envio||66.66).toFixed(0)}%)`, `<span style="color:var(--verde)">${fL(p.ingreso_delivery)}</span>`],
+        [`Ingreso Somar (${(100-parseFloat(S.config?.pct_rider_envio||66.66)).toFixed(0)}%)`, `<span style="color:var(--or)">${fL(p.ingreso_somar)}</span>`],
       ].map(([l,v]) =>
         `<div style="display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--g3);font-size:12px;">
           <span style="color:var(--td)">${l}</span><span>${v}</span>
@@ -2480,7 +2480,7 @@ function abrirModalBono(riderId, riderNombre) {
       </div>
     </div>`;
 
-  abrirModalDatos('Recargar Saldo', html, guardarBono);
+  abrirModal('bono', {titulo:`Recargar · ${riderNombre}`, html, onGuardar:guardarBono});
 }
 
 function toggleOtroConcepto(val) {
@@ -2544,7 +2544,7 @@ async function guardarBono() {
   if(rIdx >= 0){ S.riders[rIdx].saldo_billetera = nuevoSaldo; renderRidersGrid(); renderRidersMini(); }
 
   toast(`✅ L.${monto.toFixed(2)} acreditados a ${_bonoRiderNombre} · ${conceptoFinal}`,'success');
-  cerrarModalDatos();
+  cerrarModalDatos ? cerrarModalDatos() : (document.getElementById('modal-datos').style.display='none');
 }
 
 // ════════════════════════════════════════════════════════════
@@ -3406,7 +3406,9 @@ async function guardarPedido() {
   const envio = parseFloat(document.getElementById('sv-envio-inp')?.value||0) || S.stepVals['sv-envio'] || 50;
   const prop  = parseFloat(document.getElementById('sv-propina-inp')?.value||0)||S.stepVals['sv-propina']||0;
   const total = prod + envio + prop;
-  const ingDelivery = parseFloat((envio * 0.7).toFixed(2));
+  // Porcentaje rider sobre tarifa de envío — viene de config o default 66.66%
+  const pctRiderEnvio = parseFloat(S.config?.pct_rider_envio || 66.66) / 100;
+  const ingDelivery = parseFloat((envio * pctRiderEnvio).toFixed(2));
   // Calcular multiplicador de tarifa dinámica
   const tarifaModos = { NORMAL:1, LLUVIA:1.2, HORA_PICO:1.3, NOCTURNO:1.15 };
   const tarifaDinVal = document.getElementById('f-tarifa-din')?.value || 'NORMAL';
@@ -3456,7 +3458,7 @@ async function guardarPedido() {
     pct_comision:             pctCom,
     base_app:                 baseApp,
     ingreso_delivery:         ingDelivery,
-    ingreso_somar:            parseFloat((envio * 0.3 + baseApp).toFixed(2)),
+    ingreso_somar:            parseFloat((envio * (1 - pctRiderEnvio) + baseApp).toFixed(2)),
 
     // Pago
     quien_paga:               document.getElementById('f-quien-paga')?.value || 'DESTINATARIO',
@@ -4904,6 +4906,7 @@ function abrirModal(tipo, datos=null) {
     catcomercio: { titulo: datos?'Editar Categoría':'Nueva Categoría',   html: htmlFormCatcomercio(datos)  },
     sucursal:    { titulo: datos?'Editar Sucursal':'Nueva Sucursal',     html: htmlFormSucursal?htmlFormSucursal(datos):'' },
     usuario:     { titulo: datos?'Editar Usuario':'Nuevo Usuario',       html: htmlFormUsuario(datos)      },
+    bono:        { titulo: datos?.titulo||'Recargar Saldo',              html: datos?.html||''             },
   };
   const cfg = cfgs[tipo];
   if(!cfg) return;
@@ -4911,7 +4914,10 @@ function abrirModal(tipo, datos=null) {
   document.getElementById('md-cuerpo').innerHTML   = cfg.html;
   document.getElementById('modal-datos').style.display = 'flex';
   const mdg = document.getElementById('md-guardar');
-  if(mdg) mdg.style.display = 'flex';
+  if(mdg){
+    if(tipo==='bono'){ mdg.style.display='flex'; mdg.onclick=datos?.onGuardar||null; }
+    else mdg.style.display = 'flex';
+  }
 }
 function cerrarModalDatos() {
   document.getElementById('modal-datos').style.display = 'none';
