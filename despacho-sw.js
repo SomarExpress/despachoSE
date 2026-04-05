@@ -1,7 +1,7 @@
 // Somar Despacho — Service Worker
 // Cambiar CACHE_VERSION para forzar actualización en todos los browsers
 const CACHE_VERSION = 'somar-despacho-v1.0.9';
-const STATIC = ['./despacho-app.html', './manifest-delivery.json'];
+const STATIC = ['./despacho-app.html', './manifest-despacho.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
