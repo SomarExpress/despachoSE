@@ -2489,7 +2489,7 @@ async function accionSolicitud(id, nombre, accion, nomDrv, correoDrv, celDrv) {
 
     // 2. Upsert en perfiles (evita el 406 del .single() cuando no existe)
     const { error: perfilErr } = await sb.from('perfiles').upsert(
-      { id: uid, nombre: nomDrv||sol.nombre, correo: correoDrv||sol.correo, celular: celDrv||sol.celular||'', rol:'DELIVERY', estatus:'ACTIVA' },
+      { id: uid, nombre: nomDrv||sol.nombre, celular: celDrv||sol.celular||'', rol:'DELIVERY', estatus:'ACTIVA' },
       { onConflict: 'id', ignoreDuplicates: false }
     );
     if(perfilErr) { toast('Error al crear perfil: ' + perfilErr.message, 'danger'); return; }
@@ -5304,7 +5304,7 @@ function renderUsuarios(){
         <div style="width:36px;height:36px;border-radius:50%;background:${rolColor[u.rol]||'var(--g4)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#000;flex-shrink:0">${inic(u.nombre||'?')}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:700">${u.nombre||'Sin nombre'}</div>
-          <div style="font-size:11px;color:var(--td)">${u.correo||u.celular||'—'}</div>
+          <div style="font-size:11px;color:var(--td)">${u.celular||'—'}</div>
         </div>
         <span style="font-size:10px;font-weight:700;color:${rolColor[u.rol]||'var(--td)'};background:${rolColor[u.rol]||'var(--g4)'}22;padding:3px 8px;border-radius:20px">${u.rol||'—'}</span>
       </div>
@@ -5316,7 +5316,7 @@ function renderUsuarios(){
 function htmlFormUsuario(d=null){return`
   <div class="form-grid">
     <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="usr-nombre" value="${d?.nombre||''}"></div>
-    <div class="fg"><label class="fl">Correo</label><input class="fi" id="usr-correo" type="email" value="${d?.correo||''}"></div>
+
     <div class="fg"><label class="fl">Celular</label><input class="fi" id="usr-cel" value="${d?.celular||''}"></div>
     <div class="fg"><label class="fl">Rol *</label>
       <select class="fi" id="usr-rol">
@@ -5332,7 +5332,7 @@ function htmlFormUsuario(d=null){return`
 guardarDatos.usuario = async()=>{
   const nom=gv('usr-nombre');
   if(!nom){toast('El nombre es requerido','danger');return;}
-  const row={nombre:nom,correo:gv('usr-correo'),celular:gv('usr-cel'),rol:gv('usr-rol')};
+  const row={nombre:nom,celular:gv('usr-cel'),rol:gv('usr-rol')};
   if(!MD.editId){toast('No se puede crear usuario directamente','danger');return;}
   const {error}=await sb.from('perfiles').update(row).eq('id',MD.editId);
   if(error){toast('Error: '+error.message,'danger');return;}
