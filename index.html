@@ -2465,27 +2465,60 @@ async function cargarSolicitudes(estatus='PENDIENTE') {
 
 async function accionSolicitud(id, nombre, accion, nomDrv, correoDrv, celDrv) {
   if(!confirm(`¿${accion === 'APROBADO' ? 'Aprobar' : 'Rechazar'} a ${nombre}?`)) return;
-  await sb.from('aplicaciones_delivery').update({ estatus: accion }).eq('id', id);
-  if(accion === 'APROBADO') {
-    // Obtener el auth uid desde las notas o crear manualmente
-    const { data: sol } = await sb.from('aplicaciones_delivery').select('notas,correo').eq('id', id).single();
-    const match = sol?.notas?.match(/auth_uid:([a-f0-9-]+)/);
-    if(match) {
-      const uid = match[1];
-      // Verificar si ya existe en perfiles
-      const { data: perfilExist } = await sb.from('perfiles').select('id').eq('id', uid).single();
-      if(!perfilExist) {
-        await sb.from('perfiles').insert({ id: uid, nombre: nomDrv, correo: correoDrv, celular: celDrv, rol:'DELIVERY', estatus:'ACTIVA' });
-      }
-      // Obtener siguiente ID para delivery
-      const { data: maxId } = await sb.from('delivery').select('id').order('id', { ascending: false }).limit(1).single();
-      const nextId = (maxId?.id || 0) + 1;
-      await sb.from('delivery').insert({ id: nextId, perfil_id: uid, nombre: nomDrv, correo: correoDrv, celular: celDrv, activo: true, estatus:'ACTIVO', saldo_billetera: 0 });
-    }
-    toast('✅ Rider aprobado y activado', 'success');
-  } else {
+
+  if(accion !== 'APROBADO') {
+    await sb.from('aplicaciones_delivery').update({ estatus: accion }).eq('id', id);
     toast('Solicitud rechazada', 'ghost');
+    cargarSolicitudes(S.solFiltro);
+    return;
   }
+
+  // ── APROBADO ────────────────────────────────────────────────
+  try {
+    // 1. Obtener la solicitud completa (incluye notas con auth_uid)
+    const { data: sol, error: solErr } = await sb
+      .from('aplicaciones_delivery')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if(solErr || !sol) { toast('Error al obtener solicitud: ' + (solErr?.message||'no encontrada'), 'danger'); return; }
+
+    const match = sol.notas?.match(/auth_uid:([a-f0-9-]{36})/);
+    if(!match) { toast('⚠️ No se encontró auth_uid en la solicitud. El rider debe registrarse de nuevo.', 'danger'); return; }
+    const uid = match[1];
+
+    // 2. Upsert en perfiles (evita el 406 del .single() cuando no existe)
+    const { error: perfilErr } = await sb.from('perfiles').upsert(
+      { id: uid, nombre: nomDrv||sol.nombre, correo: correoDrv||sol.correo, celular: celDrv||sol.celular||'', rol:'DELIVERY', estatus:'ACTIVA' },
+      { onConflict: 'id', ignoreDuplicates: false }
+    );
+    if(perfilErr) { toast('Error al crear perfil: ' + perfilErr.message, 'danger'); return; }
+
+    // 3. Verificar si ya existe en delivery (evita duplicado)
+    const { data: delivExist } = await sb.from('delivery').select('id').eq('perfil_id', uid).maybeSingle();
+    if(!delivExist) {
+      // Obtener siguiente ID
+      const { data: maxId } = await sb.from('delivery').select('id').order('id', { ascending: false }).limit(1).maybeSingle();
+      const nextId = (maxId?.id || 0) + 1;
+      const { error: delivErr } = await sb.from('delivery').insert({
+        id: nextId, perfil_id: uid,
+        nombre: nomDrv||sol.nombre,
+        correo: correoDrv||sol.correo,
+        celular: celDrv||sol.celular||'',
+        activo: true, estatus:'ACTIVO', saldo_billetera: 0
+      });
+      if(delivErr) { toast('Error al crear rider: ' + delivErr.message, 'danger'); return; }
+    }
+
+    // 4. Marcar solicitud como aprobada
+    await sb.from('aplicaciones_delivery').update({ estatus: 'APROBADO' }).eq('id', id);
+    toast('✅ Rider aprobado y activado', 'success');
+
+  } catch(e) {
+    toast('Error inesperado: ' + e.message, 'danger');
+    console.error('[accionSolicitud]', e);
+  }
+
   cargarSolicitudes(S.solFiltro);
   await cargarRiders();
 }
