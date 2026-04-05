@@ -358,6 +358,56 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
   #topbar{padding:0 12px;}
   #content{padding:10px 8px;}
 
+  /* ── Chat móvil: estilo WhatsApp ── */
+  /* El view-chat ocupa toda la pantalla disponible */
+  #view-chat{
+    height:calc(100vh - 52px);
+    padding:0 !important;
+    overflow:hidden;
+  }
+  /* Layout: una columna en lugar de grid 220px+1fr */
+  .chat-layout{
+    display:flex;
+    flex-direction:column;
+    grid-template-columns:unset;
+  }
+  /* Listado: ocupa toda la pantalla por defecto */
+  .chat-list{
+    flex:1;
+    border-right:none;
+    border-bottom:1px solid var(--g4);
+    overflow-y:auto;
+  }
+  /* Conversación: oculta hasta seleccionar */
+  .chat-main{
+    display:none;
+    flex:1;
+    min-height:0;
+  }
+  /* Al seleccionar un rider: ocultar listado, mostrar conversación */
+  .chat-layout.chat-sel .chat-list{
+    display:none !important;
+  }
+  .chat-layout.chat-sel .chat-main{
+    display:flex !important;
+    flex-direction:column;
+    height:100%;
+  }
+  /* Botón de volver: visible siempre en móvil cuando hay rider seleccionado */
+  .chat-layout.chat-sel .chat-back-btn{
+    display:flex !important;
+  }
+  /* Items del listado más grandes en móvil (fácil de tocar) */
+  .chat-item{
+    padding:14px 16px;
+    gap:12px;
+  }
+  .ch-av{
+    width:46px;
+    height:46px;
+    border-radius:14px;
+    font-size:14px;
+  }
 }
 
 @media(max-width:480px){
@@ -2828,7 +2878,11 @@ function renderChatContacts() {
 async function selChat(dId) {
   S.chatRiderId = dId;
   const d = S.riders.find(x => x.id === dId);
+  // En móvil: activar modo conversación (oculta listado, muestra chat)
+  document.getElementById('chat-layout').classList.add('chat-sel');
+  document.querySelector('.chat-back-btn').style.display = 'flex';
   document.getElementById('chat-hdr').innerHTML = `
+    <button class="chat-back-btn" onclick="document.getElementById('chat-layout').classList.remove('chat-sel');document.querySelector('.chat-back-btn').style.display='none';" style="background:none;border:none;color:var(--td);font-size:22px;padding:0 8px 0 0;cursor:pointer;display:flex;align-items:center;">←</button>
     <div class="ch-av" style="border:2px solid var(--or)">${inic(d.nombre)}</div>
     <div><div style="font-size:14px;font-weight:700">${d.nombre}</div>
     <div style="font-size:11px;color:${d.en_turno?'var(--verde)':'var(--td)'}">● ${d.en_turno?'En línea':'Desconectado'}</div></div>`;
