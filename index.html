@@ -4914,7 +4914,21 @@ function abrirModal(tipo, datos=null) {
   document.getElementById('md-cuerpo').innerHTML   = cfg.html;
   document.getElementById('modal-datos').style.display = 'flex';
   const mdg = document.getElementById('md-guardar');
-  if(mdg){ mdg.style.display='flex'; mdg.onclick=null; }
+  if(mdg){
+    mdg.style.display = 'flex';
+    // Para bono: el botón llama directamente a guardarBono (no pasa por guardarModal)
+    if(tipo === 'bono'){
+      mdg.onclick = async (e) => {
+        e.stopPropagation();
+        mdg.disabled = true; mdg.textContent = '⏳ Guardando...';
+        try { await guardarBono(); }
+        catch(err){ toast('Error: '+err.message,'danger'); console.error('[bono]',err); }
+        mdg.disabled = false; mdg.textContent = '💾 Guardar';
+      };
+    } else {
+      mdg.onclick = null;
+    }
+  }
 }
 function cerrarModalDatos() {
   document.getElementById('modal-datos').style.display = 'none';
