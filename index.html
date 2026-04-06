@@ -2087,7 +2087,7 @@ async function guardarPago(pedidoId) {
   if(idx >= 0) {
     S.pedidos[idx].metodo_pago = metodo;
     S.pedidos[idx].monto_cobrar = monto;
-    S.pedidos[idx].monto_pagar_establecimiento = subtotal;
+    S.pedidos[idx].monto_pagado = subtotal;
     S.pedidos[idx].monto_recibido_efectivo = pagaCon;
     renderPanel(S.pedidos[idx]);
   }
@@ -3510,7 +3510,7 @@ descuento:                S.cuponData ? parseFloat(S.cuponData.descuento) : 0,
 cupon_id:                 S.cuponData?.cupon_id || null,
 total:                    total,
 monto_cobrar:             total,          // total que paga el cliente
-monto_pagar_establecimiento: prod,        // ← solo el subtotal del producto (sin envío ni comisión)
+monto_pagado:             prod,           // monto a pagar al establecimiento (sin envío ni comisión)
 pct_comision:             pctCom,
 base_app:                 baseApp,
 ingreso_delivery:         ingDelivery,
