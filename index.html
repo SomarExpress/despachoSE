@@ -743,11 +743,11 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
                   <span class="mono" style="color:var(--verde)" id="fin-ing">L. 0.00</span>
                 </div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-                  <span style="font-size:12px;color:var(--td)">Pago Riders (70%)</span>
+                  <span style="font-size:12px;color:var(--td)">Pago Riders (66%)</span>
                   <span class="mono" style="color:var(--rojo)" id="fin-drv">- L. 0.00</span>
                 </div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-                  <span style="font-size:12px;color:var(--td)">Comisión Envíos (30%)</span>
+                  <span style="font-size:12px;color:var(--td)">Comisión Envíos (34%)</span>
                   <span class="mono" style="color:var(--or)" id="fin-com-envio">L. 0.00</span>
                 </div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
@@ -2274,8 +2274,8 @@ function renderPanel(p) {
     </div>
     <div style="background:var(--g2);border-radius:10px;overflow:hidden;margin-bottom:14px;">
       ${[
-        [`Ingreso Rider (${parseFloat(S.config?.pct_rider_envio||66.66).toFixed(0)}%)`, `<span style="color:var(--verde)">${fL(p.ingreso_delivery)}</span>`],
-        [`Ingreso Somar (${(100-parseFloat(S.config?.pct_rider_envio||66.66)).toFixed(0)}%)`, `<span style="color:var(--or)">${fL(p.ingreso_somar)}</span>`],
+        [`Ingreso Rider (${parseFloat(S.config?.pct_rider_envio||66).toFixed(0)}%)`, `<span style="color:var(--verde)">${fL(p.ingreso_delivery)}</span>`],
+        [`Ingreso Somar (${(100-parseFloat(S.config?.pct_rider_envio||66)).toFixed(0)}%)`, `<span style="color:var(--or)">${fL(p.ingreso_somar)}</span>`],
       ].map(([l,v]) =>
         `<div style="display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--g3);font-size:12px;">
           <span style="color:var(--td)">${l}</span><span>${v}</span>
