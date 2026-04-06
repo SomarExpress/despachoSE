@@ -3500,19 +3500,21 @@ async function guardarPedido() {
     direccion_entrega:        document.getElementById('f-dir-ent')?.value?.trim() || null,
     ubicacion_entrega_gps:    gpsEnt || null,
 
-    // Montos
-    subtotal:                 prod,
-    tarifa_envio:             envio,
-    tarifa_dinamica:          tarifaMod,
-    propina:                  prop,
-    descuento:                S.cuponData ? parseFloat(S.cuponData.descuento) : 0,
-    cupon_id:                 S.cuponData?.cupon_id || null,
-    total:                    total,
-    monto_cobrar:             total,
-    pct_comision:             pctCom,
-    base_app:                 baseApp,
-    ingreso_delivery:         ingDelivery,
-    ingreso_somar:            parseFloat((envio * (1 - pctRiderEnvio) + baseApp).toFixed(2)),
+// Montos
+subtotal:                 prod,
+tarifa_envio:             envio,
+tarifa_dinamica:          tarifaMod,
+propina:                  prop,
+descuento:                S.cuponData ? parseFloat(S.cuponData.descuento) : 0,
+cupon_id:                 S.cuponData?.cupon_id || null,
+total:                    total,
+monto_cobrar:             total,          // total que paga el cliente
+monto_pagar_establecimiento: prod,        // ← solo el subtotal del producto (sin envío ni comisión)
+pct_comision:             pctCom,
+base_app:                 baseApp,
+ingreso_delivery:         ingDelivery,
+ingreso_somar:            parseFloat((envio * (1 - pctRiderEnvio) + baseApp).toFixed(2)),
+distancia_km:             S._kmActual || null,   // ← guardar el km calculado
 
     // Pago
     quien_paga:               document.getElementById('f-quien-paga')?.value || 'DESTINATARIO',
@@ -3913,6 +3915,7 @@ async function wizCalcularTarifa() {
         if(!error && data) {
           tarifa = parseFloat(data.tarifa);
           km     = parseFloat(data.km);
+          S._kmActual = km;
           const det = document.getElementById('tarifa-detalle');
           if(det) det.innerHTML = `📏 <b>${km.toFixed(1)} km</b> · <b style="color:var(--or)">L. ${tarifa.toFixed(0)}</b> ${data.entre_ciudades?'(entre ciudades)':'(misma ciudad)'}${data.minimo>=tarifa?' · mínimo aplicado':''}`;
         }
