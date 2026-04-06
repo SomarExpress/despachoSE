@@ -1841,6 +1841,13 @@ function onPedidoChange(payload) {
     sonarPedidoFinalizado();
     notif('🏁 Pedido finalizado', `${p.no_orden||'—'} entregado`, false);
   }
+  // Notificacion cuando el rider sube la factura
+  if(payload.eventType === 'UPDATE' && payload.new?.foto_factura_url && !payload.old?.foto_factura_url) {
+    sonarDeposito();
+    notif('📷 Factura recibida — revisar', `${p.no_orden||'—'} · L. ${parseFloat(p.monto_pagado_en_comercio||0).toFixed(2)} · Requiere aprobación`, true);
+    const bFac = document.getElementById('badge-facturas');
+    if(bFac) { bFac.textContent = parseInt(bFac.textContent||0)+1; bFac.style.display='inline'; }
+  }
   // Si el panel está abierto con este pedido, actualizarlo
   if(S.panelPedidoId === p.id) {
     const pActual = S.pedidos.find(x => x.id === p.id);
@@ -2070,6 +2077,21 @@ function renderTablaPedidos() {
 // ════════════════════════════════════════════════════════════
 function abrirModalPedido(id) { abrirPanel(id); }
 
+async function aprobarFactura(pedidoId) {
+  const { error } = await sb.from('pedidos').update({
+    factura_aprobada: true,
+    factura_aprobada_at: new Date().toISOString(),
+    factura_aprobada_por: document.getElementById('u-name')?.textContent || 'Despacho',
+  }).eq('id', pedidoId);
+  if(error) { toast('Error: ' + error.message, 'danger'); return; }
+  toast('✅ Factura aprobada', 'success');
+  const idx = S.pedidos.findIndex(x => x.id === pedidoId);
+  if(idx >= 0) {
+    S.pedidos[idx].factura_aprobada = true;
+    renderPanel(S.pedidos[idx]);
+  }
+}
+
 async function guardarPago(pedidoId) {
   const metodo = document.getElementById('edit-metodo-pago')?.value;
   const monto  = parseFloat(document.getElementById('edit-monto-cobrar')?.value || 0);
@@ -2087,7 +2109,6 @@ async function guardarPago(pedidoId) {
   if(idx >= 0) {
     S.pedidos[idx].metodo_pago = metodo;
     S.pedidos[idx].monto_cobrar = monto;
-    S.pedidos[idx].monto_pagado = subtotal;
     S.pedidos[idx].monto_recibido_efectivo = pagaCon;
     renderPanel(S.pedidos[idx]);
   }
@@ -2267,6 +2288,7 @@ function renderPanel(p) {
         p.propina > 0 ? ['Propina', fL(p.propina)] : null,
         p.descuento > 0 ? ['Descuento Cupón', '- '+fL(p.descuento)] : null,
         ['Total a Cobrar',   `<b style="color:var(--or)">${fL(p.monto_cobrar)}</b>`],
+        p.monto_pagado > 0 ? ['Monto a Pagar Establecimiento', `<b style="color:var(--az)">${fL(p.monto_pagado)}</b>`] : null,
       ].filter(Boolean).map(([l,v]) =>
         `<div style="display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--g3);font-size:12px;">
           <span style="color:var(--td)">${l}</span><span>${v}</span>
@@ -2283,6 +2305,29 @@ function renderPanel(p) {
         </div>`
       ).join('')}
     </div>
+
+    <!-- Factura del rider -->
+    ${(p.monto_pagado_en_comercio > 0 || p.foto_factura_url) ? `
+    <div style="font-size:10px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Factura del Establecimiento</div>
+    <div style="background:var(--g2);border-radius:10px;overflow:hidden;margin-bottom:14px;border:1px solid ${p.factura_aprobada ? 'rgba(34,197,94,.3)' : 'rgba(245,158,11,.3)'}">
+      <div style="padding:10px 14px;border-bottom:1px solid var(--g3);display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--td)">Monto pagado en establecimiento</span>
+        <span style="font-size:15px;font-weight:800;color:var(--or)">L. ${parseFloat(p.monto_pagado_en_comercio||0).toFixed(2)}</span>
+      </div>
+      ${p.foto_factura_url ? `
+      <div style="padding:10px 14px;border-bottom:1px solid var(--g3);">
+        <div style="font-size:11px;color:var(--td);margin-bottom:6px;">Foto de factura</div>
+        <img src="${p.foto_factura_url}" onclick="window.open('${p.foto_factura_url}','_blank')"
+          style="width:100%;max-height:220px;object-fit:contain;border-radius:8px;cursor:pointer;background:#111;display:block;">
+        <div style="font-size:10px;color:var(--td);margin-top:4px;text-align:center;">Toca para ver en tamaño completo ↗</div>
+      </div>
+      <div style="padding:10px 14px;display:flex;gap:8px;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;font-weight:700;color:${p.factura_aprobada ? 'var(--verde)' : 'var(--am)'}">${p.factura_aprobada ? '✅ Factura aprobada' : '⏳ Pendiente de aprobación'}</span>
+        ${!p.factura_aprobada ? `<button class="btn btn-success btn-sm" onclick="aprobarFactura('${p.id}')">✅ Aprobar factura</button>` : ''}
+      </div>
+      ` : '<div style="padding:10px 14px;font-size:12px;color:var(--td)">Sin foto de factura aún</div>'}
+    </div>
+    ` : ''}
 
     <!-- Campos de pago editables -->
     ${!['FINALIZADO','CANCELADO'].includes(p.estatus) ? `
