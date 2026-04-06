@@ -2087,6 +2087,7 @@ async function guardarPago(pedidoId) {
   if(idx >= 0) {
     S.pedidos[idx].metodo_pago = metodo;
     S.pedidos[idx].monto_cobrar = monto;
+    S.pedidos[idx].monto_pagar_establecimiento = prod;
     S.pedidos[idx].monto_recibido_efectivo = pagaCon;
     renderPanel(S.pedidos[idx]);
   }
