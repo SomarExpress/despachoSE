@@ -3427,8 +3427,8 @@ function actualizarResumen() {
   const pctCom= parseFloat(document.getElementById('f-pct-comision')?.value || 0);
   const baseApp = parseFloat(((prod * pctCom) / 100).toFixed(2));
   const total = prod + envio + prop - desc;
-  const ingDel = parseFloat((envio * 0.70).toFixed(2));
-  const ingSom = parseFloat((envio * 0.30 + baseApp - desc).toFixed(2));
+  const ingDel = parseFloat((envio * 0.66).toFixed(2));
+  const ingSom = parseFloat((envio * 0.33 + baseApp - desc).toFixed(2));
   const set = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
   set('r-cliente', cli);
   const tipoLabel = {MANDADO:'Compra/Mandado',DELIVERY:'Delivery',TRASLADO:'Traslado',ENVIO:'Envío',RECOGER_PAQUETE:'Recoger Paquete'};
@@ -3951,8 +3951,8 @@ function actualizarResumen() {
   const baseApp= parseFloat((prod*pctCom/100).toFixed(2));
   const desc   = S.cuponData ? parseFloat(S.cuponData.descuento) : 0;
   const total  = prod + envio + prop - desc;
-  const ingDel = parseFloat((envio*0.70).toFixed(2));
-  const ingSom = parseFloat((envio*0.30+baseApp).toFixed(2));
+  const ingDel = parseFloat((envio*0.66).toFixed(2));
+  const ingSom = parseFloat((envio*0.33+baseApp).toFixed(2));
   const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
   set('r-cliente', _wizCliSel?.nombre||document.getElementById('f-cli-nom')?.value||'—');
   const tipoLabel={MANDADO:'Compra',TRASLADO:'Traslado',DELIVERY:'Delivery',ENVIO:'Envío'};
