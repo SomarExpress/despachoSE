@@ -2891,8 +2891,10 @@ async function cargarHistorial() {
     .order('created_at', { ascending: false });
   if(!data?.length) { document.getElementById('hist-content').innerHTML = '<div class="empty">Sin pedidos en ese rango</div>'; return; }
   const fin = data.filter(p => p.estatus === 'FINALIZADO');
-  const ing = fin.reduce((s,p) => s + parseFloat(p.tarifa_envio||0), 0);
-  document.getElementById('hist-res').textContent = `${data.length} total · ${fin.length} finalizados · L. ${ing.toFixed(2)} ingresos`;
+  const tarifa = fin.reduce((s,p) => s + parseFloat(p.tarifa_envio||0), 0);
+  const somar = fin.reduce((s,p) => s + parseFloat(p.ingreso_somar||0), 0);
+  const rider = fin.reduce((s,p) => s + parseFloat(p.ingreso_delivery||0), 0);
+  document.getElementById('hist-res').innerHTML = `<span style="color:var(--tx)">${data.length} total</span> · <span style="color:var(--verde)">${fin.length} fin.</span> · <span style="color:var(--or)">Tarifa L.${tarifa.toFixed(0)}</span> · <span style="color:#fbbf24">Somar L.${somar.toFixed(0)}</span> · <span style="color:#a855f7">Rider L.${rider.toFixed(0)}</span>`;
   renderHistorial(data);
 }
 
@@ -2909,51 +2911,82 @@ function renderHistorial(peds) {
     if(!grupos[y][m][w].ini || f < grupos[y][m][w].ini) grupos[y][m][w].ini = f;
     if(!grupos[y][m][w].fin || f > grupos[y][m][w].fin) grupos[y][m][w].fin = f;
   });
+
+  // Helper: calcular totales de un set de pedidos
+  const calcular = (lista) => {
+    const fin = lista.filter(p=>p.estatus==='FINALIZADO');
+    const can = lista.filter(p=>p.estatus==='CANCELADO').length;
+    return {
+      total: lista.length,
+      finalizados: fin.length,
+      cancelados: can,
+      tarifa: fin.reduce((s,p)=>s+parseFloat(p.tarifa_envio||0),0),
+      somar: fin.reduce((s,p)=>s+parseFloat(p.ingreso_somar||0),0),
+      rider: fin.reduce((s,p)=>s+parseFloat(p.ingreso_delivery||0),0),
+      propinas: fin.reduce((s,p)=>s+parseFloat(p.propina||0),0),
+    };
+  };
+
+  const fmtL = v => 'L.'+(v||0).toLocaleString('es-HN',{maximumFractionDigits:0});
+  const statsRow = (t, compacto=false) => `
+    <div style="display:flex;gap:${compacto?10:14}px;flex-wrap:wrap;font-size:${compacto?10:11}px">
+      <span class="hy-stat">${t.total} total</span>
+      <span class="hy-stat" style="color:var(--verde)">${t.finalizados} fin.</span>
+      ${t.cancelados>0?`<span class="hy-stat" style="color:var(--rojo)">${t.cancelados} canc.</span>`:''}
+      <span class="hy-stat" style="color:var(--or)">Tarifa ${fmtL(t.tarifa)}</span>
+      <span class="hy-stat" style="color:#fbbf24">Somar ${fmtL(t.somar)}</span>
+      <span class="hy-stat" style="color:#a855f7">Rider ${fmtL(t.rider)}</span>
+      ${t.propinas>0?`<span class="hy-stat" style="color:#22c55e">Prop. ${fmtL(t.propinas)}</span>`:''}
+    </div>`;
+
   const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   let html = '';
   Object.keys(grupos).sort((a,b)=>b-a).forEach(y => {
-    let yF=0,yI=0;
+    const yPeds = [];
     let mesHtml = '';
     Object.keys(grupos[y]).sort((a,b)=>b-a).forEach(m => {
-      let mF=0,mI=0;
+      const mPeds = [];
       let semHtml = '';
       Object.keys(grupos[y][m]).sort((a,b)=>b-a).forEach(w => {
         const g = grupos[y][m][w];
-        const f = g.peds.filter(p=>p.estatus==='FINALIZADO').length;
-        const i = g.peds.filter(p=>p.estatus==='FINALIZADO').reduce((s,p)=>s+parseFloat(p.tarifa_envio||0),0);
-        mF+=f; mI+=i; yF+=f; yI+=i;
+        mPeds.push(...g.peds);
+        const t = calcular(g.peds);
         semHtml += `<div class="hy-wk">
           <div class="hy-wk-hdr" onclick="togEl('wk-${y}-${m}-${w}')">
-            <span>Semana ${w} · ${g.ini} — ${g.fin}</span>
-            <div style="display:flex;gap:14px"><span class="hy-stat">${g.peds.length} pedidos</span><span class="hy-stat" style="color:var(--or)">${f} fin.</span><span class="hy-stat" style="color:var(--verde)">L.${i.toFixed(0)}</span></div>
+            <span style="font-weight:700">📅 Semana ${w} · ${g.ini} — ${g.fin}</span>
+            ${statsRow(t, true)}
           </div>
           <div class="collap" id="wk-${y}-${m}-${w}">
-            <table class="tbl" style="margin-top:6px"><thead><tr><th>N° Orden</th><th>Comercio</th><th>Tipo</th><th>Estado</th><th>Pago</th><th>Tarifa</th><th>Fecha</th></tr></thead><tbody>
+            <table class="tbl" style="margin-top:6px"><thead><tr><th>N° Orden</th><th>Comercio</th><th>Tipo</th><th>Estado</th><th>Pago</th><th>Tarifa</th><th>Somar</th><th>Fecha</th></tr></thead><tbody>
             ${g.peds.map(p=>`<tr onclick="abrirModalPedido('${p.id}')">
               <td class="mono" style="color:var(--or)">${p.no_orden||'—'}</td>
               <td>${p.nombre_comercio||p.nombre_destinatario||'—'}</td>
-              <td style="font-size:11px">${p.tipo||'—'}</td>
+              <td style="font-size:11px">${p.tipo_pedido||p.tipo||'—'}</td>
               <td>${chipEst(p.estatus)}</td>
               <td style="font-size:11px">${p.metodo_pago||'—'}</td>
               <td class="mono" style="color:var(--or)">L.${parseFloat(p.tarifa_envio||0).toFixed(0)}</td>
+              <td class="mono" style="color:#fbbf24">L.${parseFloat(p.ingreso_somar||0).toFixed(0)}</td>
               <td class="mono" style="font-size:10px;color:var(--td)">${fmtFecha(p.created_at)}</td>
             </tr>`).join('')}
             </tbody></table>
           </div>
         </div>`;
       });
+      yPeds.push(...mPeds);
+      const tm = calcular(mPeds);
       mesHtml += `<div class="hy-mo">
         <div class="hy-mo-hdr" onclick="togEl('mo-${y}-${m}')">
-          <span>${MESES[m]}</span>
-          <div style="display:flex;gap:14px"><span class="hy-stat">${mF} fin.</span><span class="hy-stat" style="color:var(--verde)">L.${mI.toFixed(0)}</span></div>
+          <span style="font-weight:700;font-size:14px">📆 ${MESES[m]}</span>
+          ${statsRow(tm)}
         </div>
-        <div class="collap open" id="mo-${y}-${m}">${semHtml}</div>
+        <div class="collap" id="mo-${y}-${m}">${semHtml}</div>
       </div>`;
     });
+    const ty = calcular(yPeds);
     html += `<div style="margin-bottom:18px">
       <div class="hy-yr-hdr" onclick="togEl('yr-${y}')">
-        <span>${y}</span>
-        <div style="display:flex;gap:14px"><span class="hy-stat">${yF} finalizados</span><span class="hy-stat" style="color:var(--verde)">L.${yI.toFixed(0)}</span></div>
+        <span style="font-weight:800;font-size:18px">🗓️ ${y}</span>
+        ${statsRow(ty)}
       </div>
       <div class="collap open" id="yr-${y}">${mesHtml}</div>
     </div>`;
@@ -5154,12 +5187,16 @@ function renderClientes() {
         <div>📍 ${c.ciudad||'—'} ${c.direccion?'· '+c.direccion:''}</div>
         ${c.correo?'<div>✉️ '+c.correo+'</div>':''}
         ${c.notas?'<div style="margin-top:4px;font-style:italic">'+c.notas+'</div>':''}
-        <div style="margin-top:6px;color:var(--or);font-weight:700">${c._pedidos_reales||c.total_pedidos||0} pedidos realizados</div>
+        <div style="margin-top:6px;display:flex;gap:12px;flex-wrap:wrap">
+          <span style="color:var(--or);font-weight:700">${c._pedidos_reales||c.total_pedidos||0} pedidos</span>
+          <span style="color:#fbbf24;font-weight:700">⭐ ${(c.puntos_saldo||0).toLocaleString('es-HN')} pts</span>
+        </div>
       </div>
       <div class="item-card-footer">
         ${c.celular?'<a href="https://wa.me/504'+c.celular.replace(/\D/g,'')+'" target="_blank" class="btn btn-ghost btn-sm" style="color:#22C55E;text-decoration:none">💬 WA</a>':''}
         <button class="btn btn-ghost btn-sm" onclick="abrirUbicacionesCliente('${c.id}','${c.nombre.replace(/'/g,"\\'")}')">📍 Ubic.</button>
         <button class="btn btn-ghost btn-sm" onclick="verPedidosCliente('${c.nombre.replace(/'/g,"\\'")}')">📋 Ped.</button>
+        <button class="btn btn-ghost btn-sm" style="color:#fbbf24" onclick="abrirPuntosCliente('${c.id}','${c.nombre.replace(/'/g,"\\'")}')">⭐ Puntos</button>
         <button class="btn btn-ghost btn-sm" onclick="editarDesdeCache('cliente','${c.id}')">✏️</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('clientes','${c.id}',cargarClientes)">🗑</button>
       </div>
@@ -5297,6 +5334,144 @@ guardarDatos.cliente = async()=>{
 async function verPedidosCliente(nombre) {
   nav('pedidos');
   setTimeout(()=>{const s=document.getElementById('ped-search');if(s){s.value=nombre;renderTablaPedidos();}},300);
+}
+
+// ─── PUNTOS DEL CLIENTE ──────────────────────────────────────
+async function abrirPuntosCliente(clienteId, clienteNombre) {
+  const modal = document.getElementById('modal-puntos');
+  document.getElementById('mp-titulo').textContent = '⭐ Puntos de ' + clienteNombre;
+  document.getElementById('mp-cuerpo').innerHTML = '<div class="empty">Cargando...</div>';
+  modal.style.display = 'flex';
+
+  // Cargar cliente y movimientos en paralelo
+  const [cliRes, movRes] = await Promise.all([
+    sb.from('clientes').select('puntos_saldo,puntos_acumulados,puntos_canjeados').eq('id', clienteId).single(),
+    sb.from('puntos_movimientos').select('*').eq('cliente_id', clienteId).order('created_at',{ascending:false}).limit(100)
+  ]);
+
+  if(cliRes.error) {
+    document.getElementById('mp-cuerpo').innerHTML = '<div class="empty" style="color:var(--rojo)">Error: '+cliRes.error.message+'</div>';
+    return;
+  }
+
+  const c = cliRes.data || {};
+  const movs = movRes.data || [];
+
+  const tipoLabels = {
+    PEDIDO:'🛵 Pedido', COMISION:'🏪 Comisión', GASTO:'🛒 Gasto productos',
+    REFERIDO:'👥 Referido', BIENVENIDA:'🎁 Bienvenida', RESENA:'⭐ Reseña',
+    CANJE:'💸 Canje', AJUSTE:'⚖️ Ajuste', VENCIMIENTO:'⏳ Vencimiento', BONO:'🎉 Bono'
+  };
+  const tipoColor = (t,p) => {
+    if(t==='CANJE'||t==='VENCIMIENTO'||p<0) return 'var(--rojo)';
+    return 'var(--verde)';
+  };
+
+  const fmtFechaCorta = iso => {
+    if(!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-HN',{day:'2-digit',month:'short',year:'2-digit'})+' '+d.toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit',timeZone:'America/Tegucigalpa'});
+  };
+
+  const html = `
+    <!-- Resumen -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">
+      <div style="background:linear-gradient(135deg,#fbbf24,#f59e0b);padding:14px;border-radius:10px;text-align:center;color:#000">
+        <div style="font-size:10px;font-weight:700;opacity:.8;text-transform:uppercase;letter-spacing:.5px">Saldo actual</div>
+        <div style="font-size:24px;font-weight:800;margin-top:2px">${(c.puntos_saldo||0).toLocaleString('es-HN')}</div>
+      </div>
+      <div style="background:var(--g3);padding:14px;border-radius:10px;text-align:center;border:1px solid var(--g4)">
+        <div style="font-size:10px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.5px">Acumulados</div>
+        <div style="font-size:20px;font-weight:800;color:var(--verde);margin-top:2px">${(c.puntos_acumulados||0).toLocaleString('es-HN')}</div>
+      </div>
+      <div style="background:var(--g3);padding:14px;border-radius:10px;text-align:center;border:1px solid var(--g4)">
+        <div style="font-size:10px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.5px">Canjeados</div>
+        <div style="font-size:20px;font-weight:800;color:var(--rojo);margin-top:2px">${(c.puntos_canjeados||0).toLocaleString('es-HN')}</div>
+      </div>
+    </div>
+
+    ${esAdmin() ? `
+    <!-- Ajuste manual (solo ADMIN) -->
+    <div style="background:var(--g3);border:1px solid var(--g4);border-radius:8px;padding:12px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--or);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">⚖️ Ajuste manual (ADMIN)</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="number" id="mp-ajuste-monto" placeholder="Puntos (+/-)" step="1" style="flex:1;min-width:120px;background:var(--g2);border:1px solid var(--g5);border-radius:6px;padding:8px 10px;color:var(--tx);font-size:13px">
+        <input type="text" id="mp-ajuste-motivo" placeholder="Motivo" style="flex:2;min-width:160px;background:var(--g2);border:1px solid var(--g5);border-radius:6px;padding:8px 10px;color:var(--tx);font-size:13px">
+        <button class="btn btn-primary btn-sm" onclick="ajustarPuntosCliente('${clienteId}','${clienteNombre.replace(/'/g,"\\'")}')">Aplicar</button>
+      </div>
+    </div>
+    ` : ''}
+
+    <!-- Historial -->
+    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📜 Historial (últimos 100 movimientos)</div>
+    ${movs.length === 0
+      ? '<div class="empty">Sin movimientos aún</div>'
+      : `<div style="max-height:340px;overflow-y:auto;border:1px solid var(--g4);border-radius:8px">
+          ${movs.map(m => {
+            const signo = m.puntos > 0 ? '+' : '';
+            const color = tipoColor(m.tipo, m.puntos);
+            const label = tipoLabels[m.tipo] || m.tipo;
+            const mult = (m.multiplicador && parseFloat(m.multiplicador) !== 1) ? ` <span style="color:#a855f7;font-size:10px;font-weight:700">×${parseFloat(m.multiplicador).toFixed(1)}</span>` : '';
+            const ganan = m.ganancia_somar ? ` · L.${parseFloat(m.ganancia_somar).toFixed(0)}` : '';
+            return `
+              <div style="padding:10px 12px;border-bottom:1px solid var(--g4);display:flex;justify-content:space-between;align-items:center;gap:10px">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:12px;font-weight:700">${label}${mult}</div>
+                  <div style="font-size:10px;color:var(--td);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.descripcion || '—'}${ganan}</div>
+                  <div style="font-size:10px;color:var(--td);margin-top:2px">${fmtFechaCorta(m.created_at)}</div>
+                </div>
+                <div style="text-align:right;flex-shrink:0">
+                  <div style="font-size:16px;font-weight:800;color:${color}">${signo}${m.puntos.toLocaleString('es-HN')}</div>
+                  <div style="font-size:10px;color:var(--td)">→ ${m.saldo_despues.toLocaleString('es-HN')}</div>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>`}
+  `;
+  document.getElementById('mp-cuerpo').innerHTML = html;
+}
+
+function cerrarPuntosCliente() {
+  document.getElementById('modal-puntos').style.display = 'none';
+}
+
+async function ajustarPuntosCliente(clienteId, clienteNombre) {
+  if(!esAdmin()){ toast('Solo ADMIN puede ajustar puntos','danger'); return; }
+  const monto = parseInt(document.getElementById('mp-ajuste-monto').value);
+  const motivo = document.getElementById('mp-ajuste-motivo').value.trim();
+  if(!monto || isNaN(monto)){ toast('Ingresa puntos (positivo o negativo)','danger'); return; }
+  if(!motivo){ toast('El motivo es requerido','danger'); return; }
+  if(!confirm(`¿Aplicar ajuste de ${monto>0?'+':''}${monto} puntos a ${clienteNombre}?\n\nMotivo: ${motivo}`)) return;
+
+  // Obtener saldo actual
+  const { data: cli, error: cliErr } = await sb.from('clientes').select('puntos_saldo,puntos_acumulados,puntos_canjeados').eq('id',clienteId).single();
+  if(cliErr){ toast('Error: '+cliErr.message,'danger'); return; }
+  const saldoAntes = cli.puntos_saldo || 0;
+  const saldoDespues = saldoAntes + monto;
+  if(saldoDespues < 0){ toast('El saldo no puede quedar negativo (actual: '+saldoAntes+')','danger'); return; }
+
+  // Insertar movimiento
+  const { error: movErr } = await sb.from('puntos_movimientos').insert({
+    cliente_id: clienteId,
+    tipo: 'AJUSTE',
+    puntos: monto,
+    saldo_antes: saldoAntes,
+    saldo_despues: saldoDespues,
+    descripcion: '[Ajuste manual] '+motivo,
+    creado_por: S.perfil?.nombre || 'ADMIN'
+  });
+  if(movErr){ toast('Error mov: '+movErr.message,'danger'); return; }
+
+  // Actualizar cliente
+  const update = { puntos_saldo: saldoDespues, updated_at: new Date().toISOString() };
+  if(monto > 0) update.puntos_acumulados = (cli.puntos_acumulados||0) + monto;
+  else update.puntos_canjeados = (cli.puntos_canjeados||0) + Math.abs(monto);
+  const { error: updErr } = await sb.from('clientes').update(update).eq('id',clienteId);
+  if(updErr){ toast('Error update: '+updErr.message,'danger'); return; }
+
+  toast('✅ Ajuste aplicado','success');
+  abrirPuntosCliente(clienteId, clienteNombre); // refrescar modal
+  cargarClientes(); // refrescar lista
 }
 
 // ─── CATEGORÍAS (tipos de comercio) ──────────────────────────
@@ -6066,6 +6241,17 @@ window.addEventListener('popstate', e => {
 </script>
 
 <!-- ═══ MODAL GENÉRICO DATOS ════════════════════════════════ -->
+<!-- ═══ MODAL PUNTOS CLIENTE ═══════════════════════════════ -->
+<div id="modal-puntos" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)cerrarPuntosCliente()">
+  <div style="background:var(--g1);border:1px solid var(--g4);border-radius:18px;width:100%;max-width:620px;max-height:92vh;overflow:hidden;display:flex;flex-direction:column;">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--g4);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+      <div id="mp-titulo" style="font-size:16px;font-weight:800"></div>
+      <button onclick="cerrarPuntosCliente()" style="background:none;border:none;color:var(--td);font-size:22px;cursor:pointer;padding:0 4px">✕</button>
+    </div>
+    <div id="mp-cuerpo" style="padding:20px;overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
 <div id="modal-datos" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)cerrarModalDatos()">
   <div style="background:var(--g1);border:1px solid var(--g4);border-radius:18px;width:100%;max-width:540px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
     <div style="padding:16px 20px;border-bottom:1px solid var(--g4);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
