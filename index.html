@@ -2725,76 +2725,142 @@ async function cargarSolicitudes(estatus='PENDIENTE') {
   const el = document.getElementById('sol-lista');
   if(!data?.length) { el.innerHTML = '<div class="empty">Sin solicitudes ' + estatus.toLowerCase() + 's</div>'; return; }
   document.getElementById('badge-sol').textContent = estatus === 'PENDIENTE' ? data.length : parseInt(document.getElementById('badge-sol').textContent||0);
-  el.innerHTML = data.map(s => `
-    <div class="dep-card">
-      <div class="dep-hdr">
-        <div class="ch-av" style="width:40px;height:40px;font-size:14px;border:2px solid var(--or)">${inic(s.nombre)}</div>
-        <div style="flex:1">
+
+  // Helper para cada foto (miniatura que abre en nueva pestaña)
+  const fotoChip = (url, emoji, label) => {
+    if(!url) return `<div style="flex:1;min-width:90px;aspect-ratio:1;background:var(--g3);border:1px dashed var(--g5);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--td);font-size:10px"><div style="font-size:18px;opacity:.3">${emoji}</div><div style="opacity:.5">Sin ${label}</div></div>`;
+    return `<div onclick="window.open('${url}','_blank')" style="flex:1;min-width:90px;aspect-ratio:1;background-image:url(${url});background-size:cover;background-position:center;border-radius:8px;cursor:pointer;position:relative;border:1px solid var(--g4);overflow:hidden" title="${label}">
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:3px 6px;background:linear-gradient(to top,rgba(0,0,0,.85),transparent);font-size:10px;font-weight:700;color:#fff;text-align:center">${emoji} ${label}</div>
+    </div>`;
+  };
+
+  el.innerHTML = data.map(s => {
+    // Parsear notas para mostrar info extra
+    const notas = s.notas || '';
+    const edadMatch = notas.match(/edad:(\d+)/);
+    const motoProp  = notas.match(/moto_propia:(\w+)/);
+    const licDoc    = notas.match(/licencia_documento:(\w+)/);
+    const extraInfo = [
+      edadMatch ? `${edadMatch[1]} años` : null,
+      motoProp?.[1]==='si' ? '🏍 Moto propia' : motoProp?.[1]==='no' ? '🏍 Moto prestada' : null,
+      licDoc?.[1]==='si' ? '🚗 Con licencia' : licDoc?.[1]==='no' ? '🚗 Sin licencia' : null,
+      s.tiene_experiencia ? '⭐ Experiencia previa' : null,
+      s.tiene_mochila ? '🎒 Mochila propia' : '🎒 Sin mochila'
+    ].filter(Boolean).join(' · ');
+
+    return `
+    <div class="dep-card" style="padding:14px">
+      <div class="dep-hdr" style="margin-bottom:10px">
+        ${s.foto_url
+          ? `<img src="${s.foto_url}" onclick="window.open('${s.foto_url}','_blank')" style="width:52px;height:52px;border-radius:50%;object-fit:cover;cursor:pointer;border:2px solid var(--or)">`
+          : `<div class="ch-av" style="width:52px;height:52px;font-size:17px;border:2px solid var(--or)">${inic(s.nombre)}</div>`}
+        <div style="flex:1;min-width:0">
           <div style="font-size:15px;font-weight:700">${s.nombre}</div>
-          <div style="font-size:12px;color:var(--td)">${s.correo} · ${s.celular||'—'}</div>
-          <div style="font-size:11px;color:var(--td)">${fmtFecha(s.created_at)}</div>
+          <div style="font-size:11px;color:var(--td);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.correo} · ${s.celular||'—'}</div>
+          <div style="font-size:10px;color:var(--td)">${fmtFecha(s.created_at)} · ${s.ciudad||'—'}</div>
         </div>
         <span class="chip chip-${estatus}">${estatus}</span>
       </div>
-      ${s.identidad_delantera_url ? `<div class="dep-img" onclick="window.open('${s.identidad_delantera_url}','_blank')" style="background-image:url(${s.identidad_delantera_url})"><div class="dep-img-overlay">🪪 Ver DUI ↗</div></div>` : ''}
+
+      ${extraInfo ? `<div style="font-size:11px;color:var(--td);padding:6px 10px;background:var(--g3);border-radius:8px;margin-bottom:10px">${extraInfo}</div>` : ''}
+
+      ${s.direccion_completa ? `<div style="font-size:11px;color:var(--td);margin-bottom:8px">📍 ${s.direccion_completa}</div>` : ''}
+      ${s.disponibilidad ? `<div style="font-size:11px;color:var(--td);margin-bottom:10px">⏰ ${s.disponibilidad}</div>` : ''}
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
+        ${fotoChip(s.identidad_delantera_url, '🪪', 'DNI')}
+        ${fotoChip(s.licencia_url,            '🚗', 'Licencia')}
+        ${fotoChip(s.revision_vehiculo_url,   '📋', 'Revisión')}
+        ${fotoChip(s.moto_propia_url,         '🏍', 'Moto')}
+        ${s.tiene_mochila ? fotoChip(s.mochila_url, '🎒', 'Mochila') : ''}
+      </div>
+
+      ${s.identidad ? `<div style="font-size:11px;color:var(--td);margin-bottom:8px">DNI: <span class="mono">${s.identidad}</span></div>` : ''}
+
       ${estatus === 'PENDIENTE' ? `<div class="dep-footer">
-        <button class="btn btn-danger btn-sm" onclick="accionSolicitud('${s.id}','${s.nombre}','RECHAZADO')">✗ Rechazar</button>
-        <button class="btn btn-success btn-sm" onclick="accionSolicitud('${s.id}','${s.nombre}','APROBADO',\`${s.nombre}\`,\`${s.correo}\`,\`${s.celular||''}\`)">✓ Aprobar y Activar</button>
+        <button class="btn btn-danger btn-sm" onclick="accionSolicitud('${s.id}','${s.nombre.replace(/'/g,"\\'")}','RECHAZADO')">✗ Rechazar</button>
+        <button class="btn btn-success btn-sm" onclick="accionSolicitud('${s.id}','${s.nombre.replace(/'/g,"\\'")}','APROBADO')">✓ Aprobar y Activar</button>
       </div>` : ''}
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
-async function accionSolicitud(id, nombre, accion, nomDrv, correoDrv, celDrv) {
+async function accionSolicitud(id, nombre, accion) {
   if(!confirm(`¿${accion === 'APROBADO' ? 'Aprobar' : 'Rechazar'} a ${nombre}?`)) return;
 
-  if(accion !== 'APROBADO') {
-    await sb.from('aplicaciones_delivery').update({ estatus: accion }).eq('id', id);
-    toast('Solicitud rechazada', 'ghost');
-    cargarSolicitudes(S.solFiltro);
+  // ── RECHAZAR: llamar Edge Function (borra auth user huérfano) ─
+  if(accion === 'RECHAZADO') {
+    const motivo = prompt('Motivo del rechazo (opcional):') || 'Rechazado';
+    try {
+      const {data:{session}} = await sb.auth.getSession();
+      if(!session?.access_token){ toast('Sesión expirada','danger'); return; }
+      const res = await fetch(`${SUPA_URL}/functions/v1/rechazar-solicitud-rider`, {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'apikey':SUPA_ANON,
+          'Authorization':`Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ aplicacion_id: id, motivo })
+      });
+      const json = await res.json();
+      if(!res.ok) { toast('Error: '+(json.error||res.status),'danger'); return; }
+      toast('✅ Solicitud rechazada','ghost');
+      cargarSolicitudes(S.solFiltro);
+    } catch(e) {
+      toast('Error: '+e.message,'danger');
+      console.error('[rechazar]',e);
+    }
     return;
   }
 
-  // ── APROBADO ────────────────────────────────────────────────
+  // ── APROBAR ─────────────────────────────────────────────────
   try {
-    // 1. Obtener la solicitud completa (incluye notas con auth_uid)
     const { data: sol, error: solErr } = await sb
-      .from('aplicaciones_delivery')
-      .select('*')
-      .eq('id', id)
-      .single();
-    if(solErr || !sol) { toast('Error al obtener solicitud: ' + (solErr?.message||'no encontrada'), 'danger'); return; }
+      .from('aplicaciones_delivery').select('*').eq('id', id).single();
+    if(solErr || !sol) { toast('Error: ' + (solErr?.message||'no encontrada'), 'danger'); return; }
 
-    const match = sol.notas?.match(/auth_uid:([a-f0-9-]{36})/);
-    if(!match) { toast('⚠️ No se encontró auth_uid en la solicitud. El rider debe registrarse de nuevo.', 'danger'); return; }
-    const uid = match[1];
+    // Leer auth_uid: primero de la columna nueva, fallback al regex en notas (retrocompat)
+    let uid = sol.auth_uid;
+    if(!uid) {
+      const match = sol.notas?.match(/auth_uid:([a-f0-9-]{36})/);
+      if(match) uid = match[1];
+    }
+    if(!uid) {
+      toast('⚠️ No se encontró auth_uid. El rider debe registrarse de nuevo.', 'danger');
+      return;
+    }
 
-    // 2. Upsert en perfiles (evita el 406 del .single() cuando no existe)
+    // Upsert en perfiles con rol DELIVERY
     const { error: perfilErr } = await sb.from('perfiles').upsert(
-      { id: uid, nombre: nomDrv||sol.nombre, celular: celDrv||sol.celular||'', rol:'DELIVERY', estatus:'ACTIVA' },
+      { id: uid, nombre: sol.nombre, celular: sol.celular||'', rol:'DELIVERY', estatus:'ACTIVA', foto_url: sol.foto_url||null, ciudad: sol.ciudad||null },
       { onConflict: 'id', ignoreDuplicates: false }
     );
     if(perfilErr) { toast('Error al crear perfil: ' + perfilErr.message, 'danger'); return; }
 
-    // 3. Verificar si ya existe en delivery (evita duplicado)
+    // Verificar si ya existe en delivery
     const { data: delivExist } = await sb.from('delivery').select('id').eq('perfil_id', uid).maybeSingle();
     if(!delivExist) {
-      // Obtener siguiente ID
       const { data: maxId } = await sb.from('delivery').select('id').order('id', { ascending: false }).limit(1).maybeSingle();
       const nextId = (maxId?.id || 0) + 1;
       const { error: delivErr } = await sb.from('delivery').insert({
         id: nextId, perfil_id: uid,
-        nombre: nomDrv||sol.nombre,
-        correo: correoDrv||sol.correo,
-        celular: celDrv||sol.celular||'',
+        nombre: sol.nombre,
+        correo: sol.correo,
+        celular: sol.celular||'',
         activo: true, estatus:'ACTIVO', saldo_billetera: 0
       });
       if(delivErr) { toast('Error al crear rider: ' + delivErr.message, 'danger'); return; }
     }
 
-    // 4. Marcar solicitud como aprobada
-    await sb.from('aplicaciones_delivery').update({ estatus: 'APROBADO' }).eq('id', id);
-    toast('✅ Rider aprobado y activado', 'success');
+    // Marcar solicitud como aprobada
+    await sb.from('aplicaciones_delivery').update({
+      estatus: 'APROBADO',
+      aceptado: true,
+      revisado_por: S.perfil?.nombre || 'Despacho'
+    }).eq('id', id);
 
+    toast('✅ Rider aprobado — ya puede ingresar a la app', 'success');
   } catch(e) {
     toast('Error inesperado: ' + e.message, 'danger');
     console.error('[accionSolicitud]', e);
