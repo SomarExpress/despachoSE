@@ -855,6 +855,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
           <button class="fbtn" onclick="filtPed(this,'BORRADOR')">Borrador</button>
           <button class="fbtn" onclick="filtPed(this,'FINALIZADO')">Finalizados</button>
           <button class="fbtn" onclick="filtPed(this,'CANCELADO')">Cancelados</button>
+          <button class="fbtn" id="fbtn-eliminados" onclick="filtPed(this,'ELIMINADO')" style="display:none;color:#fca5a5">🗑 Eliminados</button>
         </div>
         <div class="card">
           <div class="card-hdr">
@@ -1634,13 +1635,15 @@ async function doLogin() {
   const { data, error } = await sb.auth.signInWithPassword({ email, password: pwd });
   if(error) { err.textContent = 'Credenciales incorrectas'; err.style.display = 'block'; return; }
   // Verificar rol DESPACHO
-  const { data: perfil } = await sb.from('perfiles').select('rol,nombre').eq('id', data.user.id).single();
+  const { data: perfil } = await sb.from('perfiles').select('id,rol,nombre').eq('id', data.user.id).single();
   if(!perfil || !['STAFF','ADMIN'].includes(perfil.rol)) {
     err.textContent = 'No tienes acceso al panel de despacho';
     err.style.display = 'block';
     await sb.auth.signOut();
     return;
   }
+  S.perfil = perfil;
+  aplicarPermisosRol();
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('u-name').textContent = perfil.nombre || email.split('@')[0];
   document.getElementById('u-av').textContent = (perfil.nombre || 'D').charAt(0).toUpperCase();
@@ -1655,8 +1658,10 @@ async function doLogout() {
 // Check session on load
 sb.auth.getSession().then(({ data: { session } }) => {
   if(!session) return; // show auth screen
-  sb.from('perfiles').select('rol,nombre').eq('id', session.user.id).single().then(({ data: p }) => {
+  sb.from('perfiles').select('id,rol,nombre').eq('id', session.user.id).single().then(({ data: p }) => {
     if(p && ['STAFF','ADMIN'].includes(p.rol)) {
+      S.perfil = p;
+      aplicarPermisosRol();
       document.getElementById('auth-screen').style.display = 'none';
       document.getElementById('u-name').textContent = p.nombre || 'Despacho';
       document.getElementById('u-av').textContent = (p.nombre || 'D').charAt(0).toUpperCase();
@@ -1664,6 +1669,32 @@ sb.auth.getSession().then(({ data: { session } }) => {
     }
   });
 });
+
+// ════════════════════════════════════════════════════════════
+// PERMISOS POR ROL
+// ════════════════════════════════════════════════════════════
+function esAdmin() { return S.perfil?.rol === 'ADMIN'; }
+function aplicarPermisosRol() {
+  const admin = esAdmin();
+  // Sidebar: ocultar Configuración y Usuarios si no es ADMIN
+  document.querySelectorAll('.nav-item').forEach(el => {
+    const oc = el.getAttribute('onclick') || '';
+    if(oc.includes("nav('config')") || oc.includes("nav('usuarios')")) {
+      el.style.display = admin ? '' : 'none';
+    }
+  });
+  // Botón "Nuevo Usuario" en vista usuarios
+  const btnNvoUsr = document.querySelector('#view-usuarios .btn-primary[onclick*="abrirModal(\'usuario\')"]');
+  if(btnNvoUsr) btnNvoUsr.style.display = admin ? '' : 'none';
+  // Botón filtro "Eliminados" en pedidos
+  const btnFiltElim = document.getElementById('fbtn-eliminados');
+  if(btnFiltElim) btnFiltElim.style.display = admin ? '' : 'none';
+  // Marca de rol en el header
+  const uName = document.getElementById('u-name');
+  if(uName && S.perfil?.nombre) {
+    uName.textContent = S.perfil.nombre + (admin ? ' · ADMIN' : ' · STAFF');
+  }
+}
 
 // ════════════════════════════════════════════════════════════
 // INIT
@@ -1898,11 +1929,13 @@ async function cargarMetricas() {
   const hasta  = document.getElementById('dash-hasta')?.value  || hoyHN;
   // Convertir rango local HN a UTC para el query (Honduras = UTC-6)
   const { desde: desdeUTC, hasta: hastaUTC } = rangoUTCdesdeHN(desde, hasta);
-  const { data } = await sb.from('pedidos')
+  const incluirEliminados = (S.pedFiltro === 'ELIMINADO') && esAdmin();
+  let q = sb.from('pedidos')
     .select('*')
     .gte('created_at', desdeUTC)
-    .lte('created_at', hastaUTC)
-    .order('created_at', { ascending: false });
+    .lte('created_at', hastaUTC);
+  if(!incluirEliminados) q = q.neq('estatus','ELIMINADO');
+  const { data } = await q.order('created_at', { ascending: false });
   if(!data) return;
   S.pedidos = data;
   const total = data.length;
@@ -2032,8 +2065,14 @@ const FILTROS_ACTIVOS = ['ASIGNADO','ACEPTADO','EN_ESTABLECIMIENTO','PEDIDO_EN_C
 function filtPed(btn, f) {
   document.querySelectorAll('.filter-bar .fbtn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  const prev = S.pedFiltro;
   S.pedFiltro = f;
-  renderTablaPedidos();
+  // Si entra/sale del filtro ELIMINADO necesitamos recargar (query base cambia)
+  if(f === 'ELIMINADO' || prev === 'ELIMINADO') {
+    cargarMetricas().then(renderTablaPedidos);
+  } else {
+    renderTablaPedidos();
+  }
 }
 
 function renderTablaPedidos() {
@@ -2041,6 +2080,7 @@ function renderTablaPedidos() {
   let peds = S.pedidos;
   if(S.pedFiltro === 'activos')     peds = peds.filter(p => FILTROS_ACTIVOS.includes(p.estatus));
   else if(S.pedFiltro === 'sinAsignar') peds = peds.filter(p => p.estatus === 'PENDIENTE');
+  else if(S.pedFiltro === 'ELIMINADO')  peds = peds.filter(p => p.estatus === 'ELIMINADO');
   else if(S.pedFiltro !== 'todos')  peds = peds.filter(p => p.estatus === S.pedFiltro);
   if(q) peds = peds.filter(p => JSON.stringify(p).toLowerCase().includes(q));
   document.getElementById('ped-count').textContent = `${peds.length} pedidos`;
@@ -2358,10 +2398,28 @@ function renderPanel(p) {
 
   // Footer con acciones
   document.getElementById('panel-footer').innerHTML = `
-    ${!['FINALIZADO','CANCELADO'].includes(p.estatus) ? `<button class="btn btn-danger" onclick="cancelarPedido('${p.id}')" style="flex:1;justify-content:center">Cancelar</button>` : ''}
+    ${!['FINALIZADO','CANCELADO','ELIMINADO'].includes(p.estatus) ? `<button class="btn btn-danger" onclick="cancelarPedido('${p.id}')" style="flex:1;justify-content:center">Cancelar</button>` : ''}
     ${p.estatus === 'PENDIENTE' ? `<button class="btn btn-primary" onclick="cerrarPanel();abrirAsignar('${p.id}')" style="flex:2;justify-content:center">Asignar Rider</button>` : ''}
     ${['ASIGNADO','ACEPTADO','EN_ESTABLECIMIENTO','PEDIDO_EN_CAMINO','ENTREGANDO'].includes(p.estatus) ? `<button class="btn btn-ghost" onclick="cerrarPanel();abrirAsignar('${p.id}')" style="flex:1;justify-content:center">Reasignar</button>` : ''}
+    ${esAdmin() && p.estatus !== 'ELIMINADO' ? `<button class="btn" onclick="eliminarPedido('${p.id}')" style="flex:1;justify-content:center;background:#7f1d1d;color:#fff;border:1px solid #991b1b">🗑 Eliminar</button>` : ''}
   `;
+}
+
+async function eliminarPedido(id) {
+  if(!esAdmin()){ toast('Solo ADMIN puede eliminar pedidos','danger'); return; }
+  const motivo = prompt('Motivo de eliminación (queda en el registro):');
+  if(motivo === null) return;
+  if(!confirm('¿Eliminar este pedido?\n\nQuedará en la base de datos pero no aparecerá en ninguna vista ni se contará en métricas. Esta acción solo puede revertirse desde Supabase.')) return;
+  const { error } = await sb.from('pedidos').update({
+    estatus: 'ELIMINADO',
+    observaciones: '[ELIMINADO por '+(S.perfil?.nombre||'ADMIN')+'] '+(motivo||'Sin motivo')
+  }).eq('id', id);
+  if(error) return toast('Error: ' + error.message, 'danger');
+  S.pedidos = S.pedidos.filter(x => x.id !== id);
+  closeModal('modal-pedido');
+  renderTablaPedidos();
+  if(document.getElementById('view-kanban')?.classList.contains('active')) renderKanban();
+  toast('Pedido eliminado','ghost');
 }
 
 async function cancelarPedido(id) {
@@ -2829,6 +2887,7 @@ async function cargarHistorial() {
     .select('*')
     .gte('created_at', rangoUTCdesdeHN(desde, desde).desde)
     .lte('created_at', rangoUTCdesdeHN(hasta, hasta).hasta)
+    .neq('estatus','ELIMINADO')
     .order('created_at', { ascending: false });
   if(!data?.length) { document.getElementById('hist-content').innerHTML = '<div class="empty">Sin pedidos en ese rango</div>'; return; }
   const fin = data.filter(p => p.estatus === 'FINALIZADO');
@@ -5575,6 +5634,7 @@ function htmlFormUsuario(d=null){
 guardarDatos.bono = async()=>{ await guardarBono(); };
 
 guardarDatos.usuario = async()=>{
+  if(!esAdmin()){ toast('Solo ADMIN puede gestionar usuarios','danger'); return; }
   const nom = gv('usr-nombre');
   const rol = gv('usr-rol');
   if(!nom){ toast('El nombre es requerido','danger'); return; }
@@ -5675,6 +5735,7 @@ async function cargarConfig() {
   console.log('[config] cargada:',S.config);
 }
 async function guardarConfigClave(clave,valor,btn) {
+  if(!esAdmin()){ toast('Solo ADMIN puede modificar la configuración','danger'); return; }
   if(btn){btn.disabled=true;btn.textContent='Guardando...';}
   const {error}=await sb.from('configuracion').upsert({clave,valor:String(valor),updated_at:new Date().toISOString()},{onConflict:'clave'});
   if(error){toast('Error: '+error.message,'danger');}
@@ -5684,8 +5745,11 @@ async function guardarConfigClave(clave,valor,btn) {
 function renderConfig() {
   const el=document.getElementById('config-content');
   if(!el) return;
-  const cfg=S.config;
-  const fila=(clave,label,desc,tipo='number',min=0,max=9999,step=0.5)=>`
+  const cfg=S.config||{};
+  const admin=esAdmin();
+  const ro = !admin; // puntos siempre solo lectura para STAFF, pero como STAFF no llega aquí queda solo para futuro
+
+  const fila=(clave,label,desc,tipo='number',min=0,max=99999,step=0.5,readonly=false)=>`
     <div style="padding:14px 0;border-bottom:1px solid var(--g4);">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
         <div style="flex:1;min-width:180px;">
@@ -5693,21 +5757,99 @@ function renderConfig() {
           <div style="font-size:11px;color:var(--td);">${desc}</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
-          <input type="${tipo}" id="cfg-${clave}" value="${cfg[clave]||''}" min="${min}" max="${max}" step="${step}"
-            style="width:100px;background:var(--g3);border:1px solid var(--g5);border-radius:6px;padding:7px 10px;color:var(--tx);font-size:14px;font-weight:700;text-align:center;">
-          <button class="btn btn-primary btn-sm" onclick="guardarConfigClave('${clave}',document.getElementById('cfg-${clave}').value,this)">Guardar</button>
+          <input type="${tipo}" id="cfg-${clave}" value="${cfg[clave]??''}" min="${min}" max="${max}" step="${step}" ${readonly?'disabled':''}
+            style="width:110px;background:var(--g3);border:1px solid var(--g5);border-radius:6px;padding:7px 10px;color:var(--tx);font-size:14px;font-weight:700;text-align:center;${readonly?'opacity:.6':''}">
+          ${readonly?'<span style="font-size:10px;color:var(--td)">solo lectura</span>':`<button class="btn btn-primary btn-sm" onclick="guardarConfigClave('${clave}',document.getElementById('cfg-${clave}').value,this)">Guardar</button>`}
         </div>
       </div>
     </div>`;
+
+  const filaBool=(clave,label,desc,readonly=false)=>{
+    const v = (cfg[clave]==='true' || cfg[clave]===true);
+    return `
+    <div style="padding:14px 0;border-bottom:1px solid var(--g4);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:180px;">
+          <div style="font-size:13px;font-weight:700;margin-bottom:3px;">${label}</div>
+          <div style="font-size:11px;color:var(--td);">${desc}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+          <select id="cfg-${clave}" ${readonly?'disabled':''}
+            style="width:110px;background:var(--g3);border:1px solid var(--g5);border-radius:6px;padding:7px 10px;color:var(--tx);font-size:13px;font-weight:700;text-align:center;${readonly?'opacity:.6':''}">
+            <option value="true" ${v?'selected':''}>Activado</option>
+            <option value="false" ${!v?'selected':''}>Desactivado</option>
+          </select>
+          ${readonly?'<span style="font-size:10px;color:var(--td)">solo lectura</span>':`<button class="btn btn-primary btn-sm" onclick="guardarConfigClave('${clave}',document.getElementById('cfg-${clave}').value,this)">Guardar</button>`}
+        </div>
+      </div>
+    </div>`;
+  };
+
+  const filaText=(clave,label,desc,readonly=false)=>`
+    <div style="padding:14px 0;border-bottom:1px solid var(--g4);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:180px;">
+          <div style="font-size:13px;font-weight:700;margin-bottom:3px;">${label}</div>
+          <div style="font-size:11px;color:var(--td);">${desc}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+          <input type="text" id="cfg-${clave}" value="${cfg[clave]??''}" ${readonly?'disabled':''}
+            style="width:140px;background:var(--g3);border:1px solid var(--g5);border-radius:6px;padding:7px 10px;color:var(--tx);font-size:13px;font-weight:700;text-align:center;${readonly?'opacity:.6':''}">
+          ${readonly?'<span style="font-size:10px;color:var(--td)">solo lectura</span>':`<button class="btn btn-primary btn-sm" onclick="guardarConfigClave('${clave}',document.getElementById('cfg-${clave}').value,this)">Guardar</button>`}
+        </div>
+      </div>
+    </div>`;
+
+  const tit=(t)=>`<div style="font-size:11px;font-weight:700;color:var(--or);text-transform:uppercase;letter-spacing:.08em;margin-top:18px;margin-bottom:2px;padding-top:6px;border-top:2px solid var(--g4);">${t}</div>`;
+
   el.innerHTML=`
-    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">🗺️ Zonas</div>
-    ${fila('zona_radio_km','Radio de zona (km)','Distancia máxima del rider al centro de la zona','number',0.5,20,0.5)}
-    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-top:16px;margin-bottom:2px;">💰 Comisiones</div>
-    ${fila('comision_bronce','Comisión Bronce (%)','','number',0,100,1)}
-    ${fila('comision_plata','Comisión Plata (%)','75+ pedidos/mes','number',0,100,1)}
-    ${fila('comision_oro','Comisión Oro (%)','150+ pedidos/mes','number',0,100,1)}
-    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-top:16px;margin-bottom:2px;">👛 Billetera</div>
-    ${fila('saldo_minimo','Saldo mínimo (L.)','Para operar','number',0,9999,10)}`;
+    ${tit('💰 Tarifas de envío')}
+    ${fila('tarifa_base','Tarifa base (L.)','Tarifa fija por envío',                      'number',0,9999,1)}
+    ${fila('tarifa_minima','Tarifa mínima (L.)','Mínimo cobrable al cliente',            'number',0,9999,1)}
+    ${fila('costo_por_km','Costo por km (L.)','Precio por kilómetro adicional',          'number',0,999,0.5)}
+    ${fila('redondear_a_multiplo','Redondeo (L.)','Redondear tarifa al múltiplo de N (0=sin redondeo)','number',0,100,1)}
+    ${filaBool('tarifa_dinamica_activa','Tarifa dinámica activa','Activar multiplicador de tarifa dinámica')}
+    ${fila('multiplicador_dinamico','Multiplicador dinámico','Ej: 1.5 = aumenta 50%',     'number',1,5,0.1)}
+
+    ${tit('🌧️ Recargos y horarios')}
+    ${filaBool('lluvia_activa','Recargo lluvia activo','Activar recargo de lluvia manualmente')}
+    ${fila('recargo_lluvia','Recargo lluvia (L.)','Adicional cuando llueve',              'number',0,999,1)}
+    ${fila('recargo_noche','Recargo noche (L.)','Adicional en horario nocturno',          'number',0,999,1)}
+    ${filaText('hora_inicio_noche','Hora inicio nocturno','Desde qué hora aplica recargo noche (HH:MM)')}
+    ${filaText('hora_fin_noche','Hora fin nocturno','Hasta qué hora aplica (HH:MM)')}
+
+    ${tit('👥 Comisiones por nivel rider')}
+    ${fila('comision_bronce','Bronce (%)','Comisión Somar nivel Bronce',                  'number',0,100,1)}
+    ${fila('comision_plata','Plata (%)','75+ pedidos/mes',                                'number',0,100,1)}
+    ${fila('comision_oro','Oro (%)','150+ pedidos/mes',                                   'number',0,100,1)}
+    ${fila('delivery_pct','% Delivery (envío)','Porcentaje de la tarifa que recibe rider','number',0,100,1)}
+    ${fila('somar_pct','% Somar (envío)','Porcentaje de la tarifa que retiene Somar',     'number',0,100,1)}
+    ${fila('comision_comercio_pct','Comisión comercio (%)','Sobre subtotal de productos','number',0,100,1)}
+
+    ${tit('👛 Billetera y operación')}
+    ${fila('saldo_minimo','Saldo mínimo (L.)','Para que rider reciba pedidos',            'number',0,9999,10)}
+    ${fila('max_pedidos_delivery','Máx pedidos por rider','Pedidos simultáneos por rider','number',1,10,1)}
+    ${fila('max_riders_turno','Máx riders por turno','Límite de riders simultáneos',     'number',1,50,1)}
+    ${fila('tiempo_aceptacion_min','Tiempo aceptación (min)','Antes de reasignar',        'number',1,30,1)}
+
+    ${tit('⭐ Programa de puntos'+(ro?' (solo lectura)':''))}
+    ${filaBool('puntos_activos','Programa activo','Activar/desactivar puntos completo',ro)}
+    ${fila('puntos_por_lempira','Puntos por L.1 ganancia','Puntos por cada L.1 de ganancia Somar (envío + comisión)','number',0,1000,1,ro)}
+    ${fila('puntos_gasto_cada_lps','Puntos por gasto (cada L.)','1 punto por cada N L. gastados en productos','number',1,1000,1,ro)}
+    ${fila('puntos_a_lempiras','Puntos = L.1 al canjear','Cuántos puntos equivalen a L.1','number',1,10000,1,ro)}
+    ${fila('canje_minimo_puntos','Canje mínimo','Mínimo de puntos para canjear','number',0,99999,10,ro)}
+    ${fila('puntos_por_referido_dar','Puntos por referir','Para quien comparte su código','number',0,9999,5,ro)}
+    ${fila('puntos_por_referido_rec','Puntos al registrarse','Bienvenida para nuevo cliente con código','number',0,9999,5,ro)}
+    ${fila('puntos_por_resena','Puntos por reseña','Por completar evaluación del pedido','number',0,9999,1,ro)}
+    ${fila('puntos_vencimiento_dias','Vencimiento (días)','Días sin actividad para expirar (0=nunca)','number',0,3650,30,ro)}
+
+    ${tit('🗺️ Zonas')}
+    ${fila('zona_radio_km','Radio de zona (km)','Distancia máxima del rider al centro','number',0.5,20,0.5)}
+
+    ${tit('🏙️ General')}
+    ${filaText('ciudad_principal','Ciudad principal','Ciudad principal de operación')}
+    ${filaText('whatsapp_notificaciones','WhatsApp notificaciones','Número para alertas internas (sin +)')}
+  `;
 }
 
 
@@ -5759,6 +5901,11 @@ async function refreshApp() {
 }
 
 function nav(v, pushHistory=true) {
+  // Bloqueo por rol: solo ADMIN puede entrar a config y usuarios
+  if((v === 'config' || v === 'usuarios') && !esAdmin()) {
+    toast('Solo ADMIN puede acceder a esta sección','danger');
+    return;
+  }
   document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   const view = document.getElementById('view-'+v);
@@ -5819,7 +5966,7 @@ function closeSB() { document.getElementById('sidebar').classList.remove('open')
 // UTILS
 // ════════════════════════════════════════════════════════════
 function chipEst(e) {
-  const labels = { BORRADOR:'Borrador',PENDIENTE:'Pendiente',ASIGNADO:'Asignado',ACEPTADO:'Aceptado',EN_ESTABLECIMIENTO:'Establecimiento',PEDIDO_EN_CAMINO:'En Camino',ENTREGANDO:'Entregando',FINALIZADO:'Finalizado',CANCELADO:'Cancelado',RECHAZADO:'Rechazado' };
+  const labels = { BORRADOR:'Borrador',PENDIENTE:'Pendiente',ASIGNADO:'Asignado',ACEPTADO:'Aceptado',EN_ESTABLECIMIENTO:'Establecimiento',PEDIDO_EN_CAMINO:'En Camino',ENTREGANDO:'Entregando',FINALIZADO:'Finalizado',CANCELADO:'Cancelado',RECHAZADO:'Rechazado',ELIMINADO:'Eliminado' };
   return `<span class="chip chip-${e||'PENDIENTE'}"><span class="dot"></span>${labels[e]||e||'—'}</span>`;
 }
 function inic(n) { if(!n) return '?'; const w=n.trim().split(' '); return (w[0][0]+(w[1]?w[1][0]:'')).toUpperCase(); }
