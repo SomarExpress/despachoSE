@@ -2842,7 +2842,7 @@ async function accionSolicitud(id, nombre, accion) {
     const { data: delivExist } = await sb.from('delivery').select('id').eq('perfil_id', uid).maybeSingle();
     if(!delivExist) {
       const { data: maxId } = await sb.from('delivery').select('id').order('id', { ascending: false }).limit(1).maybeSingle();
-      const nextId = (maxId?.id || 0) + 1;
+      const nextId = Math.max(10000, (maxId?.id || 0) + 1);
       const { error: delivErr } = await sb.from('delivery').insert({
         id: nextId, perfil_id: uid,
         nombre: sol.nombre,
