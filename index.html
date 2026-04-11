@@ -1790,18 +1790,35 @@ function tickPanelTimer(ahora) {
 function initRealtime() {
   sb.channel('despacho-main')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, p => {
+      if(p.eventType === 'INSERT' && p.new?.estatus !== 'BORRADOR') {
+        try{ sonarPedidoNuevo(); }catch(e){}
+        notif('🆕 Nuevo pedido', `${p.new.no_orden||'—'} · ${p.new.nombre_cliente||p.new.cliente_nombre||''}`, false, {pedido_id: p.new.id});
+      }
       onPedidoChange(p);
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'depositos_delivery' }, p => {
       if(p.eventType === 'INSERT' && p.new.estatus === 'PENDIENTE') {
         badgeInc('badge-dep');
-        notif('💳 Depósito recibido', 'Un repartidor envió comprobante', false);
+        const rDep = S.riders.find(x => x.id === p.new.delivery_id);
+        const mDep = parseFloat(p.new.monto||0).toFixed(2);
+        notif('💰 Recarga recibida', `${rDep?.nombre||'Rider'} · L. ${mDep} · Comprobante por revisar`, false, {deposito_id: p.new.id, rider_id: p.new.delivery_id});
         sonarDeposito();
       }
       if(document.getElementById('view-depositos').classList.contains('active')) cargarDepositos(S.solFiltro || 'PENDIENTE');
     else { const b=document.getElementById('badge-dep'); if(b&&p.eventType==='INSERT') b.textContent=parseInt(b.textContent||0)+1; }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'ubicaciones_delivery' }, p => {
+      // Detectar transiciones de estado del rider
+      if(p.eventType === 'UPDATE' && p.old && p.new){
+        const rUbi = S.riders.find(x => x.id === p.new.delivery_id);
+        const nombreR = rUbi?.nombre || 'Rider';
+        const oldT = p.old.en_turno === true, newT = p.new.en_turno === true;
+        const oldP = p.old.pausado === true,  newP = p.new.pausado === true;
+        if(!oldT && newT)      notif('🟢 Rider activó turno', nombreR, false, {rider_id: p.new.delivery_id});
+        else if(oldT && !newT) notif('🔴 Rider desactivó turno', nombreR, false, {rider_id: p.new.delivery_id});
+        else if(newT && !oldP && newP) notif('⏸ Rider pausó turno', nombreR, false, {rider_id: p.new.delivery_id});
+        else if(newT && oldP && !newP) notif('▶️ Rider reanudó turno', nombreR, false, {rider_id: p.new.delivery_id});
+      }
       actualizarMarker(p.new);
       const dId = p.new?.delivery_id;
       const idx = S.riders.findIndex(r => r.id === dId);
