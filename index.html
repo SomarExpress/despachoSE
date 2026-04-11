@@ -1808,16 +1808,24 @@ function initRealtime() {
     else { const b=document.getElementById('badge-dep'); if(b&&p.eventType==='INSERT') b.textContent=parseInt(b.textContent||0)+1; }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'ubicaciones_delivery' }, p => {
-      // Detectar transiciones de estado del rider
-      if(p.eventType === 'UPDATE' && p.old && p.new){
-        const rUbi = S.riders.find(x => x.id === p.new.delivery_id);
-        const nombreR = rUbi?.nombre || 'Rider';
-        const oldT = p.old.en_turno === true, newT = p.new.en_turno === true;
-        const oldP = p.old.pausado === true,  newP = p.new.pausado === true;
-        if(!oldT && newT)      notif('🟢 Rider activó turno', nombreR, false, {rider_id: p.new.delivery_id});
-        else if(oldT && !newT) notif('🔴 Rider desactivó turno', nombreR, false, {rider_id: p.new.delivery_id});
-        else if(newT && !oldP && newP) notif('⏸ Rider pausó turno', nombreR, false, {rider_id: p.new.delivery_id});
-        else if(newT && oldP && !newP) notif('▶️ Rider reanudó turno', nombreR, false, {rider_id: p.new.delivery_id});
+      // Detectar transiciones REALES comparando contra cache local (p.old puede venir vacío)
+      if(p.eventType === 'UPDATE' && p.new?.delivery_id){
+        if(!S._ultTurno) S._ultTurno = {};
+        const dId = p.new.delivery_id;
+        const prev = S._ultTurno[dId]; // estado previo conocido
+        const newT = p.new.en_turno === true;
+        const newP = p.new.pausado === true;
+        // Solo notificar si TENEMOS un estado previo y realmente cambió
+        if(prev){
+          const rUbi = S.riders.find(x => x.id === dId);
+          const nombreR = rUbi?.nombre || 'Rider';
+          if(!prev.en_turno && newT)      notif('🟢 Rider activó turno', nombreR, false, {rider_id: dId});
+          else if(prev.en_turno && !newT) notif('🔴 Rider desactivó turno', nombreR, false, {rider_id: dId});
+          else if(newT && !prev.pausado && newP) notif('⏸ Rider pausó turno', nombreR, false, {rider_id: dId});
+          else if(newT && prev.pausado && !newP) notif('▶️ Rider reanudó turno', nombreR, false, {rider_id: dId});
+        }
+        // Actualizar cache SIEMPRE (incluido primer evento, que solo siembra sin notificar)
+        S._ultTurno[dId] = { en_turno: newT, pausado: newP };
       }
       actualizarMarker(p.new);
       const dId = p.new?.delivery_id;
@@ -2539,14 +2547,17 @@ async function confirmarAsig() {
 // ════════════════════════════════════════════════════════════
 async function cargarRiders() {
   const { data, error } = await sb.from('delivery')
-    .select('*, ubicaciones_delivery(en_turno, lat, lng)')
+    .select('*, ubicaciones_delivery(en_turno, pausado, lat, lng)')
     .order('nombre');
   if(data) {
+    if(!S._ultTurno) S._ultTurno = {};
     S.riders = data.map(d => {
       // Supabase puede devolver la relación como objeto o array según la FK definida
       const ubi = Array.isArray(d.ubicaciones_delivery)
         ? d.ubicaciones_delivery[0]
         : d.ubicaciones_delivery;
+      // Sembrar cache de turno para que Realtime detecte transiciones reales
+      S._ultTurno[d.id] = { en_turno: ubi?.en_turno === true, pausado: ubi?.pausado === true };
       return {
         ...d,
         en_turno: ubi?.en_turno === true,
