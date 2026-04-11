@@ -6297,14 +6297,67 @@ function toast(msg, type='success') {
   setTimeout(() => t.remove(), 3500);
 }
 
-function notif(titulo, cuerpo, urgente=false) {
+// Sonido corto embebido (beep 880Hz generado por WebAudio al vuelo - cero archivos extra)
+function reproducirSonidoNotif(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 880; o.type = 'sine';
+    g.gain.setValueAtTime(0.001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime+0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.35);
+    o.start(); o.stop(ctx.currentTime+0.36);
+    setTimeout(()=>{ try{ctx.close();}catch(e){} }, 500);
+  }catch(e){}
+}
+
+// Pedir permiso al primer gesto del usuario
+let _notifPermPedido = false;
+function pedirPermisoNotif(){
+  if(_notifPermPedido) return;
+  _notifPermPedido = true;
+  if('Notification' in window && Notification.permission === 'default'){
+    Notification.requestPermission().catch(()=>{});
+  }
+}
+document.addEventListener('click', pedirPermisoNotif, { once:true });
+
+// Notificación del sistema tipo WhatsApp (suena, vibra, aparece aunque la app esté minimizada)
+async function notifSistema(titulo, cuerpo, data={}){
+  try{
+    if(!('Notification' in window) || Notification.permission !== 'granted') return;
+    const reg = await navigator.serviceWorker.ready;
+    await reg.showNotification(titulo, {
+      body: cuerpo || '',
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      vibrate: [300,150,300,150,300],
+      tag: 'somar-' + Date.now(),
+      renotify: true,
+      requireInteraction: true,
+      data: data
+    });
+  }catch(e){ console.log('[notifSistema]', e); }
+}
+
+function notif(titulo, cuerpo, urgente=false, data={}) {
+  // 1) Toast visual en feed (comportamiento original)
   const feed = document.getElementById('notif-feed');
-  const item = document.createElement('div');
-  item.className = `nitem ${urgente?'urgente':'info'}`;
-  item.innerHTML = `<div class="ntitle">${titulo}</div><div class="nbody">${cuerpo||''}</div>`;
-  item.onclick = () => item.remove();
-  feed.appendChild(item);
-  setTimeout(() => item.remove(), urgente ? 9000 : 5000);
+  if(feed){
+    const item = document.createElement('div');
+    item.className = `nitem ${urgente?'urgente':'info'}`;
+    item.innerHTML = `<div class="ntitle">${titulo}</div><div class="nbody">${cuerpo||''}</div>`;
+    item.onclick = () => item.remove();
+    feed.appendChild(item);
+    setTimeout(() => item.remove(), urgente ? 9000 : 5000);
+  }
+  // 2) Sonido corto
+  reproducirSonidoNotif();
+  // 3) Vibración (celulares)
+  try{ if('vibrate' in navigator) navigator.vibrate([300,150,300,150,300]); }catch(e){}
+  // 4) Notificación del sistema (funciona con app minimizada/background)
+  notifSistema(titulo, cuerpo, data);
 }
 
 // Cerrar modals al hacer click fuera
