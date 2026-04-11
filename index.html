@@ -2584,7 +2584,7 @@ async function confirmarAsig() {
 // ════════════════════════════════════════════════════════════
 async function cargarRiders() {
   const { data, error } = await sb.from('delivery')
-    .select('*, ubicaciones_delivery(en_turno, pausado, lat, lng)')
+    .select('*, ubicaciones_delivery(en_turno, pausado, lat, lng), perfiles!delivery_perfil_id_fkey(foto_url)')
     .order('nombre');
   if(data) {
     if(!S._ultTurno) S._ultTurno = {};
@@ -2593,10 +2593,12 @@ async function cargarRiders() {
       const ubi = Array.isArray(d.ubicaciones_delivery)
         ? d.ubicaciones_delivery[0]
         : d.ubicaciones_delivery;
+      const perf = Array.isArray(d.perfiles) ? d.perfiles[0] : d.perfiles;
       // Sembrar cache de turno para que Realtime detecte transiciones reales
       S._ultTurno[d.id] = { en_turno: ubi?.en_turno === true, pausado: ubi?.pausado === true, ts: Date.now() };
       return {
         ...d,
+        foto_url: perf?.foto_url || null,
         en_turno: ubi?.en_turno === true,
         _ubi: ubi || null,
       };
