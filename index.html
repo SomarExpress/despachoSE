@@ -1808,24 +1808,37 @@ function initRealtime() {
     else { const b=document.getElementById('badge-dep'); if(b&&p.eventType==='INSERT') b.textContent=parseInt(b.textContent||0)+1; }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'ubicaciones_delivery' }, p => {
-      // Detectar transiciones REALES comparando contra cache local (p.old puede venir vacío)
-      if(p.eventType === 'UPDATE' && p.new?.delivery_id){
+      // Detectar transiciones REALES con dedupe + debounce (evita falsas notifs por GPS/reconexión)
+      if((p.eventType === 'UPDATE' || p.eventType === 'INSERT') && p.new?.delivery_id){
         if(!S._ultTurno) S._ultTurno = {};
         const dId = p.new.delivery_id;
-        const prev = S._ultTurno[dId]; // estado previo conocido
+        const prev = S._ultTurno[dId];
         const newT = p.new.en_turno === true;
         const newP = p.new.pausado === true;
-        // Solo notificar si TENEMOS un estado previo y realmente cambió
-        if(prev){
-          const rUbi = S.riders.find(x => x.id === dId);
-          const nombreR = rUbi?.nombre || 'Rider';
-          if(!prev.en_turno && newT)      notif('🟢 Rider activó turno', nombreR, false, {rider_id: dId});
-          else if(prev.en_turno && !newT) notif('🔴 Rider desactivó turno', nombreR, false, {rider_id: dId});
-          else if(newT && !prev.pausado && newP) notif('⏸ Rider pausó turno', nombreR, false, {rider_id: dId});
-          else if(newT && prev.pausado && !newP) notif('▶️ Rider reanudó turno', nombreR, false, {rider_id: dId});
+        const ahora = Date.now();
+        // DEDUPE: si el estado no cambió, ignorar sin tocar nada
+        if(prev && prev.en_turno === newT && prev.pausado === newP) {
+          // mismo estado, solo refrescar timestamp
+          prev.ts = ahora;
+        } else {
+          // DEBOUNCE: ignorar si el último cambio de este rider fue hace <2s
+          if(prev && prev.ts && (ahora - prev.ts) < 2000) {
+            // cambio demasiado rápido, ignorar pero actualizar estado
+            S._ultTurno[dId] = { en_turno: newT, pausado: newP, ts: ahora };
+          } else if(prev){
+            // Transición real detectada
+            const rUbi = S.riders.find(x => x.id === dId);
+            const nombreR = rUbi?.nombre || 'Rider';
+            if(!prev.en_turno && newT)           notif('🟢 Rider activó turno', nombreR, false, {rider_id: dId});
+            else if(prev.en_turno && !newT)      notif('🔴 Rider desactivó turno', nombreR, false, {rider_id: dId});
+            else if(newT && !prev.pausado && newP) notif('⏸ Rider pausó turno', nombreR, false, {rider_id: dId});
+            else if(newT && prev.pausado && !newP) notif('▶️ Rider reanudó turno', nombreR, false, {rider_id: dId});
+            S._ultTurno[dId] = { en_turno: newT, pausado: newP, ts: ahora };
+          } else {
+            // Primera vez que vemos este rider: solo sembrar sin notificar
+            S._ultTurno[dId] = { en_turno: newT, pausado: newP, ts: ahora };
+          }
         }
-        // Actualizar cache SIEMPRE (incluido primer evento, que solo siembra sin notificar)
-        S._ultTurno[dId] = { en_turno: newT, pausado: newP };
       }
       actualizarMarker(p.new);
       const dId = p.new?.delivery_id;
@@ -2557,7 +2570,7 @@ async function cargarRiders() {
         ? d.ubicaciones_delivery[0]
         : d.ubicaciones_delivery;
       // Sembrar cache de turno para que Realtime detecte transiciones reales
-      S._ultTurno[d.id] = { en_turno: ubi?.en_turno === true, pausado: ubi?.pausado === true };
+      S._ultTurno[d.id] = { en_turno: ubi?.en_turno === true, pausado: ubi?.pausado === true, ts: Date.now() };
       return {
         ...d,
         en_turno: ubi?.en_turno === true,
