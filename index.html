@@ -2623,6 +2623,30 @@ function renderRidersMini() {
   }).join('');
 }
 
+function abrirDetalleRider(riderId){
+  const r = S.riders.find(x=>x.id===riderId); if(!r) return;
+  const fin = S.pedidos.filter(p=>p.delivery_id===r.id && p.estatus==='FINALIZADO').length;
+  const act = S.pedidos.filter(p=>p.delivery_id===r.id && FILTROS_ACTIVOS.includes(p.estatus)).length;
+  const foto = r.foto_url||r.foto_perfil||r.avatar_url||'';
+  const SKIP = new Set(['_ubi','id']);
+  const filas = Object.keys(r).filter(k=>!SKIP.has(k)).sort().map(k=>{
+    let v = r[k]; if(v===null||v===undefined||v==='') v='—';
+    else if(typeof v==='object') v = JSON.stringify(v);
+    else v = String(v);
+    return `<div style="display:flex;justify-content:space-between;gap:12px;padding:8px 10px;border-bottom:1px solid var(--g4);font-size:12px"><span style="color:var(--td);text-transform:uppercase;letter-spacing:1px">${k}</span><span class="mono" style="text-align:right;word-break:break-all;max-width:60%">${v}</span></div>`;
+  }).join('');
+  const html = `<div id="modalDetRider" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.remove()">
+    <div style="background:var(--g1);border:1px solid var(--g4);border-radius:12px;max-width:560px;width:100%;max-height:90vh;overflow:auto">
+      <div style="padding:16px;border-bottom:1px solid var(--g4);display:flex;gap:14px;align-items:center;position:sticky;top:0;background:var(--g1);z-index:1">
+        <div style="width:64px;height:64px;border-radius:50%;overflow:hidden;border:2px solid var(--or);flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--g2);font-weight:700">${foto?`<img src="${foto}" style="width:100%;height:100%;object-fit:cover">`:inic(r.nombre)}</div>
+        <div style="flex:1"><div style="font-size:18px;font-weight:700">${r.nombre||'—'}</div><div class="mono" style="font-size:11px;color:var(--td)">ID ${r.id} · ${fin} finalizados · ${act} activos</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modalDetRider').remove()">✕</button>
+      </div>
+      <div>${filas}</div>
+    </div></div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
 function renderRidersGrid(filtro='todos') {
   const grid = document.getElementById('riders-grid');
   let riders = S.riders;
@@ -2631,7 +2655,9 @@ function renderRidersGrid(filtro='todos') {
   if(!riders.length) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">No hay riders</div>'; return; }
   grid.innerHTML = riders.map(d => {
     const act = S.pedidos.filter(p => p.delivery_id === d.id && FILTROS_ACTIVOS.includes(p.estatus)).length;
-
+    const fin = S.pedidos.filter(p => p.delivery_id === d.id && p.estatus === 'FINALIZADO').length;
+    const foto = d.foto_url || d.foto_perfil || d.avatar_url || '';
+    const avInner = foto ? `<img src="${foto}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${inic(d.nombre)}'}))"/>` : inic(d.nombre);
     const pausado  = d._ubi?.pausado === true;
     const statTxt = d.en_turno ? (pausado ? '⏸ Pausado' : act > 0 ? '🟠 Ocupado' : '🟢 Disponible') : '⚫ Desconectado';
     const statCol = d.en_turno ? (pausado ? '#F59E0B' : act > 0 ? 'var(--or)' : 'var(--verde)') : 'var(--td)';
@@ -2640,9 +2666,9 @@ function renderRidersGrid(filtro='todos') {
     const tieneGps = ubi && !(parseFloat(ubi.lat)===0 && parseFloat(ubi.lng)===0);
     return `<div class="drv-card" id="drv-card-${d.id}" onclick="enfocarRider(${d.id})" style="cursor:pointer;transition:border .15s;">
       <div class="drv-hdr">
-        <div class="drv-av" style="border:2px solid ${statCol}">${inic(d.nombre)}</div>
+        <div class="drv-av" style="border:2px solid ${statCol};overflow:hidden;padding:0">${avInner}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.nombre}</div>
+          <div onclick="event.stopPropagation();abrirDetalleRider(${d.id})" style="font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-decoration:underline;text-decoration-color:var(--g4)">${d.nombre}</div>
           <div class="mono" style="font-size:10px;color:var(--td)">${d.celular||'—'}</div>
           <span style="font-size:10px;color:${statCol};font-weight:700">${statTxt}</span>
           ${d.en_turno && !tieneGps ? '<span style="font-size:10px;color:var(--am);margin-left:6px">📍 GPS pendiente</span>' : ''}
@@ -2650,6 +2676,7 @@ function renderRidersGrid(filtro='todos') {
       </div>
       <div class="drv-stats">
         <div class="drv-stat"><div class="drv-stat-val">${act}</div><div class="drv-stat-lbl">Activos</div></div>
+        <div class="drv-stat"><div class="drv-stat-val" style="color:var(--verde)">${fin}</div><div class="drv-stat-lbl">Finalizados</div></div>
         <div class="drv-stat"><div class="drv-stat-val" style="color:${saldoColor};font-size:16px">L.${parseFloat(d.saldo_billetera||0).toFixed(0)}</div><div class="drv-stat-lbl">Saldo</div></div>
       </div>
       <div style="margin-top:10px;display:flex;gap:6px;">
