@@ -2625,25 +2625,45 @@ function renderRidersMini() {
   }).join('');
 }
 
-function abrirDetalleRider(riderId){
+async function abrirDetalleRider(riderId){
   const r = S.riders.find(x=>x.id===riderId); if(!r) return;
   const fin = S.pedidos.filter(p=>p.delivery_id===r.id && p.estatus==='FINALIZADO').length;
   const act = S.pedidos.filter(p=>p.delivery_id===r.id && FILTROS_ACTIVOS.includes(p.estatus)).length;
-  const foto = r.foto_url||r.foto_perfil||r.avatar_url||'';
-  const SKIP = new Set(['_ubi','id']);
+  const foto = r.foto_url||'';
+  // Total recargado acumulado (depositos APROBADOS)
+  let totalRecargado = 0;
+  try {
+    const {data:deps} = await sb.from('depositos_delivery').select('monto').eq('delivery_id',r.id).eq('estatus','APROBADO');
+    if(deps) totalRecargado = deps.reduce((s,x)=>s+parseFloat(x.monto||0),0);
+  } catch(e){}
+  // Fotos subidas por el delivery (storage delivery-docs/<id>/)
+  let fotosHtml = '<div style="padding:14px;color:var(--td);font-size:12px;text-align:center">Sin fotos</div>';
+  try {
+    const {data:files} = await sb.storage.from('delivery-docs').list(String(r.id),{limit:100});
+    if(files && files.length){
+      const items = await Promise.all(files.filter(f=>f.name && !f.name.startsWith('.')).map(async f=>{
+        const {data:u} = await sb.storage.from('delivery-docs').createSignedUrl(`${r.id}/${f.name}`, 3600);
+        return u?.signedUrl ? `<div style="display:flex;flex-direction:column;gap:4px"><img src="${u.signedUrl}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;border:1px solid var(--g4)" onclick="window.open('${u.signedUrl}','_blank')"><div class="mono" style="font-size:9px;color:var(--td);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div></div>` : '';
+      }));
+      if(items.filter(Boolean).length) fotosHtml = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px">${items.join('')}</div>`;
+    }
+  } catch(e){}
+  const SKIP = new Set(['_ubi','id','perfiles','ubicaciones_delivery']);
   const filas = Object.keys(r).filter(k=>!SKIP.has(k)).sort().map(k=>{
-    let v = r[k]; if(v===null||v===undefined||v==='') v='—';
-    else if(typeof v==='object') v = JSON.stringify(v);
-    else v = String(v);
+    let v=r[k]; if(v===null||v===undefined||v==='')v='—'; else if(typeof v==='object')v=JSON.stringify(v); else v=String(v);
     return `<div style="display:flex;justify-content:space-between;gap:12px;padding:8px 10px;border-bottom:1px solid var(--g4);font-size:12px"><span style="color:var(--td);text-transform:uppercase;letter-spacing:1px">${k}</span><span class="mono" style="text-align:right;word-break:break-all;max-width:60%">${v}</span></div>`;
   }).join('');
+  const avatarClick = foto ? `onclick="window.open('${foto}','_blank')" style="cursor:zoom-in;` : 'style="';
   const html = `<div id="modalDetRider" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.remove()">
-    <div style="background:var(--g1);border:1px solid var(--g4);border-radius:12px;max-width:560px;width:100%;max-height:90vh;overflow:auto">
+    <div style="background:var(--g1);border:1px solid var(--g4);border-radius:12px;max-width:620px;width:100%;max-height:90vh;overflow:auto">
       <div style="padding:16px;border-bottom:1px solid var(--g4);display:flex;gap:14px;align-items:center;position:sticky;top:0;background:var(--g1);z-index:1">
-        <div style="width:64px;height:64px;border-radius:50%;overflow:hidden;border:2px solid var(--or);flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--g2);font-weight:700">${foto?`<img src="${foto}" style="width:100%;height:100%;object-fit:cover">`:inic(r.nombre)}</div>
-        <div style="flex:1"><div style="font-size:18px;font-weight:700">${r.nombre||'—'}</div><div class="mono" style="font-size:11px;color:var(--td)">ID ${r.id} · ${fin} finalizados · ${act} activos</div></div>
+        <div ${avatarClick}width:72px;height:72px;border-radius:50%;overflow:hidden;border:2px solid var(--or);flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--g2);font-weight:700">${foto?`<img src="${foto}" style="width:100%;height:100%;object-fit:cover">`:inic(r.nombre)}</div>
+        <div style="flex:1"><div style="font-size:18px;font-weight:700">${r.nombre||'—'}</div><div class="mono" style="font-size:11px;color:var(--td)">ID ${r.id} · ${fin} finalizados · ${act} activos</div><div class="mono" style="font-size:11px;color:var(--verde);margin-top:2px">Total recargado: L.${totalRecargado.toFixed(2)}</div></div>
         <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modalDetRider').remove()">✕</button>
       </div>
+      <div style="padding:10px 12px;font-size:10px;color:var(--td);letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid var(--g4)">Fotos subidas</div>
+      ${fotosHtml}
+      <div style="padding:10px 12px;font-size:10px;color:var(--td);letter-spacing:2px;text-transform:uppercase;border-top:1px solid var(--g4);border-bottom:1px solid var(--g4)">Datos del rider</div>
       <div>${filas}</div>
     </div></div>`;
   document.body.insertAdjacentHTML('beforeend',html);
@@ -3414,10 +3434,13 @@ function actualizarMarkersRiders() {
     const act = S.pedidos.filter(p => p.delivery_id === d.id && FILTROS_ACTIVOS.includes(p.estatus)).length;
     const pausadoM = d._ubi?.pausado === true;
     const color = sinGps ? '#555' : (pausadoM ? '#F59E0B' : act > 0 ? '#FF8C00' : '#22c55e');
-    const label = inic(d.nombre);
+    const foto = d.foto_url || '';
+    const innerHtml = foto
+      ? `<img src="${foto}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('beforeend','${inic(d.nombre)}')">`
+      : inic(d.nombre);
     const icon = L.divIcon({
-      html: `<div style="width:36px;height:36px;border-radius:50%;background:${color};border:${sinGps?'2px dashed #888':'3px solid #fff'};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:${sinGps?'#aaa':'#000'};box-shadow:0 2px 8px rgba(0,0,0,.5)">${label}</div>`,
-      iconSize:[36,36], iconAnchor:[18,18], className:''
+      html: `<div style="width:42px;height:42px;border-radius:50%;background:${color};border:${sinGps?'2px dashed #888':'3px solid #fff'};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:${sinGps?'#aaa':'#000'};box-shadow:0 2px 8px rgba(0,0,0,.5);overflow:hidden">${innerHtml}</div>`,
+      iconSize:[42,42], iconAnchor:[21,21], className:''
     });
     if(S.markersRiders[d.id]) {
       S.markersRiders[d.id].setLatLng([lat, lng]);
