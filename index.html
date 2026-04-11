@@ -1794,7 +1794,8 @@ function initRealtime() {
       if(p.eventType === 'INSERT' && p.new?.estatus !== 'BORRADOR') {
         try{ sonarPedidoNuevo(); }catch(e){}
         notif('🆕 Nuevo pedido', `${p.new.no_orden||'—'} · ${p.new.nombre_cliente||p.new.cliente_nombre||''}`, false, {pedido_id: p.new.id});
-        if(p.new.lat_destino && p.new.lng_destino) agregarPuntoHeatmap(p.new.lat_destino, p.new.lng_destino);
+        if(p.new.ubicacion_recogida_gps) agregarPuntoHeatmap(p.new.ubicacion_recogida_gps);
+        else if(p.new.ubicacion_comercio) agregarPuntoHeatmap(p.new.ubicacion_comercio);
       }
       onPedidoChange(p);
     })
@@ -3272,37 +3273,46 @@ function initMapRiders() {
   actualizarZonaCaliente(); // async - no necesita await aquí
 }
 
+// Parser robusto para strings GPS tipo "15.6099,-87.9563" o "15.6099, -87.9563"
+function parseGpsString(s){
+  if(!s || typeof s !== 'string') return null;
+  const parts = s.replace(/;/g, ',').split(',').map(x => x.trim());
+  if(parts.length < 2) return null;
+  const lat = parseFloat(parts[0]), lng = parseFloat(parts[1]);
+  if(isNaN(lat) || isNaN(lng)) return null;
+  // Validar rango Honduras (lat 13-17, lng -90 a -83)
+  if(lat < 13 || lat > 17 || lng < -90 || lng > -83) return null;
+  return [lat, lng];
+}
+
 async function actualizarZonaCaliente(forzar = false) {
   if(!S.mapRiders) return;
-  if(!window.L || !L.heatLayer) return; // plugin no cargado aún
+  if(!window.L || !L.heatLayer) return;
 
-  // Usar cache si existe y no se fuerza recálculo
   if(!forzar && S._heatPuntos) {
     renderHeatmap(S._heatPuntos);
     return;
   }
 
-  // Cargar pedidos últimos 30 días excluyendo CANCELADO/RECHAZADO
   const hace30 = new Date(); hace30.setDate(hace30.getDate() - 30);
   const { data, error } = await sb
     .from('pedidos')
-    .select('lat_destino,lng_destino,created_at,estatus')
+    .select('ubicacion_recogida_gps,ubicacion_comercio,created_at,estatus')
     .gte('created_at', hace30.toISOString())
-    .not('estatus','in','(CANCELADO,RECHAZADO,BORRADOR)')
-    .not('lat_destino','is',null)
-    .not('lng_destino','is',null);
+    .not('estatus','in','(CANCELADO,RECHAZADO,ELIMINADO,BORRADOR)');
 
   if(error) { console.error('[zona caliente]', error.message); return; }
 
-  // Construir puntos [lat, lng, peso] — peso mayor a pedidos más recientes
   const ahora = Date.now();
-  const puntos = (data || [])
-    .filter(p => p.lat_destino && p.lng_destino)
-    .map(p => {
-      const edadDias = (ahora - new Date(p.created_at).getTime()) / 86400000;
-      const peso = Math.max(0.3, 1 - (edadDias / 30) * 0.7); // 1.0 hoy → 0.3 hace 30 días
-      return [parseFloat(p.lat_destino), parseFloat(p.lng_destino), peso];
-    });
+  const puntos = [];
+  (data || []).forEach(p => {
+    // Fallback: primero ubicacion_recogida_gps, luego ubicacion_comercio
+    const coords = parseGpsString(p.ubicacion_recogida_gps) || parseGpsString(p.ubicacion_comercio);
+    if(!coords) return;
+    const edadDias = (ahora - new Date(p.created_at).getTime()) / 86400000;
+    const peso = Math.max(0.3, 1 - (edadDias / 30) * 0.7);
+    puntos.push([coords[0], coords[1], peso]);
+  });
 
   S._heatPuntos = puntos;
   renderHeatmap(puntos);
@@ -3325,12 +3335,11 @@ function renderHeatmap(puntos){
   }).addTo(S.mapRiders);
 }
 
-// Agregar un punto al heatmap sin re-consultar toda la BD (usado al llegar INSERT)
-function agregarPuntoHeatmap(lat, lng){
-  if(!lat || !lng) return;
+function agregarPuntoHeatmap(gpsString){
+  const coords = parseGpsString(gpsString);
+  if(!coords) return;
   if(!S._heatPuntos) S._heatPuntos = [];
-  S._heatPuntos.push([parseFloat(lat), parseFloat(lng), 1.0]);
-  // Limpiar puntos con peso recalculado > 30 días (por si acaso)
+  S._heatPuntos.push([coords[0], coords[1], 1.0]);
   if(S._heatPuntos.length > 2000) S._heatPuntos = S._heatPuntos.slice(-2000);
   if(S.mapRiders) renderHeatmap(S._heatPuntos);
 }
