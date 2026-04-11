@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow:wght@300;400;500;600;700;800;900&family=Barlow+Condensed:wght@600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -1793,6 +1794,7 @@ function initRealtime() {
       if(p.eventType === 'INSERT' && p.new?.estatus !== 'BORRADOR') {
         try{ sonarPedidoNuevo(); }catch(e){}
         notif('🆕 Nuevo pedido', `${p.new.no_orden||'—'} · ${p.new.nombre_cliente||p.new.cliente_nombre||''}`, false, {pedido_id: p.new.id});
+        if(p.new.lat_destino && p.new.lng_destino) agregarPuntoHeatmap(p.new.lat_destino, p.new.lng_destino);
       }
       onPedidoChange(p);
     })
@@ -3270,93 +3272,67 @@ function initMapRiders() {
   actualizarZonaCaliente(); // async - no necesita await aquí
 }
 
-async function actualizarZonaCaliente() {
+async function actualizarZonaCaliente(forzar = false) {
   if(!S.mapRiders) return;
-  if(S.zonaLayer) { S.mapRiders.removeLayer(S.zonaLayer); S.zonaLayer = null; }
+  if(!window.L || !L.heatLayer) return; // plugin no cargado aún
 
-  const ZONAS = [
-    { nombre:'Choloma Centro',  ciudad:'CHOLOMA',        lat:15.609903, lng:-87.956312, radio:1500 },
-    { nombre:'SPS Centro',      ciudad:'SAN PEDRO SULA', lat:15.500000, lng:-88.025100, radio:1800 },
-  ];
+  // Usar cache si existe y no se fuerza recálculo
+  if(!forzar && S._heatPuntos) {
+    renderHeatmap(S._heatPuntos);
+    return;
+  }
 
-  // Solo pedidos FINALIZADOS en los últimos 30 días
+  // Cargar pedidos últimos 30 días excluyendo CANCELADO/RECHAZADO
   const hace30 = new Date(); hace30.setDate(hace30.getDate() - 30);
-  const { data: ped30, error } = await sb
+  const { data, error } = await sb
     .from('pedidos')
-    .select('ciudad_destino,hora_finalizado')
-    .eq('estatus', 'FINALIZADO')
-    .gte('hora_finalizado', hace30.toISOString())
-    .not('hora_finalizado', 'is', null);
+    .select('lat_destino,lng_destino,created_at,estatus')
+    .gte('created_at', hace30.toISOString())
+    .not('estatus','in','(CANCELADO,RECHAZADO,BORRADOR)')
+    .not('lat_destino','is',null)
+    .not('lng_destino','is',null);
 
-  if(error) { console.error('[zona caliente]', error.message); }
+  if(error) { console.error('[zona caliente]', error.message); return; }
 
-  // Agrupar por día para calcular promedio solo en días con pedidos
-  const porDiaCiudad = {}; // { CHOLOMA: { '2026-04-01': 3, '2026-04-02': 5 } }
-  (ped30 || []).forEach(p => {
-    const ciudad = (p.ciudad_destino || 'CHOLOMA').toUpperCase().trim();
-    const dia = (p.hora_finalizado || '').slice(0, 10);
-    if(!dia) return;
-    if(!porDiaCiudad[ciudad]) porDiaCiudad[ciudad] = {};
-    porDiaCiudad[ciudad][dia] = (porDiaCiudad[ciudad][dia] || 0) + 1;
-  });
+  // Construir puntos [lat, lng, peso] — peso mayor a pedidos más recientes
+  const ahora = Date.now();
+  const puntos = (data || [])
+    .filter(p => p.lat_destino && p.lng_destino)
+    .map(p => {
+      const edadDias = (ahora - new Date(p.created_at).getTime()) / 86400000;
+      const peso = Math.max(0.3, 1 - (edadDias / 30) * 0.7); // 1.0 hoy → 0.3 hace 30 días
+      return [parseFloat(p.lat_destino), parseFloat(p.lng_destino), peso];
+    });
 
-  // Calcular promedio SOLO de días con al menos 1 pedido (ignorar días con cero)
-  const promedio = {};
-  Object.entries(porDiaCiudad).forEach(([ciudad, dias]) => {
-    const diasConPedidos = Object.values(dias); // solo días con pedidos
-    const total = diasConPedidos.reduce((a,b) => a+b, 0);
-    promedio[ciudad] = parseFloat((total / diasConPedidos.length).toFixed(1));
-  });
+  S._heatPuntos = puntos;
+  renderHeatmap(puntos);
+}
 
-  const totalPed = Object.values(promedio).reduce((a,b) => a+b, 0);
-  const maxProm  = Math.max(1, ...Object.values(promedio));
-
-  const group = L.layerGroup();
-  const ciudadesVistas = new Set();
-
-  ZONAS.forEach(z => {
-    const prom = promedio[z.ciudad] || 0;
-    const intensidad = prom / maxProm;
-    const diasActivos = porDiaCiudad[z.ciudad] ? Object.keys(porDiaCiudad[z.ciudad]).length : 0;
-    const totalCiudad = porDiaCiudad[z.ciudad] ? Object.values(porDiaCiudad[z.ciudad]).reduce((a,b)=>a+b,0) : 0;
-
-    const color = prom === 0    ? '#444'
-                : intensidad > 0.7 ? '#EF4444'
-                : intensidad > 0.4 ? '#F59E0B'
-                :                    '#22C55E';
-
-    const fillOpacity = prom === 0 ? 0.04 : 0.07 + (intensidad * 0.22);
-    const radio = prom === 0 ? z.radio * 0.5 : z.radio * (0.6 + intensidad * 0.7);
-
-    L.circle([z.lat, z.lng], {
-      radius: radio, color, fillColor: color,
-      fillOpacity, weight: prom === 0 ? 1 : 2,
-      dashArray: prom === 0 ? '4,6' : '5,3'
-    }).addTo(group).bindPopup(`
-      <b>${z.nombre}</b><br>
-      ${prom === 0
-        ? '📭 Sin pedidos en 30 días'
-        : `📊 Promedio: <b>${prom}/día activo</b><br>
-           📅 Días con pedidos: <b>${diasActivos}</b> de 30<br>
-           📦 Total 30d: <b>${totalCiudad}</b> pedidos<br>
-           ${intensidad>0.7?'🔴 Zona muy caliente':intensidad>0.4?'🟡 Zona activa':'🟢 Zona normal'}`
-      }
-    `);
-
-    if(prom > 0 && !ciudadesVistas.has(z.ciudad)) {
-      ciudadesVistas.add(z.ciudad);
-      L.marker([z.lat, z.lng], {
-        icon: L.divIcon({
-          html: `<div style="background:${color};color:#fff;border-radius:10px;padding:3px 8px;font-size:10px;font-weight:800;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.5);white-space:nowrap">${prom}/día</div>`,
-          iconSize:[null,null], iconAnchor:[24,10], className:''
-        })
-      }).addTo(group).bindPopup(`<b>${z.nombre}</b>: ${prom} ped/día (prom. días activos)`);
+function renderHeatmap(puntos){
+  if(S.zonaLayer) { S.mapRiders.removeLayer(S.zonaLayer); S.zonaLayer = null; }
+  if(!puntos || !puntos.length) return;
+  S.zonaLayer = L.heatLayer(puntos, {
+    radius: 38,
+    blur: 28,
+    maxZoom: 17,
+    minOpacity: 0.35,
+    gradient: {
+      0.2: 'rgba(255,200,130,0.45)',
+      0.5: 'rgba(255,140,0,0.75)',
+      0.8: 'rgba(230,80,0,0.88)',
+      1.0: 'rgba(160,40,0,0.95)'
     }
-  });
+  }).addTo(S.mapRiders);
+}
 
-  group.addTo(S.mapRiders);
-  S.zonaLayer = group;
-  console.log('[zona caliente] promedios días activos:', promedio);
+// Agregar un punto al heatmap sin re-consultar toda la BD (usado al llegar INSERT)
+function agregarPuntoHeatmap(lat, lng){
+  if(!lat || !lng) return;
+  if(!S._heatPuntos) S._heatPuntos = [];
+  S._heatPuntos.push([parseFloat(lat), parseFloat(lng), 1.0]);
+  // Limpiar puntos con peso recalculado > 30 días (por si acaso)
+  if(S._heatPuntos.length > 2000) S._heatPuntos = S._heatPuntos.slice(-2000);
+  if(S.mapRiders) renderHeatmap(S._heatPuntos);
 }
 
 
