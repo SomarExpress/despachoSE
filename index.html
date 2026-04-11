@@ -866,10 +866,19 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
           <div class="tbl-wrap">
             <table class="tbl">
               <thead><tr>
-                <th>N° Orden</th><th>Comercio / Tipo</th><th>Destino</th>
-                <th>Repartidor</th><th>Pago</th><th>Tarifa</th><th>Estado</th><th>⏱ Tiempo</th><th></th>
+                <th>N° Orden</th>
+                <th>Estado</th>
+                <th>Comercio / Cliente</th>
+                <th>Rider</th>
+                <th style="color:#22C55E">Gan. Envío</th>
+                <th style="color:#3B82F6">Comisión Prod.</th>
+                <th style="color:#FF8C00">Gan. Rider</th>
+                <th>Pago</th>
+                <th>Hora</th>
+                <th>⏱ Tiempo</th>
+                <th></th>
               </tr></thead>
-              <tbody id="tbody-pedidos"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
+              <tbody id="tbody-pedidos"><tr><td colspan="11" class="empty">Cargando...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -2126,31 +2135,43 @@ function renderTablaPedidos() {
   if(q) peds = peds.filter(p => JSON.stringify(p).toLowerCase().includes(q));
   document.getElementById('ped-count').textContent = `${peds.length} pedidos`;
   const tbody = document.getElementById('tbody-pedidos');
-  if(!peds.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Sin resultados</td></tr>'; return; }
-  tbody.innerHTML = peds.map(p => {
+  if(!peds.length) { tbody.innerHTML = '<tr><td colspan="11" class="empty">Sin resultados</td></tr>'; return; }
+
+  // Agrupar por fecha HN (YYYY-MM-DD)
+  const hoyHN = fechaHN();
+  const ayer = new Date(); ayer.setDate(ayer.getDate()-1);
+  const ayerHN = ayer.toISOString().slice(0,10);
+  const diaLabel = d => d===hoyHN?'📅 HOY':d===ayerHN?'📅 AYER':'📅 '+new Date(d+'T12:00:00').toLocaleDateString('es-HN',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).toUpperCase();
+
+  let html = '', ultDia = null;
+  peds.forEach(p => {
+    const dia = (p.created_at||'').slice(0,10);
+    if(dia !== ultDia) {
+      ultDia = dia;
+      const delDia = peds.filter(x => (x.created_at||'').slice(0,10) === dia);
+      const totSomar = delDia.reduce((s,x)=>s+parseFloat(x.ingreso_somar||0),0);
+      html += `<tr class="date-group"><td colspan="11" style="background:var(--s2);padding:10px 14px;font-size:12px;font-weight:700;color:var(--or);border-top:2px solid var(--or)">${diaLabel(dia)} <span style="color:var(--td);font-weight:500;margin-left:10px">${delDia.length} pedidos · Somar L.${totSomar.toFixed(0)}</span></td></tr>`;
+    }
     const rider = S.riders.find(r => r.id === p.delivery_id);
-    return `<tr onclick="abrirModalPedido('${p.id}')">
-      <td class="mono" style="color:var(--or)">${p.no_orden||'—'}</td>
-      <td><div style="font-weight:600">${p.nombre_comercio||'—'}</div><div style="font-size:11px;color:var(--td)">${p.nombre_cliente||p.nombre_destinatario||''}</div></td>
-      <td style="font-size:12px">${p.ciudad_destino||'—'}</td>
-      <td style="font-size:12px">${rider ? rider.nombre : '<span style="color:var(--rojo);font-size:11px">Sin asignar</span>'}</td>
-      <td style="font-size:11px">${p.metodo_pago||'—'}</td>
-      <td class="mono" style="color:var(--or)">L.${parseFloat(p.tarifa_envio||0).toFixed(0)}</td>
+    const ganEnvioSomar = parseFloat(p.ingreso_somar||0) - parseFloat(p.base_app||0);
+    const comisionProd = parseFloat(p.base_app||0);
+    const ganRider = parseFloat(p.ingreso_delivery||0);
+    const hora = p.created_at ? new Date(p.created_at).toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit',hour12:true}) : '—';
+    html += `<tr onclick="abrirModalPedido('${p.id}')">
+      <td class="mono" style="color:var(--or);font-weight:700">${p.no_orden||'—'}</td>
       <td>${chipEst(p.estatus)}</td>
-      <td style="font-size:11px">
-        ${p.hora_asignado
-          ? ['FINALIZADO','CANCELADO'].includes(p.estatus)
-            ? `<span class="timer-badge" data-ts="${new Date(p.hora_asignado).getTime()}" data-fin="${new Date(p.hora_finalizado||p.created_at).getTime()}">—</span>`
-            : `<span class="timer-badge" data-ts="${new Date(p.hora_asignado).getTime()}">—</span>`
-          : '—'}
-      </td>
-      <td onclick="event.stopPropagation()">
-        ${['PENDIENTE'].includes(p.estatus)
-          ? `<button class="btn btn-primary btn-sm" onclick="abrirAsignar('${p.id}')">Asignar</button>`
-          : `<button class="btn btn-ghost btn-sm" onclick="abrirModalPedido('${p.id}')">Ver</button>`}
-      </td>
+      <td><div style="font-weight:600;font-size:12px">${p.nombre_comercio||'—'}</div><div style="font-size:11px;color:var(--td)">${p.nombre_cliente||p.nombre_destinatario||'—'}</div></td>
+      <td style="font-size:12px">${rider ? rider.nombre : '<span style="color:var(--rojo);font-size:11px">Sin asignar</span>'}</td>
+      <td class="mono" style="color:#22C55E;font-size:12px">L.${ganEnvioSomar.toFixed(0)}</td>
+      <td class="mono" style="color:#3B82F6;font-size:12px">L.${comisionProd.toFixed(0)}</td>
+      <td class="mono" style="color:var(--or);font-size:12px">L.${ganRider.toFixed(0)}</td>
+      <td style="font-size:11px">${p.metodo_pago||'—'}</td>
+      <td class="mono" style="font-size:11px;color:var(--td)">${hora}</td>
+      <td style="font-size:11px">${p.hora_asignado?['FINALIZADO','CANCELADO'].includes(p.estatus)?`<span class="timer-badge" data-ts="${new Date(p.hora_asignado).getTime()}" data-fin="${new Date(p.hora_finalizado||p.created_at).getTime()}">—</span>`:`<span class="timer-badge" data-ts="${new Date(p.hora_asignado).getTime()}">—</span>`:'—'}</td>
+      <td onclick="event.stopPropagation()">${['PENDIENTE'].includes(p.estatus)?`<button class="btn btn-primary btn-sm" onclick="abrirAsignar('${p.id}')">Asignar</button>`:`<button class="btn btn-ghost btn-sm" onclick="abrirModalPedido('${p.id}')">Ver</button>`}</td>
     </tr>`;
-  }).join('');
+  });
+  tbody.innerHTML = html;
 }
 
 // ════════════════════════════════════════════════════════════
