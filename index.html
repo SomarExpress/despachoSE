@@ -9,7 +9,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow:wght@300;400;500;600;700;800;900&family=Barlow+Condensed:wght@600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -640,6 +639,11 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         Comercios
       </div>
+      <div class="nav-item" onclick="nav('solcom')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7h-7L9.7 3.7A1 1 0 009 3.4H4a2 2 0 00-2 2v13a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M12 11v6M9 14h6"/></svg>
+        Solicitudes Comercios
+        <span class="nav-badge" id="badge-solcom" style="display:none">0</span>
+      </div>
       <div class="nav-item" onclick="nav('categorias')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         Tipos Comercio
@@ -856,7 +860,6 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
           <button class="fbtn" onclick="filtPed(this,'BORRADOR')">Borrador</button>
           <button class="fbtn" onclick="filtPed(this,'FINALIZADO')">Finalizados</button>
           <button class="fbtn" onclick="filtPed(this,'CANCELADO')">Cancelados</button>
-          <button class="fbtn" id="fbtn-eliminados" onclick="filtPed(this,'ELIMINADO')" style="display:none;color:#fca5a5">🗑 Eliminados</button>
         </div>
         <div class="card">
           <div class="card-hdr">
@@ -866,19 +869,10 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
           <div class="tbl-wrap">
             <table class="tbl">
               <thead><tr>
-                <th>N° Orden</th>
-                <th>Estado</th>
-                <th>Comercio / Cliente</th>
-                <th>Rider</th>
-                <th style="color:#22C55E">Gan. Envío</th>
-                <th style="color:#3B82F6">Comisión Prod.</th>
-                <th style="color:#FF8C00">Gan. Rider</th>
-                <th>Pago</th>
-                <th>Hora</th>
-                <th>⏱ Tiempo</th>
-                <th></th>
+                <th>N° Orden</th><th>Comercio / Tipo</th><th>Destino</th>
+                <th>Repartidor</th><th>Pago</th><th>Tarifa</th><th>Estado</th><th>⏱ Tiempo</th><th></th>
               </tr></thead>
-              <tbody id="tbody-pedidos"><tr><td colspan="11" class="empty">Cargando...</td></tr></tbody>
+              <tbody id="tbody-pedidos"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -1379,6 +1373,19 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
         </div>
       </div>
 
+      <!-- ═══ SOLICITUDES COMERCIOS ═══════════════════════════ -->
+      <div class="view" id="view-solcom">
+        <div class="filter-bar">
+          <button class="fbtn active" onclick="filtSolCom(this,'PENDIENTE')">Pendientes</button>
+          <button class="fbtn" onclick="filtSolCom(this,'CONTACTADO')">Contactados</button>
+          <button class="fbtn" onclick="filtSolCom(this,'APROBADO')">Aprobados</button>
+          <button class="fbtn" onclick="filtSolCom(this,'RECHAZADO')">Rechazados</button>
+        </div>
+        <div id="solcom-lista" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px;padding-top:8px">
+          <div class="empty">Cargando...</div>
+        </div>
+      </div>
+
       <!-- ═══ CLIENTES ══════════════════════════════════════════ -->
       <div class="view" id="view-clientes">
         <div class="card-hdr" style="margin-bottom:12px">
@@ -1645,15 +1652,13 @@ async function doLogin() {
   const { data, error } = await sb.auth.signInWithPassword({ email, password: pwd });
   if(error) { err.textContent = 'Credenciales incorrectas'; err.style.display = 'block'; return; }
   // Verificar rol DESPACHO
-  const { data: perfil } = await sb.from('perfiles').select('id,rol,nombre').eq('id', data.user.id).single();
+  const { data: perfil } = await sb.from('perfiles').select('rol,nombre').eq('id', data.user.id).single();
   if(!perfil || !['STAFF','ADMIN'].includes(perfil.rol)) {
     err.textContent = 'No tienes acceso al panel de despacho';
     err.style.display = 'block';
     await sb.auth.signOut();
     return;
   }
-  S.perfil = perfil;
-  aplicarPermisosRol();
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('u-name').textContent = perfil.nombre || email.split('@')[0];
   document.getElementById('u-av').textContent = (perfil.nombre || 'D').charAt(0).toUpperCase();
@@ -1668,10 +1673,8 @@ async function doLogout() {
 // Check session on load
 sb.auth.getSession().then(({ data: { session } }) => {
   if(!session) return; // show auth screen
-  sb.from('perfiles').select('id,rol,nombre').eq('id', session.user.id).single().then(({ data: p }) => {
+  sb.from('perfiles').select('rol,nombre').eq('id', session.user.id).single().then(({ data: p }) => {
     if(p && ['STAFF','ADMIN'].includes(p.rol)) {
-      S.perfil = p;
-      aplicarPermisosRol();
       document.getElementById('auth-screen').style.display = 'none';
       document.getElementById('u-name').textContent = p.nombre || 'Despacho';
       document.getElementById('u-av').textContent = (p.nombre || 'D').charAt(0).toUpperCase();
@@ -1679,32 +1682,6 @@ sb.auth.getSession().then(({ data: { session } }) => {
     }
   });
 });
-
-// ════════════════════════════════════════════════════════════
-// PERMISOS POR ROL
-// ════════════════════════════════════════════════════════════
-function esAdmin() { return S.perfil?.rol === 'ADMIN'; }
-function aplicarPermisosRol() {
-  const admin = esAdmin();
-  // Sidebar: ocultar Configuración y Usuarios si no es ADMIN
-  document.querySelectorAll('.nav-item').forEach(el => {
-    const oc = el.getAttribute('onclick') || '';
-    if(oc.includes("nav('config')") || oc.includes("nav('usuarios')")) {
-      el.style.display = admin ? '' : 'none';
-    }
-  });
-  // Botón "Nuevo Usuario" en vista usuarios
-  const btnNvoUsr = document.querySelector('#view-usuarios .btn-primary[onclick*="abrirModal(\'usuario\')"]');
-  if(btnNvoUsr) btnNvoUsr.style.display = admin ? '' : 'none';
-  // Botón filtro "Eliminados" en pedidos
-  const btnFiltElim = document.getElementById('fbtn-eliminados');
-  if(btnFiltElim) btnFiltElim.style.display = admin ? '' : 'none';
-  // Marca de rol en el header
-  const uName = document.getElementById('u-name');
-  if(uName && S.perfil?.nombre) {
-    uName.textContent = S.perfil.nombre + (admin ? ' · ADMIN' : ' · STAFF');
-  }
-}
 
 // ════════════════════════════════════════════════════════════
 // INIT
@@ -1730,6 +1707,8 @@ async function init() {
   sb.from('pedidos').select('id',{count:'exact',head:true}).in('metodo_pago',['TRANSFERENCIA','TARJETA']).eq('estatus','FINALIZADO').is('transferencia_validada_por',null).then(({count})=>{ const b=document.getElementById('badge-comp');if(b&&count>0){b.textContent=count;b.style.display='inline';} });
   // Badge liquidaciones pendientes
   sb.from('liquidaciones_delivery').select('id',{count:'exact'}).eq('estatus','PENDIENTE').then(({count})=>{ if(count>0){const b=document.getElementById('badge-liq');if(b){b.textContent=count;b.style.display='inline';}} });
+  // Badge solicitudes de comercios pendientes
+  sb.from('solicitudes_comercios').select('id',{count:'exact',head:true}).eq('estatus','PENDIENTE').then(({count})=>{ const b=document.getElementById('badge-solcom');if(b&&count>0){b.textContent=count;b.style.display='inline';} }).catch(()=>{});
   initRealtime();
 }
 
@@ -1800,58 +1779,18 @@ function tickPanelTimer(ahora) {
 function initRealtime() {
   sb.channel('despacho-main')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, p => {
-      if(p.eventType === 'INSERT' && p.new?.estatus !== 'BORRADOR') {
-        try{ sonarPedidoNuevo(); }catch(e){}
-        notif('🆕 Nuevo pedido', `${p.new.no_orden||'—'} · ${p.new.nombre_cliente||p.new.cliente_nombre||''}`, false, {pedido_id: p.new.id});
-        if(p.new.ubicacion_recogida_gps) agregarPuntoHeatmap(p.new.ubicacion_recogida_gps);
-        else if(p.new.ubicacion_comercio) agregarPuntoHeatmap(p.new.ubicacion_comercio);
-      }
       onPedidoChange(p);
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'depositos_delivery' }, p => {
       if(p.eventType === 'INSERT' && p.new.estatus === 'PENDIENTE') {
         badgeInc('badge-dep');
-        const rDep = S.riders.find(x => x.id === p.new.delivery_id);
-        const mDep = parseFloat(p.new.monto||0).toFixed(2);
-        notif('💰 Recarga recibida', `${rDep?.nombre||'Rider'} · L. ${mDep} · Comprobante por revisar`, false, {deposito_id: p.new.id, rider_id: p.new.delivery_id});
+        notif('💳 Depósito recibido', 'Un repartidor envió comprobante', false);
         sonarDeposito();
       }
       if(document.getElementById('view-depositos').classList.contains('active')) cargarDepositos(S.solFiltro || 'PENDIENTE');
     else { const b=document.getElementById('badge-dep'); if(b&&p.eventType==='INSERT') b.textContent=parseInt(b.textContent||0)+1; }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'ubicaciones_delivery' }, p => {
-      // Detectar transiciones REALES con dedupe + debounce (evita falsas notifs por GPS/reconexión)
-      if((p.eventType === 'UPDATE' || p.eventType === 'INSERT') && p.new?.delivery_id){
-        if(!S._ultTurno) S._ultTurno = {};
-        const dId = p.new.delivery_id;
-        const prev = S._ultTurno[dId];
-        const newT = p.new.en_turno === true;
-        const newP = p.new.pausado === true;
-        const ahora = Date.now();
-        // DEDUPE: si el estado no cambió, ignorar sin tocar nada
-        if(prev && prev.en_turno === newT && prev.pausado === newP) {
-          // mismo estado, solo refrescar timestamp
-          prev.ts = ahora;
-        } else {
-          // DEBOUNCE: ignorar si el último cambio de este rider fue hace <2s
-          if(prev && prev.ts && (ahora - prev.ts) < 2000) {
-            // cambio demasiado rápido, ignorar pero actualizar estado
-            S._ultTurno[dId] = { en_turno: newT, pausado: newP, ts: ahora };
-          } else if(prev){
-            // Transición real detectada
-            const rUbi = S.riders.find(x => x.id === dId);
-            const nombreR = rUbi?.nombre || 'Rider';
-            if(!prev.en_turno && newT)           notif('🟢 Rider activó turno', nombreR, false, {rider_id: dId});
-            else if(prev.en_turno && !newT)      notif('🔴 Rider desactivó turno', nombreR, false, {rider_id: dId});
-            else if(newT && !prev.pausado && newP) notif('⏸ Rider pausó turno', nombreR, false, {rider_id: dId});
-            else if(newT && prev.pausado && !newP) notif('▶️ Rider reanudó turno', nombreR, false, {rider_id: dId});
-            S._ultTurno[dId] = { en_turno: newT, pausado: newP, ts: ahora };
-          } else {
-            // Primera vez que vemos este rider: solo sembrar sin notificar
-            S._ultTurno[dId] = { en_turno: newT, pausado: newP, ts: ahora };
-          }
-        }
-      }
       actualizarMarker(p.new);
       const dId = p.new?.delivery_id;
       const idx = S.riders.findIndex(r => r.id === dId);
@@ -1870,6 +1809,14 @@ function initRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'aplicaciones_delivery' }, p => {
       if(p.eventType === 'INSERT') { badgeInc('badge-sol'); notif('🏍 Nueva solicitud de rider', p.new.nombre, false); }
       if(document.getElementById('view-solicitudes').classList.contains('active')) cargarSolicitudes(S.solFiltro);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitudes_comercios' }, p => {
+      if(p.eventType === 'INSERT') {
+        const b = document.getElementById('badge-solcom');
+        if(b) { b.textContent = parseInt(b.textContent||0)+1; b.style.display='inline'; }
+        notif('🏪 Nueva solicitud de comercio', p.new.nombre_comercial || 'Sin nombre', false);
+      }
+      if(document.getElementById('view-solcom').classList.contains('active')) cargarSolicitudesComercios(S.solComFiltro);
     })
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'liquidaciones_delivery' }, p => {
       const b = document.getElementById('badge-liq');
@@ -1979,13 +1926,11 @@ async function cargarMetricas() {
   const hasta  = document.getElementById('dash-hasta')?.value  || hoyHN;
   // Convertir rango local HN a UTC para el query (Honduras = UTC-6)
   const { desde: desdeUTC, hasta: hastaUTC } = rangoUTCdesdeHN(desde, hasta);
-  const incluirEliminados = (S.pedFiltro === 'ELIMINADO') && esAdmin();
-  let q = sb.from('pedidos')
+  const { data } = await sb.from('pedidos')
     .select('*')
     .gte('created_at', desdeUTC)
-    .lte('created_at', hastaUTC);
-  if(!incluirEliminados) q = q.neq('estatus','ELIMINADO');
-  const { data } = await q.order('created_at', { ascending: false });
+    .lte('created_at', hastaUTC)
+    .order('created_at', { ascending: false });
   if(!data) return;
   S.pedidos = data;
   const total = data.length;
@@ -2115,14 +2060,8 @@ const FILTROS_ACTIVOS = ['ASIGNADO','ACEPTADO','EN_ESTABLECIMIENTO','PEDIDO_EN_C
 function filtPed(btn, f) {
   document.querySelectorAll('.filter-bar .fbtn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  const prev = S.pedFiltro;
   S.pedFiltro = f;
-  // Si entra/sale del filtro ELIMINADO necesitamos recargar (query base cambia)
-  if(f === 'ELIMINADO' || prev === 'ELIMINADO') {
-    cargarMetricas().then(renderTablaPedidos);
-  } else {
-    renderTablaPedidos();
-  }
+  renderTablaPedidos();
 }
 
 function renderTablaPedidos() {
@@ -2130,48 +2069,35 @@ function renderTablaPedidos() {
   let peds = S.pedidos;
   if(S.pedFiltro === 'activos')     peds = peds.filter(p => FILTROS_ACTIVOS.includes(p.estatus));
   else if(S.pedFiltro === 'sinAsignar') peds = peds.filter(p => p.estatus === 'PENDIENTE');
-  else if(S.pedFiltro === 'ELIMINADO')  peds = peds.filter(p => p.estatus === 'ELIMINADO');
   else if(S.pedFiltro !== 'todos')  peds = peds.filter(p => p.estatus === S.pedFiltro);
   if(q) peds = peds.filter(p => JSON.stringify(p).toLowerCase().includes(q));
   document.getElementById('ped-count').textContent = `${peds.length} pedidos`;
   const tbody = document.getElementById('tbody-pedidos');
-  if(!peds.length) { tbody.innerHTML = '<tr><td colspan="11" class="empty">Sin resultados</td></tr>'; return; }
-
-  // Agrupar por fecha HN (YYYY-MM-DD)
-  const hoyHN = fechaHN();
-  const ayer = new Date(); ayer.setDate(ayer.getDate()-1);
-  const ayerHN = ayer.toISOString().slice(0,10);
-  const diaLabel = d => d===hoyHN?'📅 HOY':d===ayerHN?'📅 AYER':'📅 '+new Date(d+'T12:00:00').toLocaleDateString('es-HN',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).toUpperCase();
-
-  let html = '', ultDia = null;
-  peds.forEach(p => {
-    const dia = (p.created_at||'').slice(0,10);
-    if(dia !== ultDia) {
-      ultDia = dia;
-      const delDia = peds.filter(x => (x.created_at||'').slice(0,10) === dia);
-      const totSomar = delDia.reduce((s,x)=>s+parseFloat(x.ingreso_somar||0),0);
-      html += `<tr class="date-group"><td colspan="11" style="background:var(--s2);padding:10px 14px;font-size:12px;font-weight:700;color:var(--or);border-top:2px solid var(--or)">${diaLabel(dia)} <span style="color:var(--td);font-weight:500;margin-left:10px">${delDia.length} pedidos · Somar L.${totSomar.toFixed(0)}</span></td></tr>`;
-    }
+  if(!peds.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Sin resultados</td></tr>'; return; }
+  tbody.innerHTML = peds.map(p => {
     const rider = S.riders.find(r => r.id === p.delivery_id);
-    const ganEnvioSomar = parseFloat(p.ingreso_somar||0) - parseFloat(p.base_app||0);
-    const comisionProd = parseFloat(p.base_app||0);
-    const ganRider = parseFloat(p.ingreso_delivery||0);
-    const hora = p.created_at ? new Date(p.created_at).toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit',hour12:true}) : '—';
-    html += `<tr onclick="abrirModalPedido('${p.id}')">
-      <td class="mono" style="color:var(--or);font-weight:700">${p.no_orden||'—'}</td>
-      <td>${chipEst(p.estatus)}</td>
-      <td><div style="font-weight:600;font-size:12px">${p.nombre_comercio||'—'}</div><div style="font-size:11px;color:var(--td)">${p.nombre_cliente||p.nombre_destinatario||'—'}</div></td>
+    return `<tr onclick="abrirModalPedido('${p.id}')">
+      <td class="mono" style="color:var(--or)">${p.no_orden||'—'}</td>
+      <td><div style="font-weight:600">${p.nombre_comercio||'—'}</div><div style="font-size:11px;color:var(--td)">${p.nombre_cliente||p.nombre_destinatario||''}</div></td>
+      <td style="font-size:12px">${p.ciudad_destino||'—'}</td>
       <td style="font-size:12px">${rider ? rider.nombre : '<span style="color:var(--rojo);font-size:11px">Sin asignar</span>'}</td>
-      <td class="mono" style="color:#22C55E;font-size:12px">L.${ganEnvioSomar.toFixed(0)}</td>
-      <td class="mono" style="color:#3B82F6;font-size:12px">L.${comisionProd.toFixed(0)}</td>
-      <td class="mono" style="color:var(--or);font-size:12px">L.${ganRider.toFixed(0)}</td>
       <td style="font-size:11px">${p.metodo_pago||'—'}</td>
-      <td class="mono" style="font-size:11px;color:var(--td)">${hora}</td>
-      <td style="font-size:11px">${p.hora_asignado?['FINALIZADO','CANCELADO'].includes(p.estatus)?`<span class="timer-badge" data-ts="${new Date(p.hora_asignado).getTime()}" data-fin="${new Date(p.hora_finalizado||p.created_at).getTime()}">—</span>`:`<span class="timer-badge" data-ts="${new Date(p.hora_asignado).getTime()}">—</span>`:'—'}</td>
-      <td onclick="event.stopPropagation()">${['PENDIENTE'].includes(p.estatus)?`<button class="btn btn-primary btn-sm" onclick="abrirAsignar('${p.id}')">Asignar</button>`:`<button class="btn btn-ghost btn-sm" onclick="abrirModalPedido('${p.id}')">Ver</button>`}</td>
+      <td class="mono" style="color:var(--or)">L.${parseFloat(p.tarifa_envio||0).toFixed(0)}</td>
+      <td>${chipEst(p.estatus)}</td>
+      <td style="font-size:11px">
+        ${p.hora_asignado
+          ? ['FINALIZADO','CANCELADO'].includes(p.estatus)
+            ? `<span class="timer-badge" data-ts="${new Date(p.hora_asignado).getTime()}" data-fin="${new Date(p.hora_finalizado||p.created_at).getTime()}">—</span>`
+            : `<span class="timer-badge" data-ts="${new Date(p.hora_asignado).getTime()}">—</span>`
+          : '—'}
+      </td>
+      <td onclick="event.stopPropagation()">
+        ${['PENDIENTE'].includes(p.estatus)
+          ? `<button class="btn btn-primary btn-sm" onclick="abrirAsignar('${p.id}')">Asignar</button>`
+          : `<button class="btn btn-ghost btn-sm" onclick="abrirModalPedido('${p.id}')">Ver</button>`}
+      </td>
     </tr>`;
-  });
-  tbody.innerHTML = html;
+  }).join('');
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2381,21 +2307,6 @@ function renderPanel(p) {
       ${p.observaciones ? row('Observaciones', p.observaciones) : ''}
     </div>
 
-    ${(p.detalle_json && p.detalle_json.items && p.detalle_json.items.length) ? `
-    <div style="font-size:10px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">🛒 Productos del pedido</div>
-    <div style="background:var(--g2);border-radius:10px;overflow:hidden;margin-bottom:14px;">
-      ${p.detalle_json.items.map(it => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid var(--g3);font-size:12px;">
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:700">${it.qty}× ${it.nombre}</div>
-            <div style="font-size:10px;color:var(--td)">L.${parseFloat(it.precio).toFixed(2)} c/u</div>
-          </div>
-          <div style="font-weight:800;color:var(--or)">L.${parseFloat(it.subtotal).toFixed(2)}</div>
-        </div>
-      `).join('')}
-    </div>
-    ` : ''}
-
     <!-- Finanzas -->
     <div style="font-size:10px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Finanzas</div>
     <div style="background:var(--g2);border-radius:10px;overflow:hidden;margin-bottom:6px;">
@@ -2475,28 +2386,10 @@ function renderPanel(p) {
 
   // Footer con acciones
   document.getElementById('panel-footer').innerHTML = `
-    ${!['FINALIZADO','CANCELADO','ELIMINADO'].includes(p.estatus) ? `<button class="btn btn-danger" onclick="cancelarPedido('${p.id}')" style="flex:1;justify-content:center">Cancelar</button>` : ''}
+    ${!['FINALIZADO','CANCELADO'].includes(p.estatus) ? `<button class="btn btn-danger" onclick="cancelarPedido('${p.id}')" style="flex:1;justify-content:center">Cancelar</button>` : ''}
     ${p.estatus === 'PENDIENTE' ? `<button class="btn btn-primary" onclick="cerrarPanel();abrirAsignar('${p.id}')" style="flex:2;justify-content:center">Asignar Rider</button>` : ''}
     ${['ASIGNADO','ACEPTADO','EN_ESTABLECIMIENTO','PEDIDO_EN_CAMINO','ENTREGANDO'].includes(p.estatus) ? `<button class="btn btn-ghost" onclick="cerrarPanel();abrirAsignar('${p.id}')" style="flex:1;justify-content:center">Reasignar</button>` : ''}
-    ${esAdmin() && p.estatus !== 'ELIMINADO' ? `<button class="btn" onclick="eliminarPedido('${p.id}')" style="flex:1;justify-content:center;background:#7f1d1d;color:#fff;border:1px solid #991b1b">🗑 Eliminar</button>` : ''}
   `;
-}
-
-async function eliminarPedido(id) {
-  if(!esAdmin()){ toast('Solo ADMIN puede eliminar pedidos','danger'); return; }
-  const motivo = prompt('Motivo de eliminación (queda en el registro):');
-  if(motivo === null) return;
-  if(!confirm('¿Eliminar este pedido?\n\nQuedará en la base de datos pero no aparecerá en ninguna vista ni se contará en métricas. Esta acción solo puede revertirse desde Supabase.')) return;
-  const { error } = await sb.from('pedidos').update({
-    estatus: 'ELIMINADO',
-    observaciones: '[ELIMINADO por '+(S.perfil?.nombre||'ADMIN')+'] '+(motivo||'Sin motivo')
-  }).eq('id', id);
-  if(error) return toast('Error: ' + error.message, 'danger');
-  S.pedidos = S.pedidos.filter(x => x.id !== id);
-  closeModal('modal-pedido');
-  renderTablaPedidos();
-  if(document.getElementById('view-kanban')?.classList.contains('active')) renderKanban();
-  toast('Pedido eliminado','ghost');
 }
 
 async function cancelarPedido(id) {
@@ -2584,21 +2477,16 @@ async function confirmarAsig() {
 // ════════════════════════════════════════════════════════════
 async function cargarRiders() {
   const { data, error } = await sb.from('delivery')
-    .select('*, ubicaciones_delivery(en_turno, pausado, lat, lng), perfiles!delivery_perfil_id_fkey(foto_url)')
+    .select('*, ubicaciones_delivery(en_turno, lat, lng)')
     .order('nombre');
   if(data) {
-    if(!S._ultTurno) S._ultTurno = {};
     S.riders = data.map(d => {
       // Supabase puede devolver la relación como objeto o array según la FK definida
       const ubi = Array.isArray(d.ubicaciones_delivery)
         ? d.ubicaciones_delivery[0]
         : d.ubicaciones_delivery;
-      const perf = Array.isArray(d.perfiles) ? d.perfiles[0] : d.perfiles;
-      // Sembrar cache de turno para que Realtime detecte transiciones reales
-      S._ultTurno[d.id] = { en_turno: ubi?.en_turno === true, pausado: ubi?.pausado === true, ts: Date.now() };
       return {
         ...d,
-        foto_url: perf?.foto_url || null,
         en_turno: ubi?.en_turno === true,
         _ubi: ubi || null,
       };
@@ -2625,50 +2513,6 @@ function renderRidersMini() {
   }).join('');
 }
 
-async function abrirDetalleRider(riderId){
-  const r = S.riders.find(x=>x.id===riderId); if(!r) return;
-  const fin = S.pedidos.filter(p=>p.delivery_id===r.id && p.estatus==='FINALIZADO').length;
-  const act = S.pedidos.filter(p=>p.delivery_id===r.id && FILTROS_ACTIVOS.includes(p.estatus)).length;
-  const foto = r.foto_url||'';
-  // Total recargado acumulado (depositos APROBADOS)
-  let totalRecargado = 0;
-  try {
-    const {data:deps} = await sb.from('depositos_delivery').select('monto').eq('delivery_id',r.id).eq('estatus','APROBADO');
-    if(deps) totalRecargado = deps.reduce((s,x)=>s+parseFloat(x.monto||0),0);
-  } catch(e){}
-  // Fotos subidas por el delivery (storage delivery-docs/<id>/)
-  let fotosHtml = '<div style="padding:14px;color:var(--td);font-size:12px;text-align:center">Sin fotos</div>';
-  try {
-    const {data:files} = await sb.storage.from('delivery-docs').list(String(r.id),{limit:100});
-    if(files && files.length){
-      const items = await Promise.all(files.filter(f=>f.name && !f.name.startsWith('.')).map(async f=>{
-        const {data:u} = await sb.storage.from('delivery-docs').createSignedUrl(`${r.id}/${f.name}`, 3600);
-        return u?.signedUrl ? `<div style="display:flex;flex-direction:column;gap:4px"><img src="${u.signedUrl}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;border:1px solid var(--g4)" onclick="window.open('${u.signedUrl}','_blank')"><div class="mono" style="font-size:9px;color:var(--td);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div></div>` : '';
-      }));
-      if(items.filter(Boolean).length) fotosHtml = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px">${items.join('')}</div>`;
-    }
-  } catch(e){}
-  const SKIP = new Set(['_ubi','id','perfiles','ubicaciones_delivery']);
-  const filas = Object.keys(r).filter(k=>!SKIP.has(k)).sort().map(k=>{
-    let v=r[k]; if(v===null||v===undefined||v==='')v='—'; else if(typeof v==='object')v=JSON.stringify(v); else v=String(v);
-    return `<div style="display:flex;justify-content:space-between;gap:12px;padding:8px 10px;border-bottom:1px solid var(--g4);font-size:12px"><span style="color:var(--td);text-transform:uppercase;letter-spacing:1px">${k}</span><span class="mono" style="text-align:right;word-break:break-all;max-width:60%">${v}</span></div>`;
-  }).join('');
-  const avatarClick = foto ? `onclick="window.open('${foto}','_blank')" style="cursor:zoom-in;` : 'style="';
-  const html = `<div id="modalDetRider" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.remove()">
-    <div style="background:var(--g1);border:1px solid var(--g4);border-radius:12px;max-width:620px;width:100%;max-height:90vh;overflow:auto">
-      <div style="padding:16px;border-bottom:1px solid var(--g4);display:flex;gap:14px;align-items:center;position:sticky;top:0;background:var(--g1);z-index:1">
-        <div ${avatarClick}width:72px;height:72px;border-radius:50%;overflow:hidden;border:2px solid var(--or);flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--g2);font-weight:700">${foto?`<img src="${foto}" style="width:100%;height:100%;object-fit:cover">`:inic(r.nombre)}</div>
-        <div style="flex:1"><div style="font-size:18px;font-weight:700">${r.nombre||'—'}</div><div class="mono" style="font-size:11px;color:var(--td)">ID ${r.id} · ${fin} finalizados · ${act} activos</div><div class="mono" style="font-size:11px;color:var(--verde);margin-top:2px">Total recargado: L.${totalRecargado.toFixed(2)}</div></div>
-        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modalDetRider').remove()">✕</button>
-      </div>
-      <div style="padding:10px 12px;font-size:10px;color:var(--td);letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid var(--g4)">Fotos subidas</div>
-      ${fotosHtml}
-      <div style="padding:10px 12px;font-size:10px;color:var(--td);letter-spacing:2px;text-transform:uppercase;border-top:1px solid var(--g4);border-bottom:1px solid var(--g4)">Datos del rider</div>
-      <div>${filas}</div>
-    </div></div>`;
-  document.body.insertAdjacentHTML('beforeend',html);
-}
-
 function renderRidersGrid(filtro='todos') {
   const grid = document.getElementById('riders-grid');
   let riders = S.riders;
@@ -2677,28 +2521,29 @@ function renderRidersGrid(filtro='todos') {
   if(!riders.length) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">No hay riders</div>'; return; }
   grid.innerHTML = riders.map(d => {
     const act = S.pedidos.filter(p => p.delivery_id === d.id && FILTROS_ACTIVOS.includes(p.estatus)).length;
-    const fin = S.pedidos.filter(p => p.delivery_id === d.id && p.estatus === 'FINALIZADO').length;
-    const foto = d.foto_url || d.foto_perfil || d.avatar_url || '';
-    const avInner = foto ? `<img src="${foto}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${inic(d.nombre)}'}))"/>` : inic(d.nombre);
+
     const pausado  = d._ubi?.pausado === true;
     const statTxt = d.en_turno ? (pausado ? '⏸ Pausado' : act > 0 ? '🟠 Ocupado' : '🟢 Disponible') : '⚫ Desconectado';
     const statCol = d.en_turno ? (pausado ? '#F59E0B' : act > 0 ? 'var(--or)' : 'var(--verde)') : 'var(--td)';
     const saldoColor = parseFloat(d.saldo_billetera||0) >= 100 ? 'var(--verde)' : 'var(--rojo)';
     const ubi = d._ubi;
     const tieneGps = ubi && !(parseFloat(ubi.lat)===0 && parseFloat(ubi.lng)===0);
-    return `<div class="drv-card" id="drv-card-${d.id}" onclick="enfocarRider(${d.id})" style="cursor:pointer;transition:border .15s;">
+    const bloqueado = d.estatus === 'BLOQUEADO';
+    const inactivo = d.activo === false;
+    return `<div class="drv-card" id="drv-card-${d.id}" style="transition:border .15s;${bloqueado?'border-color:var(--rojo);':''}">
       <div class="drv-hdr">
-        <div class="drv-av" style="border:2px solid ${statCol};overflow:hidden;padding:0">${avInner}</div>
+        <div class="drv-av" style="border:2px solid ${statCol};cursor:pointer" onclick="abrirDetalleRider(${d.id})">${inic(d.nombre)}</div>
         <div style="flex:1;min-width:0">
-          <div onclick="event.stopPropagation();abrirDetalleRider(${d.id})" style="font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-decoration:underline;text-decoration-color:var(--g4)">${d.nombre}</div>
+          <div onclick="abrirDetalleRider(${d.id})" style="font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:var(--or)">${d.nombre}</div>
           <div class="mono" style="font-size:10px;color:var(--td)">${d.celular||'—'}</div>
           <span style="font-size:10px;color:${statCol};font-weight:700">${statTxt}</span>
+          ${bloqueado ? '<span style="font-size:10px;color:var(--rojo);margin-left:6px;font-weight:700">🔒 BLOQUEADO</span>' : ''}
+          ${!bloqueado && inactivo ? '<span style="font-size:10px;color:var(--td);margin-left:6px">⏸ Inactivo</span>' : ''}
           ${d.en_turno && !tieneGps ? '<span style="font-size:10px;color:var(--am);margin-left:6px">📍 GPS pendiente</span>' : ''}
         </div>
       </div>
       <div class="drv-stats">
         <div class="drv-stat"><div class="drv-stat-val">${act}</div><div class="drv-stat-lbl">Activos</div></div>
-        <div class="drv-stat"><div class="drv-stat-val" style="color:var(--verde)">${fin}</div><div class="drv-stat-lbl">Finalizados</div></div>
         <div class="drv-stat"><div class="drv-stat-val" style="color:${saldoColor};font-size:16px">L.${parseFloat(d.saldo_billetera||0).toFixed(0)}</div><div class="drv-stat-lbl">Saldo</div></div>
       </div>
       <div style="margin-top:10px;display:flex;gap:6px;">
@@ -2719,6 +2564,277 @@ function filtRiders(btn, f) {
   document.querySelectorAll('#view-riders .filter-bar .fbtn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderRidersGrid(f);
+}
+
+// ════════════════════════════════════════════════════════════
+// DETALLE DEL RIDER — Modal con fotos, info y controles admin
+// ════════════════════════════════════════════════════════════
+async function abrirDetalleRider(riderId) {
+  const modal = document.getElementById('modal-rider');
+  const cuerpo = document.getElementById('mr-cuerpo');
+  modal.style.display = 'flex';
+  cuerpo.innerHTML = '<div class="empty">Cargando datos del rider...</div>';
+
+  try {
+    // 1) Datos del rider (delivery + perfil)
+    const { data: d, error } = await sb.from('delivery').select('*').eq('id', riderId).single();
+    if(error || !d) { cuerpo.innerHTML = '<div class="empty">Error al cargar rider</div>'; return; }
+
+    // 2) Solicitud original (fotos)
+    let sol = null;
+    if(d.correo) {
+      const { data: sols } = await sb.from('aplicaciones_delivery')
+        .select('*')
+        .eq('correo', d.correo)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      sol = sols?.[0] || null;
+    }
+
+    // 3) Stats del rider
+    const { count: totalPedidos } = await sb.from('pedidos').select('id',{count:'exact',head:true}).eq('delivery_id', riderId).eq('estatus','FINALIZADO');
+    const { count: cancelados }   = await sb.from('pedidos').select('id',{count:'exact',head:true}).eq('delivery_id', riderId).eq('estatus','CANCELADO');
+
+    // 4) Ubicación actual
+    const { data: ubi } = await sb.from('ubicaciones_delivery').select('*').eq('delivery_id', riderId).maybeSingle();
+
+    // Render
+    const bloqueado = d.estatus === 'BLOQUEADO';
+    const inactivo  = d.activo === false;
+    const enTurno   = ubi?.en_turno === true;
+    const saldo     = parseFloat(d.saldo_billetera||0);
+    const saldoCol  = saldo >= 100 ? 'var(--verde)' : saldo < 50 ? 'var(--rojo)' : 'var(--am)';
+
+    const estadoBadge = bloqueado
+      ? `<span style="background:rgba(239,68,68,.15);color:var(--rojo);padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid rgba(239,68,68,.35)">🔒 BLOQUEADO</span>`
+      : inactivo
+        ? `<span style="background:rgba(148,163,184,.15);color:var(--td);padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid rgba(148,163,184,.35)">⏸ INACTIVO</span>`
+        : enTurno
+          ? `<span style="background:rgba(16,185,129,.15);color:var(--verde);padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid rgba(16,185,129,.35)">🟢 EN TURNO</span>`
+          : `<span style="background:rgba(255,140,0,.15);color:var(--or);padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid rgba(255,140,0,.35)">✓ ACTIVO</span>`;
+
+    // Documentos
+    const docs = [
+      { url: sol?.foto_url, label: 'Foto de perfil', icon: '👤' },
+      { url: sol?.identidad_delantera_url, label: 'Identidad (DNI)', icon: '🪪' },
+      { url: sol?.licencia_url, label: 'Licencia', icon: '📇' },
+      { url: sol?.revision_vehiculo_url, label: 'Revisión vehículo', icon: '🔧' },
+      { url: sol?.moto_propia_url, label: 'Moto propia', icon: '🏍' },
+      { url: sol?.mochila_url, label: 'Mochila', icon: '🎒' },
+    ];
+    const docsHtml = docs.map(doc => doc.url
+      ? `<div onclick="window.open('${doc.url}','_blank')" style="cursor:pointer;background-image:url(${doc.url});background-size:cover;background-position:center;aspect-ratio:1;border-radius:10px;border:1.5px solid var(--g4);position:relative;overflow:hidden;transition:transform .15s" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+          <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.85),transparent 50%);display:flex;align-items:flex-end;padding:6px 8px">
+            <div style="font-size:10px;color:#fff;font-weight:700;letter-spacing:.2px">${doc.icon} ${doc.label}</div>
+          </div>
+        </div>`
+      : `<div style="background:rgba(255,255,255,.03);aspect-ratio:1;border-radius:10px;border:1.5px dashed var(--g4);display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--td);padding:8px;text-align:center">
+          <div style="font-size:22px;opacity:.4">${doc.icon}</div>
+          <div style="font-size:9px;margin-top:4px">${doc.label}</div>
+          <div style="font-size:8px;opacity:.6">sin foto</div>
+        </div>`
+    ).join('');
+
+    // Foto perfil grande (header)
+    const avatarHtml = sol?.foto_url
+      ? `<div style="width:72px;height:72px;border-radius:50%;background:url(${sol.foto_url}) center/cover;border:3px solid var(--or);cursor:pointer;flex-shrink:0" onclick="window.open('${sol.foto_url}','_blank')"></div>`
+      : `<div style="width:72px;height:72px;border-radius:50%;background:var(--or);color:#000;font-size:28px;font-weight:800;display:grid;place-items:center;border:3px solid var(--or);flex-shrink:0">${inic(d.nombre)}</div>`;
+
+    cuerpo.innerHTML = `
+      <!-- HEADER -->
+      <div style="display:flex;gap:14px;align-items:center;margin-bottom:18px">
+        ${avatarHtml}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:18px;font-weight:800;line-height:1.2">${d.nombre||'—'}</div>
+          <div class="mono" style="font-size:11px;color:var(--td);margin-top:2px">${d.celular||'—'}</div>
+          <div class="mono" style="font-size:10px;color:var(--td)">${d.correo||'—'}</div>
+          <div style="margin-top:6px">${estadoBadge}</div>
+        </div>
+      </div>
+
+      ${bloqueado && d.motivo_bloqueo ? `
+        <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:10px 12px;margin-bottom:14px">
+          <div style="font-size:10px;color:var(--rojo);font-weight:700;letter-spacing:.5px;margin-bottom:4px">🔒 MOTIVO DE BLOQUEO</div>
+          <div style="font-size:12px;color:var(--tx)">${d.motivo_bloqueo}</div>
+          ${d.bloqueado_at ? `<div style="font-size:10px;color:var(--td);margin-top:4px">Bloqueado: ${fmtFecha(d.bloqueado_at)}</div>` : ''}
+        </div>
+      ` : ''}
+
+      <!-- STATS -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px">
+        <div style="background:rgba(255,255,255,.03);border:1px solid var(--g4);border-radius:10px;padding:10px 8px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:${saldoCol}">L.${saldo.toFixed(0)}</div>
+          <div style="font-size:9px;color:var(--td);letter-spacing:.3px">SALDO</div>
+        </div>
+        <div style="background:rgba(255,255,255,.03);border:1px solid var(--g4);border-radius:10px;padding:10px 8px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:var(--verde)">${totalPedidos||0}</div>
+          <div style="font-size:9px;color:var(--td);letter-spacing:.3px">FINALIZADOS</div>
+        </div>
+        <div style="background:rgba(255,255,255,.03);border:1px solid var(--g4);border-radius:10px;padding:10px 8px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:var(--rojo)">${cancelados||0}</div>
+          <div style="font-size:9px;color:var(--td);letter-spacing:.3px">CANCELADOS</div>
+        </div>
+        <div style="background:rgba(255,255,255,.03);border:1px solid var(--g4);border-radius:10px;padding:10px 8px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:var(--or)">${d.id}</div>
+          <div style="font-size:9px;color:var(--td);letter-spacing:.3px">ID RIDER</div>
+        </div>
+      </div>
+
+      <!-- DATOS PERSONALES -->
+      <div style="margin-bottom:18px">
+        <div style="font-size:11px;color:var(--or);font-weight:700;letter-spacing:1px;margin-bottom:8px">DATOS PERSONALES</div>
+        <div style="background:rgba(255,255,255,.02);border:1px solid var(--g4);border-radius:10px;padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+          <div><b style="color:var(--td);font-weight:500">DNI:</b> <span class="mono">${sol?.identidad||'—'}</span></div>
+          <div><b style="color:var(--td);font-weight:500">Ciudad:</b> ${sol?.ciudad||'—'}</div>
+          <div style="grid-column:1/-1"><b style="color:var(--td);font-weight:500">Colonia:</b> ${sol?.colonia||'—'}</div>
+          <div style="grid-column:1/-1"><b style="color:var(--td);font-weight:500">Dirección:</b> ${sol?.direccion_completa||'—'}</div>
+          <div><b style="color:var(--td);font-weight:500">Licencia:</b> ${sol?.tiene_licencia||'—'}</div>
+          <div><b style="color:var(--td);font-weight:500">Mochila propia:</b> ${sol?.tiene_mochila||'—'}</div>
+          <div style="grid-column:1/-1"><b style="color:var(--td);font-weight:500">Disponibilidad:</b> ${sol?.disponibilidad||'—'}</div>
+          <div><b style="color:var(--td);font-weight:500">Experiencia:</b> ${sol?.tiene_experiencia||'—'}</div>
+          <div><b style="color:var(--td);font-weight:500">Registrado:</b> ${fmtFecha(sol?.created_at||d.created_at)}</div>
+        </div>
+      </div>
+
+      <!-- DOCUMENTOS -->
+      <div style="margin-bottom:18px">
+        <div style="font-size:11px;color:var(--or);font-weight:700;letter-spacing:1px;margin-bottom:8px">DOCUMENTOS Y FOTOS</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          ${docsHtml}
+        </div>
+        <div style="font-size:10px;color:var(--td);margin-top:6px;text-align:center">Toca una imagen para ampliarla</div>
+      </div>
+
+      <!-- ACCIONES RÁPIDAS -->
+      <div style="margin-bottom:18px">
+        <div style="font-size:11px;color:var(--or);font-weight:700;letter-spacing:1px;margin-bottom:8px">ACCIONES</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="cerrarDetalleRider();irChat(${d.id})">💬 Abrir chat</button>
+          <button class="btn btn-ghost btn-sm" onclick="cerrarDetalleRider();enfocarRider(${d.id})">📍 Ver en mapa</button>
+          <button class="btn btn-success btn-sm" onclick="cerrarDetalleRider();abrirModalBono(${d.id},'${(d.nombre||'').replace(/'/g,'\\\'')}')">💰 Recargar saldo</button>
+          ${d.celular ? `<a href="https://wa.me/${(d.celular||'').replace(/\\D/g,'')}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:4px">📱 WhatsApp</a>` : ''}
+        </div>
+      </div>
+
+      <!-- ADMINISTRACIÓN -->
+      <div style="background:rgba(255,140,0,.04);border:1px solid rgba(255,140,0,.2);border-radius:12px;padding:14px">
+        <div style="font-size:11px;color:var(--or);font-weight:700;letter-spacing:1px;margin-bottom:10px">⚙️ ADMINISTRACIÓN</div>
+
+        <!-- ACTIVAR / DESACTIVAR -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--g4)">
+          <div>
+            <div style="font-size:13px;font-weight:700">Disponibilidad</div>
+            <div style="font-size:10px;color:var(--td)">${inactivo ? 'Inactivo — no puede recibir pedidos' : 'Activo — operando normalmente'}</div>
+          </div>
+          ${bloqueado
+            ? `<button class="btn btn-sm" disabled style="opacity:.5;cursor:not-allowed">Bloqueado</button>`
+            : inactivo
+              ? `<button class="btn btn-success btn-sm" onclick="toggleActivoRider(${d.id},true)">✓ Activar</button>`
+              : `<button class="btn btn-ghost btn-sm" onclick="toggleActivoRider(${d.id},false)">⏸ Desactivar</button>`}
+        </div>
+
+        <!-- BLOQUEAR / DESBLOQUEAR -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
+          <div>
+            <div style="font-size:13px;font-weight:700">Bloqueo</div>
+            <div style="font-size:10px;color:var(--td)">${bloqueado ? 'Rider bloqueado, no puede iniciar turno ni recibir pedidos' : 'Sin restricciones de seguridad'}</div>
+          </div>
+          ${bloqueado
+            ? `<button class="btn btn-success btn-sm" onclick="desbloquearRider(${d.id})">🔓 Desbloquear</button>`
+            : `<button class="btn btn-danger btn-sm" onclick="bloquearRider(${d.id},'${(d.nombre||'').replace(/'/g,'\\\'')}')">🔒 Bloquear</button>`}
+        </div>
+      </div>
+    `;
+  } catch(e) {
+    console.error('[abrirDetalleRider]', e);
+    cuerpo.innerHTML = '<div class="empty">Error: '+e.message+'</div>';
+  }
+}
+
+function cerrarDetalleRider() {
+  document.getElementById('modal-rider').style.display = 'none';
+}
+
+async function toggleActivoRider(riderId, nuevoEstado) {
+  const verbo = nuevoEstado ? 'activar' : 'desactivar';
+  if(!confirm(`¿${verbo.charAt(0).toUpperCase()+verbo.slice(1)} a este rider?${!nuevoEstado?'\n\nNo podrá recibir nuevos pedidos mientras esté inactivo.':''}`)) return;
+
+  const { error } = await sb.from('delivery').update({ activo: nuevoEstado }).eq('id', riderId);
+  if(error) { toast('Error: '+error.message, 'danger'); return; }
+
+  // Actualizar en memoria
+  const rIdx = S.riders.findIndex(r => r.id === riderId);
+  if(rIdx >= 0) S.riders[rIdx].activo = nuevoEstado;
+
+  toast(nuevoEstado ? '✅ Rider activado' : '⏸ Rider desactivado', nuevoEstado?'success':'ghost');
+  renderRidersGrid();
+  renderRidersMini();
+  abrirDetalleRider(riderId); // recargar modal
+}
+
+async function bloquearRider(riderId, nombreRider) {
+  const motivo = prompt(`Motivo del bloqueo para "${nombreRider}":\n\n(Será visible en el registro del rider)`, '');
+  if(motivo === null) return;
+  const motivoTrim = motivo.trim();
+  if(!motivoTrim) { toast('Debes ingresar un motivo', 'danger'); return; }
+
+  const userAuth = (await sb.auth.getUser())?.data?.user;
+  const payload = {
+    estatus: 'BLOQUEADO',
+    activo: false,
+    motivo_bloqueo: motivoTrim,
+    bloqueado_at: new Date().toISOString(),
+    bloqueado_por: userAuth?.id || null,
+  };
+
+  const { error } = await sb.from('delivery').update(payload).eq('id', riderId);
+  if(error) { toast('Error: '+error.message, 'danger'); return; }
+
+  // Si está en turno, forzar fin de turno
+  await sb.from('ubicaciones_delivery').update({ en_turno: false }).eq('delivery_id', riderId);
+
+  // Actualizar memoria
+  const rIdx = S.riders.findIndex(r => r.id === riderId);
+  if(rIdx >= 0) {
+    S.riders[rIdx].estatus = 'BLOQUEADO';
+    S.riders[rIdx].activo = false;
+    S.riders[rIdx].motivo_bloqueo = motivoTrim;
+    if(S.riders[rIdx]._ubi) S.riders[rIdx]._ubi.en_turno = false;
+    S.riders[rIdx].en_turno = false;
+  }
+
+  toast('🔒 Rider bloqueado', 'danger');
+  renderRidersGrid();
+  renderRidersMini();
+  abrirDetalleRider(riderId);
+}
+
+async function desbloquearRider(riderId) {
+  if(!confirm('¿Desbloquear a este rider?\n\nPodrá iniciar turno y recibir pedidos nuevamente.')) return;
+
+  const payload = {
+    estatus: 'ACTIVO',
+    activo: true,
+    motivo_bloqueo: null,
+    bloqueado_at: null,
+    bloqueado_por: null,
+  };
+
+  const { error } = await sb.from('delivery').update(payload).eq('id', riderId);
+  if(error) { toast('Error: '+error.message, 'danger'); return; }
+
+  // Actualizar memoria
+  const rIdx = S.riders.findIndex(r => r.id === riderId);
+  if(rIdx >= 0) {
+    S.riders[rIdx].estatus = 'ACTIVO';
+    S.riders[rIdx].activo = true;
+    S.riders[rIdx].motivo_bloqueo = null;
+  }
+
+  toast('🔓 Rider desbloqueado', 'success');
+  renderRidersGrid();
+  renderRidersMini();
+  abrirDetalleRider(riderId);
 }
 
 // ── MODAL BONO / RECARGA DE SALDO ────────────────────────────
@@ -2839,142 +2955,76 @@ async function cargarSolicitudes(estatus='PENDIENTE') {
   const el = document.getElementById('sol-lista');
   if(!data?.length) { el.innerHTML = '<div class="empty">Sin solicitudes ' + estatus.toLowerCase() + 's</div>'; return; }
   document.getElementById('badge-sol').textContent = estatus === 'PENDIENTE' ? data.length : parseInt(document.getElementById('badge-sol').textContent||0);
-
-  // Helper para cada foto (miniatura que abre en nueva pestaña)
-  const fotoChip = (url, emoji, label) => {
-    if(!url) return `<div style="flex:1;min-width:90px;aspect-ratio:1;background:var(--g3);border:1px dashed var(--g5);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--td);font-size:10px"><div style="font-size:18px;opacity:.3">${emoji}</div><div style="opacity:.5">Sin ${label}</div></div>`;
-    return `<div onclick="window.open('${url}','_blank')" style="flex:1;min-width:90px;aspect-ratio:1;background-image:url(${url});background-size:cover;background-position:center;border-radius:8px;cursor:pointer;position:relative;border:1px solid var(--g4);overflow:hidden" title="${label}">
-      <div style="position:absolute;bottom:0;left:0;right:0;padding:3px 6px;background:linear-gradient(to top,rgba(0,0,0,.85),transparent);font-size:10px;font-weight:700;color:#fff;text-align:center">${emoji} ${label}</div>
-    </div>`;
-  };
-
-  el.innerHTML = data.map(s => {
-    // Parsear notas para mostrar info extra
-    const notas = s.notas || '';
-    const edadMatch = notas.match(/edad:(\d+)/);
-    const motoProp  = notas.match(/moto_propia:(\w+)/);
-    const licDoc    = notas.match(/licencia_documento:(\w+)/);
-    const extraInfo = [
-      edadMatch ? `${edadMatch[1]} años` : null,
-      motoProp?.[1]==='si' ? '🏍 Moto propia' : motoProp?.[1]==='no' ? '🏍 Moto prestada' : null,
-      licDoc?.[1]==='si' ? '🚗 Con licencia' : licDoc?.[1]==='no' ? '🚗 Sin licencia' : null,
-      s.tiene_experiencia ? '⭐ Experiencia previa' : null,
-      s.tiene_mochila ? '🎒 Mochila propia' : '🎒 Sin mochila'
-    ].filter(Boolean).join(' · ');
-
-    return `
-    <div class="dep-card" style="padding:14px">
-      <div class="dep-hdr" style="margin-bottom:10px">
-        ${s.foto_url
-          ? `<img src="${s.foto_url}" onclick="window.open('${s.foto_url}','_blank')" style="width:52px;height:52px;border-radius:50%;object-fit:cover;cursor:pointer;border:2px solid var(--or)">`
-          : `<div class="ch-av" style="width:52px;height:52px;font-size:17px;border:2px solid var(--or)">${inic(s.nombre)}</div>`}
-        <div style="flex:1;min-width:0">
+  el.innerHTML = data.map(s => `
+    <div class="dep-card">
+      <div class="dep-hdr">
+        <div class="ch-av" style="width:40px;height:40px;font-size:14px;border:2px solid var(--or)">${inic(s.nombre)}</div>
+        <div style="flex:1">
           <div style="font-size:15px;font-weight:700">${s.nombre}</div>
-          <div style="font-size:11px;color:var(--td);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.correo} · ${s.celular||'—'}</div>
-          <div style="font-size:10px;color:var(--td)">${fmtFecha(s.created_at)} · ${s.ciudad||'—'}</div>
+          <div style="font-size:12px;color:var(--td)">${s.correo} · ${s.celular||'—'}</div>
+          <div style="font-size:11px;color:var(--td)">${fmtFecha(s.created_at)}</div>
         </div>
         <span class="chip chip-${estatus}">${estatus}</span>
       </div>
-
-      ${extraInfo ? `<div style="font-size:11px;color:var(--td);padding:6px 10px;background:var(--g3);border-radius:8px;margin-bottom:10px">${extraInfo}</div>` : ''}
-
-      ${s.direccion_completa ? `<div style="font-size:11px;color:var(--td);margin-bottom:8px">📍 ${s.direccion_completa}</div>` : ''}
-      ${s.disponibilidad ? `<div style="font-size:11px;color:var(--td);margin-bottom:10px">⏰ ${s.disponibilidad}</div>` : ''}
-
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
-        ${fotoChip(s.identidad_delantera_url, '🪪', 'DNI')}
-        ${fotoChip(s.licencia_url,            '🚗', 'Licencia')}
-        ${fotoChip(s.revision_vehiculo_url,   '📋', 'Revisión')}
-        ${fotoChip(s.moto_propia_url,         '🏍', 'Moto')}
-        ${s.tiene_mochila ? fotoChip(s.mochila_url, '🎒', 'Mochila') : ''}
-      </div>
-
-      ${s.identidad ? `<div style="font-size:11px;color:var(--td);margin-bottom:8px">DNI: <span class="mono">${s.identidad}</span></div>` : ''}
-
+      ${s.identidad_delantera_url ? `<div class="dep-img" onclick="window.open('${s.identidad_delantera_url}','_blank')" style="background-image:url(${s.identidad_delantera_url})"><div class="dep-img-overlay">🪪 Ver DUI ↗</div></div>` : ''}
       ${estatus === 'PENDIENTE' ? `<div class="dep-footer">
-        <button class="btn btn-danger btn-sm" onclick="accionSolicitud('${s.id}','${s.nombre.replace(/'/g,"\\'")}','RECHAZADO')">✗ Rechazar</button>
-        <button class="btn btn-success btn-sm" onclick="accionSolicitud('${s.id}','${s.nombre.replace(/'/g,"\\'")}','APROBADO')">✓ Aprobar y Activar</button>
+        <button class="btn btn-danger btn-sm" onclick="accionSolicitud('${s.id}','${s.nombre}','RECHAZADO')">✗ Rechazar</button>
+        <button class="btn btn-success btn-sm" onclick="accionSolicitud('${s.id}','${s.nombre}','APROBADO',\`${s.nombre}\`,\`${s.correo}\`,\`${s.celular||''}\`)">✓ Aprobar y Activar</button>
       </div>` : ''}
-    </div>`;
-  }).join('');
+    </div>`).join('');
 }
 
-async function accionSolicitud(id, nombre, accion) {
+async function accionSolicitud(id, nombre, accion, nomDrv, correoDrv, celDrv) {
   if(!confirm(`¿${accion === 'APROBADO' ? 'Aprobar' : 'Rechazar'} a ${nombre}?`)) return;
 
-  // ── RECHAZAR: llamar Edge Function (borra auth user huérfano) ─
-  if(accion === 'RECHAZADO') {
-    const motivo = prompt('Motivo del rechazo (opcional):') || 'Rechazado';
-    try {
-      const {data:{session}} = await sb.auth.getSession();
-      if(!session?.access_token){ toast('Sesión expirada','danger'); return; }
-      const res = await fetch(`${SUPA_URL}/functions/v1/rechazar-solicitud-rider`, {
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'apikey':SUPA_ANON,
-          'Authorization':`Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ aplicacion_id: id, motivo })
-      });
-      const json = await res.json();
-      if(!res.ok) { toast('Error: '+(json.error||res.status),'danger'); return; }
-      toast('✅ Solicitud rechazada','ghost');
-      cargarSolicitudes(S.solFiltro);
-    } catch(e) {
-      toast('Error: '+e.message,'danger');
-      console.error('[rechazar]',e);
-    }
+  if(accion !== 'APROBADO') {
+    await sb.from('aplicaciones_delivery').update({ estatus: accion }).eq('id', id);
+    toast('Solicitud rechazada', 'ghost');
+    cargarSolicitudes(S.solFiltro);
     return;
   }
 
-  // ── APROBAR ─────────────────────────────────────────────────
+  // ── APROBADO ────────────────────────────────────────────────
   try {
+    // 1. Obtener la solicitud completa (incluye notas con auth_uid)
     const { data: sol, error: solErr } = await sb
-      .from('aplicaciones_delivery').select('*').eq('id', id).single();
-    if(solErr || !sol) { toast('Error: ' + (solErr?.message||'no encontrada'), 'danger'); return; }
+      .from('aplicaciones_delivery')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if(solErr || !sol) { toast('Error al obtener solicitud: ' + (solErr?.message||'no encontrada'), 'danger'); return; }
 
-    // Leer auth_uid: primero de la columna nueva, fallback al regex en notas (retrocompat)
-    let uid = sol.auth_uid;
-    if(!uid) {
-      const match = sol.notas?.match(/auth_uid:([a-f0-9-]{36})/);
-      if(match) uid = match[1];
-    }
-    if(!uid) {
-      toast('⚠️ No se encontró auth_uid. El rider debe registrarse de nuevo.', 'danger');
-      return;
-    }
+    const match = sol.notas?.match(/auth_uid:([a-f0-9-]{36})/);
+    if(!match) { toast('⚠️ No se encontró auth_uid en la solicitud. El rider debe registrarse de nuevo.', 'danger'); return; }
+    const uid = match[1];
 
-    // Upsert en perfiles con rol DELIVERY
+    // 2. Upsert en perfiles (evita el 406 del .single() cuando no existe)
     const { error: perfilErr } = await sb.from('perfiles').upsert(
-      { id: uid, nombre: sol.nombre, celular: sol.celular||'', rol:'DELIVERY', estatus:'ACTIVA', foto_url: sol.foto_url||null, ciudad: sol.ciudad||null },
+      { id: uid, nombre: nomDrv||sol.nombre, celular: celDrv||sol.celular||'', rol:'DELIVERY', estatus:'ACTIVA' },
       { onConflict: 'id', ignoreDuplicates: false }
     );
     if(perfilErr) { toast('Error al crear perfil: ' + perfilErr.message, 'danger'); return; }
 
-    // Verificar si ya existe en delivery
+    // 3. Verificar si ya existe en delivery (evita duplicado)
     const { data: delivExist } = await sb.from('delivery').select('id').eq('perfil_id', uid).maybeSingle();
     if(!delivExist) {
+      // Obtener siguiente ID
       const { data: maxId } = await sb.from('delivery').select('id').order('id', { ascending: false }).limit(1).maybeSingle();
-      const nextId = Math.max(10000, (maxId?.id || 0) + 1);
+      const nextId = (maxId?.id || 0) + 1;
       const { error: delivErr } = await sb.from('delivery').insert({
         id: nextId, perfil_id: uid,
-        nombre: sol.nombre,
-        correo: sol.correo,
-        celular: sol.celular||'',
+        nombre: nomDrv||sol.nombre,
+        correo: correoDrv||sol.correo,
+        celular: celDrv||sol.celular||'',
         activo: true, estatus:'ACTIVO', saldo_billetera: 0
       });
       if(delivErr) { toast('Error al crear rider: ' + delivErr.message, 'danger'); return; }
     }
 
-    // Marcar solicitud como aprobada
-    await sb.from('aplicaciones_delivery').update({
-      estatus: 'APROBADO',
-      aceptado: true,
-      revisado_por: S.perfil?.nombre || 'Despacho'
-    }).eq('id', id);
+    // 4. Marcar solicitud como aprobada
+    await sb.from('aplicaciones_delivery').update({ estatus: 'APROBADO' }).eq('id', id);
+    toast('✅ Rider aprobado y activado', 'success');
 
-    toast('✅ Rider aprobado — ya puede ingresar a la app', 'success');
   } catch(e) {
     toast('Error inesperado: ' + e.message, 'danger');
     console.error('[accionSolicitud]', e);
@@ -2988,6 +3038,130 @@ function filtSol(btn, estatus) {
   document.querySelectorAll('#view-solicitudes .filter-bar .fbtn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   cargarSolicitudes(estatus);
+}
+
+// ════════════════════════════════════════════════════════════
+// SOLICITUDES DE COMERCIOS
+// ════════════════════════════════════════════════════════════
+const CAT_LABELS_COM = {
+  TIENDA_ONLINE:'Tienda online', BOUTIQUE_ROPA:'Boutique/Ropa', EMPRENDIMIENTO:'Emprendimiento',
+  DISTRIBUIDORA:'Distribuidora', FARMACIA:'Farmacia', ELECTRONICA:'Electrónica', BELLEZA:'Belleza',
+  COMIDA:'Comida', LIBRERIA:'Librería', FLORISTERIA:'Floristería', ACCESORIOS:'Accesorios',
+  HOGAR:'Hogar', OTRO:'Otro'
+};
+const ANT_LABELS = { MENOS_6M:'<6 meses', '6_12M':'6–12 meses', '1_3A':'1–3 años', MAS_3A:'>3 años' };
+const VOL_LABELS = { '1_5':'1–5/día', '6_15':'6–15/día', '16_30':'16–30/día', MAS_30:'>30/día' };
+const HOR_LABELS = { MANANA:'Mañana', TARDE:'Tarde', NOCHE:'Noche', FLEXIBLE:'Flexible' };
+const RAD_LABELS = { SOLO_CHOLOMA:'Solo Choloma', SOLO_SPS:'Solo SPS', CHOLOMA_SPS:'Choloma+SPS', CORTES:'Todo Cortés', NACIONAL:'Nacional' };
+const QP_LABELS = { COMERCIO:'Comercio', CLIENTE:'Cliente', VARIA:'Varía' };
+const FTE_LABELS = { INSTAGRAM:'Instagram', FACEBOOK:'Facebook', TIKTOK:'TikTok', WHATSAPP:'WhatsApp', REFERIDO:'Referido', GOOGLE:'Google', OTRO:'Otro' };
+
+async function cargarSolicitudesComercios(estatus='PENDIENTE') {
+  S.solComFiltro = estatus;
+  const el = document.getElementById('solcom-lista');
+  el.innerHTML = '<div class="empty">Cargando...</div>';
+  const { data, error } = await sb.from('solicitudes_comercios').select('*').eq('estatus', estatus).order('created_at', { ascending: false });
+  if(error) { el.innerHTML = '<div class="empty">Error: ' + error.message + '</div>'; return; }
+  if(!data?.length) { el.innerHTML = '<div class="empty">Sin solicitudes ' + estatus.toLowerCase() + 's</div>'; return; }
+
+  // Contador badge solo para PENDIENTE
+  if(estatus === 'PENDIENTE') {
+    const b = document.getElementById('badge-solcom');
+    if(b) { b.textContent = data.length; b.style.display = data.length > 0 ? 'inline' : 'none'; }
+  }
+
+  el.innerHTML = data.map(s => {
+    const ini = (s.nombre_comercial||'?').trim().charAt(0).toUpperCase();
+    const telRaw = (s.telefono_whatsapp||'').replace(/\D/g,'');
+    const waLink = telRaw ? `https://wa.me/${telRaw}?text=${encodeURIComponent('Hola '+(s.nombre_encargado||'')+', te escribimos de Somar Express 🛵 sobre tu solicitud de registro como comercio.')}` : '#';
+    const dias = Array.isArray(s.dias_movimiento) ? s.dias_movimiento.join(', ') : '—';
+    const pagos = Array.isArray(s.metodos_pago) ? s.metodos_pago.join(', ') : '—';
+    const redes = [
+      s.instagram ? `<span style="color:#E1306C">IG:</span> ${s.instagram}` : '',
+      s.facebook ? `<span style="color:#1877F2">FB:</span> ${s.facebook}` : '',
+      s.tiktok ? `<span style="color:#000">TT:</span> ${s.tiktok}` : ''
+    ].filter(Boolean).join(' · ') || '—';
+
+    return `
+    <div class="dep-card" style="display:flex;flex-direction:column">
+      <div class="dep-hdr">
+        ${s.logo_url
+          ? `<div style="width:44px;height:44px;border-radius:10px;background:url(${s.logo_url}) center/cover;border:2px solid var(--or);flex-shrink:0"></div>`
+          : `<div class="ch-av" style="width:44px;height:44px;font-size:16px;border:2px solid var(--or);background:var(--or);color:#fff">${ini}</div>`}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.nombre_comercial||'—'}</div>
+          <div style="font-size:11px;color:var(--td)">${CAT_LABELS_COM[s.categoria]||s.categoria||'—'} · ${ANT_LABELS[s.antiguedad]||'—'}</div>
+          <div style="font-size:11px;color:var(--td)">${fmtFecha(s.created_at)}</div>
+        </div>
+        <span class="chip chip-${estatus}">${estatus}</span>
+      </div>
+
+      ${s.descripcion ? `<div style="font-size:12px;color:var(--td);padding:8px 12px;background:rgba(255,255,255,.03);border-radius:8px;margin:4px 0">"${s.descripcion}"</div>` : ''}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px 12px;font-size:11px">
+        <div><b style="color:var(--or)">Contacto:</b><br>${s.nombre_encargado||'—'}<br>${s.telefono_whatsapp||'—'}${s.email?'<br>'+s.email:''}</div>
+        <div><b style="color:var(--or)">Ubicación:</b><br>${s.ciudad||'—'}${(s.lat && s.lng)?`<br><a href="https://www.google.com/maps?q=${s.lat},${s.lng}" target="_blank" style="color:#4A90E2">📍 Ver mapa</a>`:''}</div>
+        <div><b style="color:var(--or)">Volumen:</b><br>${VOL_LABELS[s.envios_dia_rango]||'—'}</div>
+        <div><b style="color:var(--or)">Horario:</b><br>${HOR_LABELS[s.horario_recoleccion]||'—'}</div>
+        <div><b style="color:var(--or)">Radio:</b><br>${RAD_LABELS[s.radio_entrega]||'—'}</div>
+        <div><b style="color:var(--or)">Paga envío:</b><br>${QP_LABELS[s.quien_paga_envio]||'—'}</div>
+        <div style="grid-column:1/-1"><b style="color:var(--or)">Días activos:</b> ${dias}</div>
+        <div style="grid-column:1/-1"><b style="color:var(--or)">Métodos de pago:</b> ${pagos}</div>
+        <div style="grid-column:1/-1"><b style="color:var(--or)">Redes:</b> ${redes}</div>
+        ${s.usa_otro_servicio ? `<div style="grid-column:1/-1"><b style="color:var(--or)">Otro servicio:</b> ${s.cual_otro_servicio||'Sí'}</div>` : ''}
+        <div style="grid-column:1/-1"><b style="color:var(--or)">Dirección:</b> ${s.direccion_recoleccion||'—'}</div>
+        ${s.rtn ? `<div style="grid-column:1/-1"><b style="color:var(--or)">RTN:</b> ${s.rtn}</div>` : ''}
+        ${s.comentario ? `<div style="grid-column:1/-1"><b style="color:var(--or)">Comentario:</b> "${s.comentario}"</div>` : ''}
+        <div style="grid-column:1/-1;color:var(--td);font-size:10px"><b>Fuente:</b> ${FTE_LABELS[s.fuente_referencia]||'—'}</div>
+        ${s.notas_despacho ? `<div style="grid-column:1/-1;background:rgba(255,140,0,.08);padding:6px 8px;border-radius:6px;border-left:3px solid var(--or)"><b style="color:var(--or)">Nota despacho:</b> ${s.notas_despacho}</div>` : ''}
+      </div>
+
+      ${s.foto_fachada_url ? `<div class="dep-img" onclick="window.open('${s.foto_fachada_url}','_blank')" style="background-image:url(${s.foto_fachada_url})"><div class="dep-img-overlay">📸 Ver fachada ↗</div></div>` : ''}
+
+      <div class="dep-footer" style="margin-top:auto;flex-wrap:wrap;gap:6px">
+        ${telRaw ? `<a href="${waLink}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;text-decoration:none">💬 WhatsApp</a>` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="notaSolCom('${s.id}')">📝 Nota</button>
+        ${estatus === 'PENDIENTE' ? `
+          <button class="btn btn-sm" style="background:#4A90E2;color:#fff" onclick="accionSolComercio('${s.id}','CONTACTADO')">📞 Contactado</button>
+          <button class="btn btn-danger btn-sm" onclick="accionSolComercio('${s.id}','RECHAZADO')">✗ Rechazar</button>
+          <button class="btn btn-success btn-sm" onclick="accionSolComercio('${s.id}','APROBADO')">✓ Aprobar</button>
+        ` : estatus === 'CONTACTADO' ? `
+          <button class="btn btn-danger btn-sm" onclick="accionSolComercio('${s.id}','RECHAZADO')">✗ Rechazar</button>
+          <button class="btn btn-success btn-sm" onclick="accionSolComercio('${s.id}','APROBADO')">✓ Aprobar</button>
+        ` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function accionSolComercio(id, accion){
+  const verbo = { APROBADO:'aprobar', RECHAZADO:'rechazar', CONTACTADO:'marcar como contactado' }[accion];
+  if(!confirm(`¿${verbo.charAt(0).toUpperCase()+verbo.slice(1)} esta solicitud?`)) return;
+  const upd = { estatus: accion };
+  const now = new Date().toISOString();
+  if(accion === 'CONTACTADO') upd.contactado_at = now;
+  if(accion === 'APROBADO') upd.aprobado_at = now;
+  const { error } = await sb.from('solicitudes_comercios').update(upd).eq('id', id);
+  if(error) { toast('Error: ' + error.message, 'danger'); return; }
+  toast(`Solicitud ${accion.toLowerCase()}`, accion === 'APROBADO' ? 'success' : accion === 'RECHAZADO' ? 'ghost' : 'success');
+  cargarSolicitudesComercios(S.solComFiltro);
+}
+
+async function notaSolCom(id){
+  const { data } = await sb.from('solicitudes_comercios').select('notas_despacho').eq('id', id).maybeSingle();
+  const actual = data?.notas_despacho || '';
+  const nueva = prompt('Nota interna sobre este comercio:', actual);
+  if(nueva === null) return;
+  const { error } = await sb.from('solicitudes_comercios').update({ notas_despacho: nueva }).eq('id', id);
+  if(error) { toast('Error: ' + error.message, 'danger'); return; }
+  toast('Nota guardada', 'success');
+  cargarSolicitudesComercios(S.solComFiltro);
+}
+
+function filtSolCom(btn, estatus){
+  document.querySelectorAll('#view-solcom .filter-bar .fbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  cargarSolicitudesComercios(estatus);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -3082,14 +3256,11 @@ async function cargarHistorial() {
     .select('*')
     .gte('created_at', rangoUTCdesdeHN(desde, desde).desde)
     .lte('created_at', rangoUTCdesdeHN(hasta, hasta).hasta)
-    .neq('estatus','ELIMINADO')
     .order('created_at', { ascending: false });
   if(!data?.length) { document.getElementById('hist-content').innerHTML = '<div class="empty">Sin pedidos en ese rango</div>'; return; }
   const fin = data.filter(p => p.estatus === 'FINALIZADO');
-  const tarifa = fin.reduce((s,p) => s + parseFloat(p.tarifa_envio||0), 0);
-  const somar = fin.reduce((s,p) => s + parseFloat(p.ingreso_somar||0), 0);
-  const rider = fin.reduce((s,p) => s + parseFloat(p.ingreso_delivery||0), 0);
-  document.getElementById('hist-res').innerHTML = `<span style="color:var(--tx)">${data.length} total</span> · <span style="color:var(--verde)">${fin.length} fin.</span> · <span style="color:var(--or)">Tarifa L.${tarifa.toFixed(0)}</span> · <span style="color:#fbbf24">Somar L.${somar.toFixed(0)}</span> · <span style="color:#a855f7">Rider L.${rider.toFixed(0)}</span>`;
+  const ing = fin.reduce((s,p) => s + parseFloat(p.tarifa_envio||0), 0);
+  document.getElementById('hist-res').textContent = `${data.length} total · ${fin.length} finalizados · L. ${ing.toFixed(2)} ingresos`;
   renderHistorial(data);
 }
 
@@ -3106,82 +3277,51 @@ function renderHistorial(peds) {
     if(!grupos[y][m][w].ini || f < grupos[y][m][w].ini) grupos[y][m][w].ini = f;
     if(!grupos[y][m][w].fin || f > grupos[y][m][w].fin) grupos[y][m][w].fin = f;
   });
-
-  // Helper: calcular totales de un set de pedidos
-  const calcular = (lista) => {
-    const fin = lista.filter(p=>p.estatus==='FINALIZADO');
-    const can = lista.filter(p=>p.estatus==='CANCELADO').length;
-    return {
-      total: lista.length,
-      finalizados: fin.length,
-      cancelados: can,
-      tarifa: fin.reduce((s,p)=>s+parseFloat(p.tarifa_envio||0),0),
-      somar: fin.reduce((s,p)=>s+parseFloat(p.ingreso_somar||0),0),
-      rider: fin.reduce((s,p)=>s+parseFloat(p.ingreso_delivery||0),0),
-      propinas: fin.reduce((s,p)=>s+parseFloat(p.propina||0),0),
-    };
-  };
-
-  const fmtL = v => 'L.'+(v||0).toLocaleString('es-HN',{maximumFractionDigits:0});
-  const statsRow = (t, compacto=false) => `
-    <div style="display:flex;gap:${compacto?10:14}px;flex-wrap:wrap;font-size:${compacto?10:11}px">
-      <span class="hy-stat">${t.total} total</span>
-      <span class="hy-stat" style="color:var(--verde)">${t.finalizados} fin.</span>
-      ${t.cancelados>0?`<span class="hy-stat" style="color:var(--rojo)">${t.cancelados} canc.</span>`:''}
-      <span class="hy-stat" style="color:var(--or)">Tarifa ${fmtL(t.tarifa)}</span>
-      <span class="hy-stat" style="color:#fbbf24">Somar ${fmtL(t.somar)}</span>
-      <span class="hy-stat" style="color:#a855f7">Rider ${fmtL(t.rider)}</span>
-      ${t.propinas>0?`<span class="hy-stat" style="color:#22c55e">Prop. ${fmtL(t.propinas)}</span>`:''}
-    </div>`;
-
   const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   let html = '';
   Object.keys(grupos).sort((a,b)=>b-a).forEach(y => {
-    const yPeds = [];
+    let yF=0,yI=0;
     let mesHtml = '';
     Object.keys(grupos[y]).sort((a,b)=>b-a).forEach(m => {
-      const mPeds = [];
+      let mF=0,mI=0;
       let semHtml = '';
       Object.keys(grupos[y][m]).sort((a,b)=>b-a).forEach(w => {
         const g = grupos[y][m][w];
-        mPeds.push(...g.peds);
-        const t = calcular(g.peds);
+        const f = g.peds.filter(p=>p.estatus==='FINALIZADO').length;
+        const i = g.peds.filter(p=>p.estatus==='FINALIZADO').reduce((s,p)=>s+parseFloat(p.tarifa_envio||0),0);
+        mF+=f; mI+=i; yF+=f; yI+=i;
         semHtml += `<div class="hy-wk">
           <div class="hy-wk-hdr" onclick="togEl('wk-${y}-${m}-${w}')">
-            <span style="font-weight:700">📅 Semana ${w} · ${g.ini} — ${g.fin}</span>
-            ${statsRow(t, true)}
+            <span>Semana ${w} · ${g.ini} — ${g.fin}</span>
+            <div style="display:flex;gap:14px"><span class="hy-stat">${g.peds.length} pedidos</span><span class="hy-stat" style="color:var(--or)">${f} fin.</span><span class="hy-stat" style="color:var(--verde)">L.${i.toFixed(0)}</span></div>
           </div>
           <div class="collap" id="wk-${y}-${m}-${w}">
-            <table class="tbl" style="margin-top:6px"><thead><tr><th>N° Orden</th><th>Comercio</th><th>Tipo</th><th>Estado</th><th>Pago</th><th>Tarifa</th><th>Somar</th><th>Fecha</th></tr></thead><tbody>
+            <table class="tbl" style="margin-top:6px"><thead><tr><th>N° Orden</th><th>Comercio</th><th>Tipo</th><th>Estado</th><th>Pago</th><th>Tarifa</th><th>Fecha</th></tr></thead><tbody>
             ${g.peds.map(p=>`<tr onclick="abrirModalPedido('${p.id}')">
               <td class="mono" style="color:var(--or)">${p.no_orden||'—'}</td>
               <td>${p.nombre_comercio||p.nombre_destinatario||'—'}</td>
-              <td style="font-size:11px">${p.tipo_pedido||p.tipo||'—'}</td>
+              <td style="font-size:11px">${p.tipo||'—'}</td>
               <td>${chipEst(p.estatus)}</td>
               <td style="font-size:11px">${p.metodo_pago||'—'}</td>
               <td class="mono" style="color:var(--or)">L.${parseFloat(p.tarifa_envio||0).toFixed(0)}</td>
-              <td class="mono" style="color:#fbbf24">L.${parseFloat(p.ingreso_somar||0).toFixed(0)}</td>
               <td class="mono" style="font-size:10px;color:var(--td)">${fmtFecha(p.created_at)}</td>
             </tr>`).join('')}
             </tbody></table>
           </div>
         </div>`;
       });
-      yPeds.push(...mPeds);
-      const tm = calcular(mPeds);
       mesHtml += `<div class="hy-mo">
         <div class="hy-mo-hdr" onclick="togEl('mo-${y}-${m}')">
-          <span style="font-weight:700;font-size:14px">📆 ${MESES[m]}</span>
-          ${statsRow(tm)}
+          <span>${MESES[m]}</span>
+          <div style="display:flex;gap:14px"><span class="hy-stat">${mF} fin.</span><span class="hy-stat" style="color:var(--verde)">L.${mI.toFixed(0)}</span></div>
         </div>
-        <div class="collap" id="mo-${y}-${m}">${semHtml}</div>
+        <div class="collap open" id="mo-${y}-${m}">${semHtml}</div>
       </div>`;
     });
-    const ty = calcular(yPeds);
     html += `<div style="margin-bottom:18px">
       <div class="hy-yr-hdr" onclick="togEl('yr-${y}')">
-        <span style="font-weight:800;font-size:18px">🗓️ ${y}</span>
-        ${statsRow(ty)}
+        <span>${y}</span>
+        <div style="display:flex;gap:14px"><span class="hy-stat">${yF} finalizados</span><span class="hy-stat" style="color:var(--verde)">L.${yI.toFixed(0)}</span></div>
       </div>
       <div class="collap open" id="yr-${y}">${mesHtml}</div>
     </div>`;
@@ -3343,75 +3483,93 @@ function initMapRiders() {
   actualizarZonaCaliente(); // async - no necesita await aquí
 }
 
-// Parser robusto para strings GPS tipo "15.6099,-87.9563" o "15.6099, -87.9563"
-function parseGpsString(s){
-  if(!s || typeof s !== 'string') return null;
-  const parts = s.replace(/;/g, ',').split(',').map(x => x.trim());
-  if(parts.length < 2) return null;
-  const lat = parseFloat(parts[0]), lng = parseFloat(parts[1]);
-  if(isNaN(lat) || isNaN(lng)) return null;
-  // Validar rango Honduras (lat 13-17, lng -90 a -83)
-  if(lat < 13 || lat > 17 || lng < -90 || lng > -83) return null;
-  return [lat, lng];
-}
-
-async function actualizarZonaCaliente(forzar = false) {
+async function actualizarZonaCaliente() {
   if(!S.mapRiders) return;
-  if(!window.L || !L.heatLayer) return;
+  if(S.zonaLayer) { S.mapRiders.removeLayer(S.zonaLayer); S.zonaLayer = null; }
 
-  if(!forzar && S._heatPuntos) {
-    renderHeatmap(S._heatPuntos);
-    return;
-  }
+  const ZONAS = [
+    { nombre:'Choloma Centro',  ciudad:'CHOLOMA',        lat:15.609903, lng:-87.956312, radio:1500 },
+    { nombre:'SPS Centro',      ciudad:'SAN PEDRO SULA', lat:15.500000, lng:-88.025100, radio:1800 },
+  ];
 
+  // Solo pedidos FINALIZADOS en los últimos 30 días
   const hace30 = new Date(); hace30.setDate(hace30.getDate() - 30);
-  const { data, error } = await sb
+  const { data: ped30, error } = await sb
     .from('pedidos')
-    .select('ubicacion_recogida_gps,ubicacion_comercio,created_at,estatus')
-    .gte('created_at', hace30.toISOString())
-    .not('estatus','in','(CANCELADO,RECHAZADO,ELIMINADO,BORRADOR)');
+    .select('ciudad_destino,hora_finalizado')
+    .eq('estatus', 'FINALIZADO')
+    .gte('hora_finalizado', hace30.toISOString())
+    .not('hora_finalizado', 'is', null);
 
-  if(error) { console.error('[zona caliente]', error.message); return; }
+  if(error) { console.error('[zona caliente]', error.message); }
 
-  const ahora = Date.now();
-  const puntos = [];
-  (data || []).forEach(p => {
-    // Fallback: primero ubicacion_recogida_gps, luego ubicacion_comercio
-    const coords = parseGpsString(p.ubicacion_recogida_gps) || parseGpsString(p.ubicacion_comercio);
-    if(!coords) return;
-    const edadDias = (ahora - new Date(p.created_at).getTime()) / 86400000;
-    const peso = Math.max(0.3, 1 - (edadDias / 30) * 0.7);
-    puntos.push([coords[0], coords[1], peso]);
+  // Agrupar por día para calcular promedio solo en días con pedidos
+  const porDiaCiudad = {}; // { CHOLOMA: { '2026-04-01': 3, '2026-04-02': 5 } }
+  (ped30 || []).forEach(p => {
+    const ciudad = (p.ciudad_destino || 'CHOLOMA').toUpperCase().trim();
+    const dia = (p.hora_finalizado || '').slice(0, 10);
+    if(!dia) return;
+    if(!porDiaCiudad[ciudad]) porDiaCiudad[ciudad] = {};
+    porDiaCiudad[ciudad][dia] = (porDiaCiudad[ciudad][dia] || 0) + 1;
   });
 
-  S._heatPuntos = puntos;
-  renderHeatmap(puntos);
-}
+  // Calcular promedio SOLO de días con al menos 1 pedido (ignorar días con cero)
+  const promedio = {};
+  Object.entries(porDiaCiudad).forEach(([ciudad, dias]) => {
+    const diasConPedidos = Object.values(dias); // solo días con pedidos
+    const total = diasConPedidos.reduce((a,b) => a+b, 0);
+    promedio[ciudad] = parseFloat((total / diasConPedidos.length).toFixed(1));
+  });
 
-function renderHeatmap(puntos){
-  if(S.zonaLayer) { S.mapRiders.removeLayer(S.zonaLayer); S.zonaLayer = null; }
-  if(!puntos || !puntos.length) return;
-  S.zonaLayer = L.heatLayer(puntos, {
-    radius: 38,
-    blur: 28,
-    maxZoom: 17,
-    minOpacity: 0.35,
-    gradient: {
-      0.2: 'rgba(255,200,130,0.45)',
-      0.5: 'rgba(255,140,0,0.75)',
-      0.8: 'rgba(230,80,0,0.88)',
-      1.0: 'rgba(160,40,0,0.95)'
+  const totalPed = Object.values(promedio).reduce((a,b) => a+b, 0);
+  const maxProm  = Math.max(1, ...Object.values(promedio));
+
+  const group = L.layerGroup();
+  const ciudadesVistas = new Set();
+
+  ZONAS.forEach(z => {
+    const prom = promedio[z.ciudad] || 0;
+    const intensidad = prom / maxProm;
+    const diasActivos = porDiaCiudad[z.ciudad] ? Object.keys(porDiaCiudad[z.ciudad]).length : 0;
+    const totalCiudad = porDiaCiudad[z.ciudad] ? Object.values(porDiaCiudad[z.ciudad]).reduce((a,b)=>a+b,0) : 0;
+
+    const color = prom === 0    ? '#444'
+                : intensidad > 0.7 ? '#EF4444'
+                : intensidad > 0.4 ? '#F59E0B'
+                :                    '#22C55E';
+
+    const fillOpacity = prom === 0 ? 0.04 : 0.07 + (intensidad * 0.22);
+    const radio = prom === 0 ? z.radio * 0.5 : z.radio * (0.6 + intensidad * 0.7);
+
+    L.circle([z.lat, z.lng], {
+      radius: radio, color, fillColor: color,
+      fillOpacity, weight: prom === 0 ? 1 : 2,
+      dashArray: prom === 0 ? '4,6' : '5,3'
+    }).addTo(group).bindPopup(`
+      <b>${z.nombre}</b><br>
+      ${prom === 0
+        ? '📭 Sin pedidos en 30 días'
+        : `📊 Promedio: <b>${prom}/día activo</b><br>
+           📅 Días con pedidos: <b>${diasActivos}</b> de 30<br>
+           📦 Total 30d: <b>${totalCiudad}</b> pedidos<br>
+           ${intensidad>0.7?'🔴 Zona muy caliente':intensidad>0.4?'🟡 Zona activa':'🟢 Zona normal'}`
+      }
+    `);
+
+    if(prom > 0 && !ciudadesVistas.has(z.ciudad)) {
+      ciudadesVistas.add(z.ciudad);
+      L.marker([z.lat, z.lng], {
+        icon: L.divIcon({
+          html: `<div style="background:${color};color:#fff;border-radius:10px;padding:3px 8px;font-size:10px;font-weight:800;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.5);white-space:nowrap">${prom}/día</div>`,
+          iconSize:[null,null], iconAnchor:[24,10], className:''
+        })
+      }).addTo(group).bindPopup(`<b>${z.nombre}</b>: ${prom} ped/día (prom. días activos)`);
     }
-  }).addTo(S.mapRiders);
-}
+  });
 
-function agregarPuntoHeatmap(gpsString){
-  const coords = parseGpsString(gpsString);
-  if(!coords) return;
-  if(!S._heatPuntos) S._heatPuntos = [];
-  S._heatPuntos.push([coords[0], coords[1], 1.0]);
-  if(S._heatPuntos.length > 2000) S._heatPuntos = S._heatPuntos.slice(-2000);
-  if(S.mapRiders) renderHeatmap(S._heatPuntos);
+  group.addTo(S.mapRiders);
+  S.zonaLayer = group;
+  console.log('[zona caliente] promedios días activos:', promedio);
 }
 
 
@@ -3434,13 +3592,10 @@ function actualizarMarkersRiders() {
     const act = S.pedidos.filter(p => p.delivery_id === d.id && FILTROS_ACTIVOS.includes(p.estatus)).length;
     const pausadoM = d._ubi?.pausado === true;
     const color = sinGps ? '#555' : (pausadoM ? '#F59E0B' : act > 0 ? '#FF8C00' : '#22c55e');
-    const foto = d.foto_url || '';
-    const innerHtml = foto
-      ? `<img src="${foto}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('beforeend','${inic(d.nombre)}')">`
-      : inic(d.nombre);
+    const label = inic(d.nombre);
     const icon = L.divIcon({
-      html: `<div style="width:42px;height:42px;border-radius:50%;background:${color};border:${sinGps?'2px dashed #888':'3px solid #fff'};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:${sinGps?'#aaa':'#000'};box-shadow:0 2px 8px rgba(0,0,0,.5);overflow:hidden">${innerHtml}</div>`,
-      iconSize:[42,42], iconAnchor:[21,21], className:''
+      html: `<div style="width:36px;height:36px;border-radius:50%;background:${color};border:${sinGps?'2px dashed #888':'3px solid #fff'};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:${sinGps?'#aaa':'#000'};box-shadow:0 2px 8px rgba(0,0,0,.5)">${label}</div>`,
+      iconSize:[36,36], iconAnchor:[18,18], className:''
     });
     if(S.markersRiders[d.id]) {
       S.markersRiders[d.id].setLatLng([lat, lng]);
@@ -3774,9 +3929,7 @@ async function guardarPedido() {
   if(!cli) return toast('El nombre del cliente es requerido', 'danger');
   const btn = document.getElementById('btn-guardar');
   btn.disabled = true; btn.textContent = '⏳ Guardando...';
-  // Si hay items en el carrito, el subtotal viene del carrito (gana sobre input manual)
-  const subtotalCarrito = (_wizProductos||[]).reduce((s,p)=>s+(p.precio*p.qty),0);
-  const prod  = subtotalCarrito > 0 ? subtotalCarrito : (parseFloat(document.getElementById('sv-prod-inp')?.value||0)  || S.stepVals['sv-prod']  || 0);
+  const prod  = parseFloat(document.getElementById('sv-prod-inp')?.value||0)  || S.stepVals['sv-prod']  || 0;
   const envio = parseFloat(document.getElementById('sv-envio-inp')?.value||0) || S.stepVals['sv-envio'] || 50;
   const prop  = parseFloat(document.getElementById('sv-propina-inp')?.value||0)||S.stepVals['sv-propina']||0;
   const total = prod + envio + prop;
@@ -3835,7 +3988,6 @@ base_app:                 baseApp,
 ingreso_delivery:         ingDelivery,
 ingreso_somar:            parseFloat((envio * (1 - pctRiderEnvio) + baseApp).toFixed(2)),
 distancia_km:             S._kmActual || null,   // ← guardar el km calculado
-detalle_json:             (_wizProductos && _wizProductos.length) ? { items: _wizProductos.map(p=>({id:p.id,nombre:p.nombre,precio:p.precio,qty:p.qty,subtotal:p.precio*p.qty})), subtotal: subtotalCarrito } : null,
 
     // Pago
     quien_paga:               document.getElementById('f-quien-paga')?.value || 'DESTINATARIO',
@@ -5304,7 +5456,7 @@ function abrirModal(tipo, datos=null) {
         mdg.disabled = false; mdg.textContent = '💾 Guardar';
       };
     } else {
-      mdg.onclick = guardarModal;
+      mdg.onclick = null;
     }
   }
 }
@@ -5370,16 +5522,12 @@ function renderClientes() {
         <div>📍 ${c.ciudad||'—'} ${c.direccion?'· '+c.direccion:''}</div>
         ${c.correo?'<div>✉️ '+c.correo+'</div>':''}
         ${c.notas?'<div style="margin-top:4px;font-style:italic">'+c.notas+'</div>':''}
-        <div style="margin-top:6px;display:flex;gap:12px;flex-wrap:wrap">
-          <span style="color:var(--or);font-weight:700">${c._pedidos_reales||c.total_pedidos||0} pedidos</span>
-          <span style="color:#fbbf24;font-weight:700">⭐ ${(c.puntos_saldo||0).toLocaleString('es-HN')} pts</span>
-        </div>
+        <div style="margin-top:6px;color:var(--or);font-weight:700">${c._pedidos_reales||c.total_pedidos||0} pedidos realizados</div>
       </div>
       <div class="item-card-footer">
         ${c.celular?'<a href="https://wa.me/504'+c.celular.replace(/\D/g,'')+'" target="_blank" class="btn btn-ghost btn-sm" style="color:#22C55E;text-decoration:none">💬 WA</a>':''}
         <button class="btn btn-ghost btn-sm" onclick="abrirUbicacionesCliente('${c.id}','${c.nombre.replace(/'/g,"\\'")}')">📍 Ubic.</button>
         <button class="btn btn-ghost btn-sm" onclick="verPedidosCliente('${c.nombre.replace(/'/g,"\\'")}')">📋 Ped.</button>
-        <button class="btn btn-ghost btn-sm" style="color:#fbbf24" onclick="abrirPuntosCliente('${c.id}','${c.nombre.replace(/'/g,"\\'")}')">⭐ Puntos</button>
         <button class="btn btn-ghost btn-sm" onclick="editarDesdeCache('cliente','${c.id}')">✏️</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminar('clientes','${c.id}',cargarClientes)">🗑</button>
       </div>
@@ -5519,144 +5667,6 @@ async function verPedidosCliente(nombre) {
   setTimeout(()=>{const s=document.getElementById('ped-search');if(s){s.value=nombre;renderTablaPedidos();}},300);
 }
 
-// ─── PUNTOS DEL CLIENTE ──────────────────────────────────────
-async function abrirPuntosCliente(clienteId, clienteNombre) {
-  const modal = document.getElementById('modal-puntos');
-  document.getElementById('mp-titulo').textContent = '⭐ Puntos de ' + clienteNombre;
-  document.getElementById('mp-cuerpo').innerHTML = '<div class="empty">Cargando...</div>';
-  modal.style.display = 'flex';
-
-  // Cargar cliente y movimientos en paralelo
-  const [cliRes, movRes] = await Promise.all([
-    sb.from('clientes').select('puntos_saldo,puntos_acumulados,puntos_canjeados').eq('id', clienteId).single(),
-    sb.from('puntos_movimientos').select('*').eq('cliente_id', clienteId).order('created_at',{ascending:false}).limit(100)
-  ]);
-
-  if(cliRes.error) {
-    document.getElementById('mp-cuerpo').innerHTML = '<div class="empty" style="color:var(--rojo)">Error: '+cliRes.error.message+'</div>';
-    return;
-  }
-
-  const c = cliRes.data || {};
-  const movs = movRes.data || [];
-
-  const tipoLabels = {
-    PEDIDO:'🛵 Pedido', COMISION:'🏪 Comisión', GASTO:'🛒 Gasto productos',
-    REFERIDO:'👥 Referido', BIENVENIDA:'🎁 Bienvenida', RESENA:'⭐ Reseña',
-    CANJE:'💸 Canje', AJUSTE:'⚖️ Ajuste', VENCIMIENTO:'⏳ Vencimiento', BONO:'🎉 Bono'
-  };
-  const tipoColor = (t,p) => {
-    if(t==='CANJE'||t==='VENCIMIENTO'||p<0) return 'var(--rojo)';
-    return 'var(--verde)';
-  };
-
-  const fmtFechaCorta = iso => {
-    if(!iso) return '—';
-    const d = new Date(iso);
-    return d.toLocaleDateString('es-HN',{day:'2-digit',month:'short',year:'2-digit'})+' '+d.toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit',timeZone:'America/Tegucigalpa'});
-  };
-
-  const html = `
-    <!-- Resumen -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">
-      <div style="background:linear-gradient(135deg,#fbbf24,#f59e0b);padding:14px;border-radius:10px;text-align:center;color:#000">
-        <div style="font-size:10px;font-weight:700;opacity:.8;text-transform:uppercase;letter-spacing:.5px">Saldo actual</div>
-        <div style="font-size:24px;font-weight:800;margin-top:2px">${(c.puntos_saldo||0).toLocaleString('es-HN')}</div>
-      </div>
-      <div style="background:var(--g3);padding:14px;border-radius:10px;text-align:center;border:1px solid var(--g4)">
-        <div style="font-size:10px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.5px">Acumulados</div>
-        <div style="font-size:20px;font-weight:800;color:var(--verde);margin-top:2px">${(c.puntos_acumulados||0).toLocaleString('es-HN')}</div>
-      </div>
-      <div style="background:var(--g3);padding:14px;border-radius:10px;text-align:center;border:1px solid var(--g4)">
-        <div style="font-size:10px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.5px">Canjeados</div>
-        <div style="font-size:20px;font-weight:800;color:var(--rojo);margin-top:2px">${(c.puntos_canjeados||0).toLocaleString('es-HN')}</div>
-      </div>
-    </div>
-
-    ${esAdmin() ? `
-    <!-- Ajuste manual (solo ADMIN) -->
-    <div style="background:var(--g3);border:1px solid var(--g4);border-radius:8px;padding:12px;margin-bottom:14px">
-      <div style="font-size:11px;font-weight:700;color:var(--or);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">⚖️ Ajuste manual (ADMIN)</div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input type="number" id="mp-ajuste-monto" placeholder="Puntos (+/-)" step="1" style="flex:1;min-width:120px;background:var(--g2);border:1px solid var(--g5);border-radius:6px;padding:8px 10px;color:var(--tx);font-size:13px">
-        <input type="text" id="mp-ajuste-motivo" placeholder="Motivo" style="flex:2;min-width:160px;background:var(--g2);border:1px solid var(--g5);border-radius:6px;padding:8px 10px;color:var(--tx);font-size:13px">
-        <button class="btn btn-primary btn-sm" onclick="ajustarPuntosCliente('${clienteId}','${clienteNombre.replace(/'/g,"\\'")}')">Aplicar</button>
-      </div>
-    </div>
-    ` : ''}
-
-    <!-- Historial -->
-    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📜 Historial (últimos 100 movimientos)</div>
-    ${movs.length === 0
-      ? '<div class="empty">Sin movimientos aún</div>'
-      : `<div style="max-height:340px;overflow-y:auto;border:1px solid var(--g4);border-radius:8px">
-          ${movs.map(m => {
-            const signo = m.puntos > 0 ? '+' : '';
-            const color = tipoColor(m.tipo, m.puntos);
-            const label = tipoLabels[m.tipo] || m.tipo;
-            const mult = (m.multiplicador && parseFloat(m.multiplicador) !== 1) ? ` <span style="color:#a855f7;font-size:10px;font-weight:700">×${parseFloat(m.multiplicador).toFixed(1)}</span>` : '';
-            const ganan = m.ganancia_somar ? ` · L.${parseFloat(m.ganancia_somar).toFixed(0)}` : '';
-            return `
-              <div style="padding:10px 12px;border-bottom:1px solid var(--g4);display:flex;justify-content:space-between;align-items:center;gap:10px">
-                <div style="flex:1;min-width:0">
-                  <div style="font-size:12px;font-weight:700">${label}${mult}</div>
-                  <div style="font-size:10px;color:var(--td);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.descripcion || '—'}${ganan}</div>
-                  <div style="font-size:10px;color:var(--td);margin-top:2px">${fmtFechaCorta(m.created_at)}</div>
-                </div>
-                <div style="text-align:right;flex-shrink:0">
-                  <div style="font-size:16px;font-weight:800;color:${color}">${signo}${m.puntos.toLocaleString('es-HN')}</div>
-                  <div style="font-size:10px;color:var(--td)">→ ${m.saldo_despues.toLocaleString('es-HN')}</div>
-                </div>
-              </div>`;
-          }).join('')}
-        </div>`}
-  `;
-  document.getElementById('mp-cuerpo').innerHTML = html;
-}
-
-function cerrarPuntosCliente() {
-  document.getElementById('modal-puntos').style.display = 'none';
-}
-
-async function ajustarPuntosCliente(clienteId, clienteNombre) {
-  if(!esAdmin()){ toast('Solo ADMIN puede ajustar puntos','danger'); return; }
-  const monto = parseInt(document.getElementById('mp-ajuste-monto').value);
-  const motivo = document.getElementById('mp-ajuste-motivo').value.trim();
-  if(!monto || isNaN(monto)){ toast('Ingresa puntos (positivo o negativo)','danger'); return; }
-  if(!motivo){ toast('El motivo es requerido','danger'); return; }
-  if(!confirm(`¿Aplicar ajuste de ${monto>0?'+':''}${monto} puntos a ${clienteNombre}?\n\nMotivo: ${motivo}`)) return;
-
-  // Obtener saldo actual
-  const { data: cli, error: cliErr } = await sb.from('clientes').select('puntos_saldo,puntos_acumulados,puntos_canjeados').eq('id',clienteId).single();
-  if(cliErr){ toast('Error: '+cliErr.message,'danger'); return; }
-  const saldoAntes = cli.puntos_saldo || 0;
-  const saldoDespues = saldoAntes + monto;
-  if(saldoDespues < 0){ toast('El saldo no puede quedar negativo (actual: '+saldoAntes+')','danger'); return; }
-
-  // Insertar movimiento
-  const { error: movErr } = await sb.from('puntos_movimientos').insert({
-    cliente_id: clienteId,
-    tipo: 'AJUSTE',
-    puntos: monto,
-    saldo_antes: saldoAntes,
-    saldo_despues: saldoDespues,
-    descripcion: '[Ajuste manual] '+motivo,
-    creado_por: S.perfil?.nombre || 'ADMIN'
-  });
-  if(movErr){ toast('Error mov: '+movErr.message,'danger'); return; }
-
-  // Actualizar cliente
-  const update = { puntos_saldo: saldoDespues, updated_at: new Date().toISOString() };
-  if(monto > 0) update.puntos_acumulados = (cli.puntos_acumulados||0) + monto;
-  else update.puntos_canjeados = (cli.puntos_canjeados||0) + Math.abs(monto);
-  const { error: updErr } = await sb.from('clientes').update(update).eq('id',clienteId);
-  if(updErr){ toast('Error update: '+updErr.message,'danger'); return; }
-
-  toast('✅ Ajuste aplicado','success');
-  abrirPuntosCliente(clienteId, clienteNombre); // refrescar modal
-  cargarClientes(); // refrescar lista
-}
-
 // ─── CATEGORÍAS (tipos de comercio) ──────────────────────────
 async function cargarCategorias() {
   const {data}=await sb.from('categorias').select('*').order('nombre');
@@ -5702,14 +5712,12 @@ guardarDatos.categoria = async()=>{
 
 // ─── COMERCIOS ───────────────────────────────────────────────
 async function cargarComerciosList() {
-  // Asegurar que las categorías (tipos de comercio) estén cargadas
-  if(!MD.categorias || !MD.categorias.length) {
-    const {data:cats}=await sb.from('categorias').select('*').order('nombre');
-    MD.categorias = cats||[];
-  }
   const {data, error}=await sb.from('comercios').select('*').order('nombre');
   if(data?.length && MD.categorias.length) {
     data.forEach(com=>{com.categoria=MD.categorias.find(cat=>cat.id===com.categoria_id)||null;});
+  } else if(data?.length) {
+    const {data:cats}=await sb.from('categorias').select('id,nombre,icono');
+    if(cats) data.forEach(com=>{com.categoria=cats.find(cat=>cat.id===com.categoria_id)||null;});
   }
   MD.comercios=data||[];
   const sel=document.getElementById('prod-comercio-filter');
@@ -5802,10 +5810,6 @@ async function verProductosComercio(id){
 
 // ─── PRODUCTOS ───────────────────────────────────────────────
 async function cargarProductos(){
-  // Asegurar que comercios estén cargados (para el selector del form)
-  if(!MD.comercios || !MD.comercios.length) {
-    await cargarComerciosList();
-  }
   const comId=document.getElementById('prod-comercio-filter')?.value;
   let q=sb.from('productos').select('*,comercio:comercio_id(nombre)').order('nombre');
   if(comId) q=q.eq('comercio_id',parseInt(comId));
@@ -5838,20 +5842,20 @@ function renderProductos(){
 }
 function htmlFormProducto(d=null){
   const comOpts=MD.comercios.map(c=>`<option value="${c.id}" ${d?.comercio_id===c.id?'selected':''}>${c.nombre}</option>`).join('');
-  // Preload de cats si ya hay comercio
-  if(d?.comercio_id) setTimeout(()=>cargarCatsComercioEnForm(d.comercio_id, d.categoria_id||''), 50);
   return`
   <div class="form-grid">
     <div class="fg"><label class="fl">Comercio *</label>
-      <select class="fi" id="prod-com" onchange="cargarCatsComercioEnForm(this.value,'')">
+      <select class="fi" id="prod-com" onchange="cargarCatsComercioEnForm(this.value,'${d?.categoria_id||''}')">
         <option value="">Seleccionar...</option>${comOpts}
       </select>
     </div>
-    <div class="fg"><label class="fl">Categoría del menú</label>
+    <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="prod-nombre" value="${d?.nombre||''}"></div>
+    <div class="fg"><label class="fl">Precio (L.) *</label><input class="fi" id="prod-precio" type="number" value="${d?.precio||''}"></div>
+    <div class="fg"><label class="fl">Categoría del comercio</label>
       <select class="fi" id="prod-cat-sel"><option value="">Sin categoría</option></select>
     </div>
-    <div class="fg" style="grid-column:1/-1"><label class="fl">Nombre *</label><input class="fi" id="prod-nombre" value="${d?.nombre||''}"></div>
-    <div class="fg"><label class="fl">Precio (L.) *</label><input class="fi" id="prod-precio" type="number" step="0.01" value="${d?.precio||''}"></div>
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Descripción</label><textarea class="fi" id="prod-desc" rows="2">${d?.descripcion||''}</textarea></div>
+    <div class="fg"><label class="fl">URL de imagen</label><input class="fi" id="prod-img" value="${d?.imagen_url||''}"></div>
     <div class="fg"><label class="fl">Estado</label>
       <select class="fi" id="prod-disp">
         <option value="activo" ${d?.estatus==='activo'||!d?'selected':''}>Disponible</option>
@@ -5859,66 +5863,20 @@ function htmlFormProducto(d=null){
         <option value="inactivo" ${d?.estatus==='inactivo'?'selected':''}>Inactivo</option>
       </select>
     </div>
-    <div class="fg" style="grid-column:1/-1"><label class="fl">Descripción</label><textarea class="fi" id="prod-desc" rows="2">${d?.descripcion||''}</textarea></div>
-    <div class="fg" style="grid-column:1/-1">
-      <label class="fl">Imagen del producto</label>
-      <input type="hidden" id="prod-img-url" value="${d?.imagen_url||''}">
-      <div style="display:flex;gap:10px;align-items:center">
-        <div id="prod-img-preview" style="width:70px;height:70px;border-radius:8px;background:var(--g4);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;overflow:hidden">${d?.imagen_url?`<img src="${d.imagen_url}" style="width:100%;height:100%;object-fit:cover">`:'📦'}</div>
-        <div style="flex:1">
-          <input type="file" id="prod-img-file" accept="image/*" onchange="previewProdImg(this)" style="font-size:11px;width:100%">
-          <div style="font-size:10px;color:var(--td);margin-top:4px">JPG/PNG/WebP · max 5MB · se sube al guardar</div>
-        </div>
-      </div>
-    </div>
   </div>`;}
-
-function previewProdImg(input) {
-  const file = input.files?.[0];
-  if(!file) return;
-  if(file.size > 5*1024*1024){ toast('Imagen muy grande (max 5MB)','danger'); input.value=''; return; }
-  const reader = new FileReader();
-  reader.onload = e => {
-    const prev = document.getElementById('prod-img-preview');
-    if(prev) prev.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover">`;
-  };
-  reader.readAsDataURL(file);
-}
 guardarDatos.producto = async()=>{
   const nom=gv('prod-nombre'),comId=document.getElementById('prod-com')?.value,precio=gn('prod-precio');
   if(!nom||!comId||precio===null){toast('Nombre, comercio y precio son requeridos','danger');return;}
-  // Si hay imagen pendiente de subir, subirla primero
-  let imagen_url = gv('prod-img-url') || null;
-  const fileInput = document.getElementById('prod-img-file');
-  if(fileInput?.files?.[0]) {
-    const url = await subirImagenProducto(fileInput.files[0], parseInt(comId));
-    if(!url) return; // toast ya emitido
-    imagen_url = url;
-  }
   const row={comercio_id:parseInt(comId),nombre:nom,descripcion:gv('prod-desc'),precio,
     categoria_id:document.getElementById('prod-cat-sel')?.value||null,
-    imagen_url,estatus:document.getElementById('prod-disp').value};
+    imagen_url:gv('prod-img')||null,estatus:document.getElementById('prod-disp').value};
   Object.keys(row).forEach(k=>{if(row[k]===null)delete row[k];});
   const {error}=MD.editId
     ?await sb.from('productos').update(row).eq('id',MD.editId)
-    :await sb.from('productos').insert(row);
+    :await sb.from('productos').insert({...row,id:crypto.randomUUID()});
   if(error){toast('Error: '+error.message,'danger');return;}
   toast('✅ Producto guardado');cerrarModalDatos();cargarProductos();
 };
-
-// ─── Upload de imagen de producto a Supabase Storage ─────────
-async function subirImagenProducto(file, comercioId) {
-  if(!file) return null;
-  if(file.size > 5*1024*1024){ toast('Imagen muy grande (max 5MB)','danger'); return null; }
-  const ext = (file.name.split('.').pop()||'jpg').toLowerCase();
-  const path = `comercio_${comercioId}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
-  const { error } = await sb.storage.from('productos').upload(path, file, {
-    contentType: file.type, upsert: false
-  });
-  if(error){ toast('Error subiendo imagen: '+error.message,'danger'); return null; }
-  const { data } = sb.storage.from('productos').getPublicUrl(path);
-  return data?.publicUrl || null;
-}
 
 // ─── CUPONES ─────────────────────────────────────────────────
 async function cargarCupones(){
@@ -6044,7 +6002,6 @@ function htmlFormUsuario(d=null){
 guardarDatos.bono = async()=>{ await guardarBono(); };
 
 guardarDatos.usuario = async()=>{
-  if(!esAdmin()){ toast('Solo ADMIN puede gestionar usuarios','danger'); return; }
   const nom = gv('usr-nombre');
   const rol = gv('usr-rol');
   if(!nom){ toast('El nombre es requerido','danger'); return; }
@@ -6145,7 +6102,6 @@ async function cargarConfig() {
   console.log('[config] cargada:',S.config);
 }
 async function guardarConfigClave(clave,valor,btn) {
-  if(!esAdmin()){ toast('Solo ADMIN puede modificar la configuración','danger'); return; }
   if(btn){btn.disabled=true;btn.textContent='Guardando...';}
   const {error}=await sb.from('configuracion').upsert({clave,valor:String(valor),updated_at:new Date().toISOString()},{onConflict:'clave'});
   if(error){toast('Error: '+error.message,'danger');}
@@ -6155,11 +6111,8 @@ async function guardarConfigClave(clave,valor,btn) {
 function renderConfig() {
   const el=document.getElementById('config-content');
   if(!el) return;
-  const cfg=S.config||{};
-  const admin=esAdmin();
-  const ro = !admin; // puntos siempre solo lectura para STAFF, pero como STAFF no llega aquí queda solo para futuro
-
-  const fila=(clave,label,desc,tipo='number',min=0,max=99999,step=0.5,readonly=false)=>`
+  const cfg=S.config;
+  const fila=(clave,label,desc,tipo='number',min=0,max=9999,step=0.5)=>`
     <div style="padding:14px 0;border-bottom:1px solid var(--g4);">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
         <div style="flex:1;min-width:180px;">
@@ -6167,99 +6120,21 @@ function renderConfig() {
           <div style="font-size:11px;color:var(--td);">${desc}</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
-          <input type="${tipo}" id="cfg-${clave}" value="${cfg[clave]??''}" min="${min}" max="${max}" step="${step}" ${readonly?'disabled':''}
-            style="width:110px;background:var(--g3);border:1px solid var(--g5);border-radius:6px;padding:7px 10px;color:var(--tx);font-size:14px;font-weight:700;text-align:center;${readonly?'opacity:.6':''}">
-          ${readonly?'<span style="font-size:10px;color:var(--td)">solo lectura</span>':`<button class="btn btn-primary btn-sm" onclick="guardarConfigClave('${clave}',document.getElementById('cfg-${clave}').value,this)">Guardar</button>`}
+          <input type="${tipo}" id="cfg-${clave}" value="${cfg[clave]||''}" min="${min}" max="${max}" step="${step}"
+            style="width:100px;background:var(--g3);border:1px solid var(--g5);border-radius:6px;padding:7px 10px;color:var(--tx);font-size:14px;font-weight:700;text-align:center;">
+          <button class="btn btn-primary btn-sm" onclick="guardarConfigClave('${clave}',document.getElementById('cfg-${clave}').value,this)">Guardar</button>
         </div>
       </div>
     </div>`;
-
-  const filaBool=(clave,label,desc,readonly=false)=>{
-    const v = (cfg[clave]==='true' || cfg[clave]===true);
-    return `
-    <div style="padding:14px 0;border-bottom:1px solid var(--g4);">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:180px;">
-          <div style="font-size:13px;font-weight:700;margin-bottom:3px;">${label}</div>
-          <div style="font-size:11px;color:var(--td);">${desc}</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
-          <select id="cfg-${clave}" ${readonly?'disabled':''}
-            style="width:110px;background:var(--g3);border:1px solid var(--g5);border-radius:6px;padding:7px 10px;color:var(--tx);font-size:13px;font-weight:700;text-align:center;${readonly?'opacity:.6':''}">
-            <option value="true" ${v?'selected':''}>Activado</option>
-            <option value="false" ${!v?'selected':''}>Desactivado</option>
-          </select>
-          ${readonly?'<span style="font-size:10px;color:var(--td)">solo lectura</span>':`<button class="btn btn-primary btn-sm" onclick="guardarConfigClave('${clave}',document.getElementById('cfg-${clave}').value,this)">Guardar</button>`}
-        </div>
-      </div>
-    </div>`;
-  };
-
-  const filaText=(clave,label,desc,readonly=false)=>`
-    <div style="padding:14px 0;border-bottom:1px solid var(--g4);">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:180px;">
-          <div style="font-size:13px;font-weight:700;margin-bottom:3px;">${label}</div>
-          <div style="font-size:11px;color:var(--td);">${desc}</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
-          <input type="text" id="cfg-${clave}" value="${cfg[clave]??''}" ${readonly?'disabled':''}
-            style="width:140px;background:var(--g3);border:1px solid var(--g5);border-radius:6px;padding:7px 10px;color:var(--tx);font-size:13px;font-weight:700;text-align:center;${readonly?'opacity:.6':''}">
-          ${readonly?'<span style="font-size:10px;color:var(--td)">solo lectura</span>':`<button class="btn btn-primary btn-sm" onclick="guardarConfigClave('${clave}',document.getElementById('cfg-${clave}').value,this)">Guardar</button>`}
-        </div>
-      </div>
-    </div>`;
-
-  const tit=(t)=>`<div style="font-size:11px;font-weight:700;color:var(--or);text-transform:uppercase;letter-spacing:.08em;margin-top:18px;margin-bottom:2px;padding-top:6px;border-top:2px solid var(--g4);">${t}</div>`;
-
   el.innerHTML=`
-    ${tit('💰 Tarifas de envío')}
-    ${fila('tarifa_base','Tarifa base (L.)','Tarifa fija por envío',                      'number',0,9999,1)}
-    ${fila('tarifa_minima','Tarifa mínima (L.)','Mínimo cobrable al cliente',            'number',0,9999,1)}
-    ${fila('costo_por_km','Costo por km (L.)','Precio por kilómetro adicional',          'number',0,999,0.5)}
-    ${fila('redondear_a_multiplo','Redondeo (L.)','Redondear tarifa al múltiplo de N (0=sin redondeo)','number',0,100,1)}
-    ${filaBool('tarifa_dinamica_activa','Tarifa dinámica activa','Activar multiplicador de tarifa dinámica')}
-    ${fila('multiplicador_dinamico','Multiplicador dinámico','Ej: 1.5 = aumenta 50%',     'number',1,5,0.1)}
-
-    ${tit('🌧️ Recargos y horarios')}
-    ${filaBool('lluvia_activa','Recargo lluvia activo','Activar recargo de lluvia manualmente')}
-    ${fila('recargo_lluvia','Recargo lluvia (L.)','Adicional cuando llueve',              'number',0,999,1)}
-    ${fila('recargo_noche','Recargo noche (L.)','Adicional en horario nocturno',          'number',0,999,1)}
-    ${filaText('hora_inicio_noche','Hora inicio nocturno','Desde qué hora aplica recargo noche (HH:MM)')}
-    ${filaText('hora_fin_noche','Hora fin nocturno','Hasta qué hora aplica (HH:MM)')}
-
-    ${tit('👥 Comisiones por nivel rider')}
-    ${fila('comision_bronce','Bronce (%)','Comisión Somar nivel Bronce',                  'number',0,100,1)}
-    ${fila('comision_plata','Plata (%)','75+ pedidos/mes',                                'number',0,100,1)}
-    ${fila('comision_oro','Oro (%)','150+ pedidos/mes',                                   'number',0,100,1)}
-    ${fila('delivery_pct','% Delivery (envío)','Porcentaje de la tarifa que recibe rider','number',0,100,1)}
-    ${fila('somar_pct','% Somar (envío)','Porcentaje de la tarifa que retiene Somar',     'number',0,100,1)}
-    ${fila('comision_comercio_pct','Comisión comercio (%)','Sobre subtotal de productos','number',0,100,1)}
-
-    ${tit('👛 Billetera y operación')}
-    ${fila('saldo_minimo','Saldo mínimo (L.)','Para que rider reciba pedidos',            'number',0,9999,10)}
-    ${fila('max_pedidos_delivery','Máx pedidos por rider','Pedidos simultáneos por rider','number',1,10,1)}
-    ${fila('max_riders_turno','Máx riders por turno','Límite de riders simultáneos',     'number',1,50,1)}
-    ${fila('tiempo_aceptacion_min','Tiempo aceptación (min)','Antes de reasignar',        'number',1,30,1)}
-
-    ${tit('⭐ Programa de puntos'+(ro?' (solo lectura)':''))}
-    ${filaBool('puntos_activos','Programa activo','Activar/desactivar puntos completo',ro)}
-    ${fila('puntos_por_lempira','Puntos por L.1 ganancia','Puntos por cada L.1 de ganancia Somar (envío + comisión)','number',0,1000,1,ro)}
-    ${fila('puntos_gasto_cada_lps','Puntos por gasto (cada L.)','1 punto por cada N L. gastados en productos','number',1,1000,1,ro)}
-    ${fila('puntos_a_lempiras','Puntos = L.1 al canjear','Cuántos puntos equivalen a L.1','number',1,10000,1,ro)}
-    ${fila('canje_minimo_puntos','Canje mínimo','Mínimo de puntos para canjear','number',0,99999,10,ro)}
-    ${fila('puntos_por_referido_dar','Puntos por referir','Para quien comparte su código','number',0,9999,5,ro)}
-    ${fila('puntos_por_referido_rec','Puntos al registrarse','Bienvenida para nuevo cliente con código','number',0,9999,5,ro)}
-    ${fila('puntos_por_resena','Puntos por reseña','Por completar evaluación del pedido','number',0,9999,1,ro)}
-    ${fila('puntos_vencimiento_dias','Vencimiento (días)','Días sin actividad para expirar (0=nunca)','number',0,3650,30,ro)}
-
-    ${tit('🗺️ Zonas')}
-    ${fila('zona_radio_km','Radio de zona (km)','Distancia máxima del rider al centro','number',0.5,20,0.5)}
-
-    ${tit('🏙️ General')}
-    ${filaText('ciudad_principal','Ciudad principal','Ciudad principal de operación')}
-    ${filaText('whatsapp_notificaciones','WhatsApp notificaciones','Número para alertas internas (sin +)')}
-  `;
+    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">🗺️ Zonas</div>
+    ${fila('zona_radio_km','Radio de zona (km)','Distancia máxima del rider al centro de la zona','number',0.5,20,0.5)}
+    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-top:16px;margin-bottom:2px;">💰 Comisiones</div>
+    ${fila('comision_bronce','Comisión Bronce (%)','','number',0,100,1)}
+    ${fila('comision_plata','Comisión Plata (%)','75+ pedidos/mes','number',0,100,1)}
+    ${fila('comision_oro','Comisión Oro (%)','150+ pedidos/mes','number',0,100,1)}
+    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-top:16px;margin-bottom:2px;">👛 Billetera</div>
+    ${fila('saldo_minimo','Saldo mínimo (L.)','Para operar','number',0,9999,10)}`;
 }
 
 
@@ -6292,7 +6167,7 @@ function abrirAsignarRider(dId) {
 // ════════════════════════════════════════════════════════════
 // NAVEGACIÓN
 // ════════════════════════════════════════════════════════════
-var TITLES = { inicio:'Dashboard',pedidos:'Pedidos',kanban:'Kanban — Vista de Pedidos',config:'Configuración del Sistema',nuevo:'Nuevo Pedido',mapa:'Mapa en Vivo',riders:'Riders',solicitudes:'Solicitudes de Riders',depositos:'Depósitos',liquidaciones:'Liquidaciones a Riders',turnos:'Gestión de Turnos',comprobantes:'Comprobantes de Pago',historial:'Historial',chat:'Chat',clientes:'Clientes',comercios:'Comercios',categorias:'Tipos de Comercio (Categorías)',productos:'Productos',cupones:'Cupones de Descuento',usuarios:'Usuarios del Sistema' };
+var TITLES = { inicio:'Dashboard',pedidos:'Pedidos',kanban:'Kanban — Vista de Pedidos',config:'Configuración del Sistema',nuevo:'Nuevo Pedido',mapa:'Mapa en Vivo',riders:'Riders',solicitudes:'Solicitudes de Riders',solcom:'Solicitudes de Comercios',depositos:'Depósitos',liquidaciones:'Liquidaciones a Riders',turnos:'Gestión de Turnos',comprobantes:'Comprobantes de Pago',historial:'Historial',chat:'Chat',clientes:'Clientes',comercios:'Comercios',categorias:'Tipos de Comercio (Categorías)',productos:'Productos',cupones:'Cupones de Descuento',usuarios:'Usuarios del Sistema' };
 
 async function refreshApp() {
   const btn = document.getElementById('tb-refresh-btn');
@@ -6311,11 +6186,6 @@ async function refreshApp() {
 }
 
 function nav(v, pushHistory=true) {
-  // Bloqueo por rol: solo ADMIN puede entrar a config y usuarios
-  if((v === 'config' || v === 'usuarios') && !esAdmin()) {
-    toast('Solo ADMIN puede acceder a esta sección','danger');
-    return;
-  }
   document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   const view = document.getElementById('view-'+v);
@@ -6347,6 +6217,7 @@ function nav(v, pushHistory=true) {
     }
   }
   if(v === 'solicitudes') cargarSolicitudes(S.solFiltro || 'PENDIENTE');
+  if(v === 'solcom') cargarSolicitudesComercios(S.solComFiltro || 'PENDIENTE');
   if(v === 'depositos') cargarDepositos('PENDIENTE');
   if(v === 'liquidaciones') cargarLiquidaciones();
   if(v === 'turnos') renderTurnos();
@@ -6376,7 +6247,7 @@ function closeSB() { document.getElementById('sidebar').classList.remove('open')
 // UTILS
 // ════════════════════════════════════════════════════════════
 function chipEst(e) {
-  const labels = { BORRADOR:'Borrador',PENDIENTE:'Pendiente',ASIGNADO:'Asignado',ACEPTADO:'Aceptado',EN_ESTABLECIMIENTO:'Establecimiento',PEDIDO_EN_CAMINO:'En Camino',ENTREGANDO:'Entregando',FINALIZADO:'Finalizado',CANCELADO:'Cancelado',RECHAZADO:'Rechazado',ELIMINADO:'Eliminado' };
+  const labels = { BORRADOR:'Borrador',PENDIENTE:'Pendiente',ASIGNADO:'Asignado',ACEPTADO:'Aceptado',EN_ESTABLECIMIENTO:'Establecimiento',PEDIDO_EN_CAMINO:'En Camino',ENTREGANDO:'Entregando',FINALIZADO:'Finalizado',CANCELADO:'Cancelado',RECHAZADO:'Rechazado' };
   return `<span class="chip chip-${e||'PENDIENTE'}"><span class="dot"></span>${labels[e]||e||'—'}</span>`;
 }
 function inic(n) { if(!n) return '?'; const w=n.trim().split(' '); return (w[0][0]+(w[1]?w[1][0]:'')).toUpperCase(); }
@@ -6396,67 +6267,14 @@ function toast(msg, type='success') {
   setTimeout(() => t.remove(), 3500);
 }
 
-// Sonido corto embebido (beep 880Hz generado por WebAudio al vuelo - cero archivos extra)
-function reproducirSonidoNotif(){
-  try{
-    const ctx = new (window.AudioContext||window.webkitAudioContext)();
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
-    o.frequency.value = 880; o.type = 'sine';
-    g.gain.setValueAtTime(0.001, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime+0.01);
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.35);
-    o.start(); o.stop(ctx.currentTime+0.36);
-    setTimeout(()=>{ try{ctx.close();}catch(e){} }, 500);
-  }catch(e){}
-}
-
-// Pedir permiso al primer gesto del usuario
-let _notifPermPedido = false;
-function pedirPermisoNotif(){
-  if(_notifPermPedido) return;
-  _notifPermPedido = true;
-  if('Notification' in window && Notification.permission === 'default'){
-    Notification.requestPermission().catch(()=>{});
-  }
-}
-document.addEventListener('click', pedirPermisoNotif, { once:true });
-
-// Notificación del sistema tipo WhatsApp (suena, vibra, aparece aunque la app esté minimizada)
-async function notifSistema(titulo, cuerpo, data={}){
-  try{
-    if(!('Notification' in window) || Notification.permission !== 'granted') return;
-    const reg = await navigator.serviceWorker.ready;
-    await reg.showNotification(titulo, {
-      body: cuerpo || '',
-      icon: './icon-192.png',
-      badge: './icon-192.png',
-      vibrate: [300,150,300,150,300],
-      tag: 'somar-' + Date.now(),
-      renotify: true,
-      requireInteraction: true,
-      data: data
-    });
-  }catch(e){ console.log('[notifSistema]', e); }
-}
-
-function notif(titulo, cuerpo, urgente=false, data={}) {
-  // 1) Toast visual en feed (comportamiento original)
+function notif(titulo, cuerpo, urgente=false) {
   const feed = document.getElementById('notif-feed');
-  if(feed){
-    const item = document.createElement('div');
-    item.className = `nitem ${urgente?'urgente':'info'}`;
-    item.innerHTML = `<div class="ntitle">${titulo}</div><div class="nbody">${cuerpo||''}</div>`;
-    item.onclick = () => item.remove();
-    feed.appendChild(item);
-    setTimeout(() => item.remove(), urgente ? 9000 : 5000);
-  }
-  // 2) Sonido corto
-  reproducirSonidoNotif();
-  // 3) Vibración (celulares)
-  try{ if('vibrate' in navigator) navigator.vibrate([300,150,300,150,300]); }catch(e){}
-  // 4) Notificación del sistema (funciona con app minimizada/background)
-  notifSistema(titulo, cuerpo, data);
+  const item = document.createElement('div');
+  item.className = `nitem ${urgente?'urgente':'info'}`;
+  item.innerHTML = `<div class="ntitle">${titulo}</div><div class="nbody">${cuerpo||''}</div>`;
+  item.onclick = () => item.remove();
+  feed.appendChild(item);
+  setTimeout(() => item.remove(), urgente ? 9000 : 5000);
 }
 
 // Cerrar modals al hacer click fuera
@@ -6529,14 +6347,16 @@ window.addEventListener('popstate', e => {
 </script>
 
 <!-- ═══ MODAL GENÉRICO DATOS ════════════════════════════════ -->
-<!-- ═══ MODAL PUNTOS CLIENTE ═══════════════════════════════ -->
-<div id="modal-puntos" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)cerrarPuntosCliente()">
-  <div style="background:var(--g1);border:1px solid var(--g4);border-radius:18px;width:100%;max-width:620px;max-height:92vh;overflow:hidden;display:flex;flex-direction:column;">
-    <div style="padding:16px 20px;border-bottom:1px solid var(--g4);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
-      <div id="mp-titulo" style="font-size:16px;font-weight:800"></div>
-      <button onclick="cerrarPuntosCliente()" style="background:none;border:none;color:var(--td);font-size:22px;cursor:pointer;padding:0 4px">✕</button>
+<!-- ══════════ MODAL DETALLE RIDER ══════════ -->
+<div id="modal-rider" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:450;align-items:center;justify-content:center;padding:12px;" onclick="if(event.target===this)cerrarDetalleRider()">
+  <div style="background:var(--g1);border:1px solid var(--g4);border-radius:18px;width:100%;max-width:640px;max-height:92vh;overflow:hidden;display:flex;flex-direction:column;">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--g4);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:linear-gradient(90deg,rgba(255,140,0,.08),transparent)">
+      <div style="font-size:14px;font-weight:800;letter-spacing:.5px;color:var(--or)">DETALLE DEL RIDER</div>
+      <button onclick="cerrarDetalleRider()" style="background:none;border:none;color:var(--td);font-size:22px;cursor:pointer;padding:0 4px">✕</button>
     </div>
-    <div id="mp-cuerpo" style="padding:20px;overflow-y:auto;flex:1"></div>
+    <div id="mr-cuerpo" style="padding:18px;overflow-y:auto;flex:1">
+      <div class="empty">Cargando...</div>
+    </div>
   </div>
 </div>
 
