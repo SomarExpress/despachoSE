@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Somar Express - Sistema Contable Marketplace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .card { background: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); padding: 1.5rem; }
+        th { text-align: left; padding: 0.75rem; border-bottom: 2px solid #edf2f7; }
+        td { padding: 0.75rem; border-bottom: 1px solid #edf2f7; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+    <nav class="bg-blue-900 text-white p-4 shadow-lg mb-6">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold italic">SOMAR EXPRESS <span class="text-sm font-light">Finance Architect</span></h1>
+            <button onclick="resetData()" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm transition">Reiniciar Sistema</button>
+        </div>
+    </nav>
+
+    <main class="container mx-auto px-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <section class="lg:col-span-1">
+            <div class="card">
+                <h2 class="text-xl font-semibold mb-4 border-b pb-2">Registrar Nuevo Pedido</h2>
+                <form id="orderForm" class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium">Costo del Producto (L)</label>
+                        <input type="number" id="prodCost" step="0.01" class="w-full border rounded p-2" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium">Costo de Envío Total (L)</label>
+                        <input type="number" id="shipCost" step="0.01" class="w-full border rounded p-2" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium">Tu Comisión Total (Envío + Fee) (L)</label>
+                        <input type="number" id="fee" step="0.01" class="w-full border rounded p-2" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium">Rider Asignado</label>
+                        <select id="riderSelect" class="w-full border rounded p-2"></select>
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 text-white font-bold py-3 rounded hover:bg-green-700 transition">Procesar Pedido</button>
+                </form>
+            </div>
+
+            <div class="card mt-6">
+                <h2 class="text-xl font-semibold mb-4 border-b pb-2">Recarga Wallet Rider</h2>
+                <form id="walletForm" class="flex gap-2">
+                    <input type="number" id="topupAmount" placeholder="Monto L" class="flex-1 border rounded p-2">
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Recargar</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="lg:col-span-2 space-y-6">
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="card bg-blue-50">
+                    <p class="text-sm text-blue-600 font-bold uppercase">Caja/Banco (Dinero Total)</p>
+                    <h3 id="statBank" class="text-2xl font-black text-blue-900">L 0.00</h3>
+                </div>
+                <div class="card bg-green-50">
+                    <p class="text-sm text-green-600 font-bold uppercase">Utilidad Real (Ingreso)</p>
+                    <h3 id="statIncome" class="text-2xl font-black text-green-900">L 0.00</h3>
+                </div>
+                <div class="card bg-red-50">
+                    <p class="text-sm text-red-600 font-bold uppercase">Pasivos (A Terceros)</p>
+                    <h3 id="statLiabilities" class="text-2xl font-black text-red-900">L 0.00</h3>
+                </div>
+            </div>
+
+            <div class="card overflow-x-auto">
+                <h2 class="text-xl font-semibold mb-4 border-b pb-2">Libro Mayor (Ledger)</h2>
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th>Fecha</th>
+                            <th>Cuenta</th>
+                            <th>Debe (L)</th>
+                            <th>Haber (L)</th>
+                            <th>Concepto</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ledgerBody"></tbody>
+                </table>
+            </div>
+
+            <div class="card overflow-x-auto">
+                <h2 class="text-xl font-semibold mb-4 border-b pb-2">Estado de Wallets (Riders)</h2>
+                <table class="w-full">
+                    <tbody id="ridersList"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // --- DATA DE INICIO ---
+        let state = JSON.parse(localStorage.getItem('somar_data')) || {
+            ledger: [],
+            riders: [
+                { id: 1, name: "Juan Pérez", wallet: 100 },
+                { id: 2, name: "María López", wallet: 150 }
+            ],
+            bank: 0,
+            revenue: 0,
+            liabilities: 0
+        };
+
+        const save = () => localStorage.setItem('somar_data', JSON.stringify(state));
+
+        // --- LÓGICA CONTABLE ---
+        function addLedgerEntry(cuenta, debe, haber, concepto) {
+            state.ledger.unshift({
+                date: new Date().toLocaleString(),
+                cuenta, debe, haber, concepto
+            });
+            
+            // Actualizar balances rápidos
+            if(cuenta === "BANCO") state.bank += (debe - haber);
+            if(cuenta === "INGRESOS COMISIÓN") state.revenue += haber;
+            if(cuenta === "PASIVOS TERCEROS") state.liabilities += (haber - debe);
+        }
+
+        // --- MANEJADORES DE EVENTOS ---
+        document.getElementById('orderForm').onsubmit = (e) => {
+            e.preventDefault();
+            const prod = parseFloat(document.getElementById('prodCost').value);
+            const ship = parseFloat(document.getElementById('shipCost').value);
+            const fee = parseFloat(document.getElementById('fee').value);
+            const riderId = parseInt(document.getElementById('riderSelect').value);
+            
+            const totalCliente = prod + ship;
+            const pagoRider = ship - fee; // Lo que le queda al motorista
+
+            // 1. Entrada de Banco (El cliente paga el total)
+            addLedgerEntry("BANCO", totalCliente, 0, "Pago Pedido Marketplace");
+            
+            // 2. Registro de Pasivo Comercio
+            addLedgerEntry("PASIVOS TERCEROS", 0, prod, "Cuentas por Pagar Comercio");
+            
+            // 3. Registro de Pasivo Rider (Su ganancia)
+            addLedgerEntry("PASIVOS TERCEROS", 0, pagoRider, "Pago Devengado Rider");
+
+            // 4. Registro de Ingreso Real SOMAR
+            addLedgerEntry("INGRESOS COMISIÓN", 0, fee, "Comisión Somar Express");
+
+            // Actualizar wallet del rider (Simulación de descuento si fuera prepago o acumulación)
+            const rider = state.riders.find(r => r.id === riderId);
+            rider.wallet += pagoRider;
+
+            save();
+            render();
+            e.target.reset();
+        };
+
+        document.getElementById('walletForm').onsubmit = (e) => {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('topupAmount').value);
+            const riderId = parseInt(document.getElementById('riderSelect').value);
+            
+            addLedgerEntry("BANCO", amount, 0, "Recarga Wallet Rider");
+            addLedgerEntry("PASIVOS TERCEROS", 0, amount, "Saldo a favor Rider (Wallet)");
+            
+            const rider = state.riders.find(r => r.id === riderId);
+            rider.wallet += amount;
+
+            save();
+            render();
+            e.target.reset();
+        };
+
+        function resetData() {
+            localStorage.removeItem('somar_data');
+            location.reload();
+        }
+
+        // --- RENDERIZADO ---
+        function render() {
+            document.getElementById('statBank').innerText = `L ${state.bank.toFixed(2)}`;
+            document.getElementById('statIncome').innerText = `L ${state.revenue.toFixed(2)}`;
+            document.getElementById('statLiabilities').innerText = `L ${state.liabilities.toFixed(2)}`;
+
+            const ledgerHtml = state.ledger.map(e => `
+                <tr>
+                    <td class="text-xs text-gray-500">${e.date}</td>
+                    <td class="font-bold">${e.cuenta}</td>
+                    <td class="text-green-600">${e.debe > 0 ? 'L ' + e.debe.toFixed(2) : '-'}</td>
+                    <td class="text-red-600">${e.haber > 0 ? 'L ' + e.haber.toFixed(2) : '-'}</td>
+                    <td class="italic text-gray-600">${e.concepto}</td>
+                </tr>
+            `).join('');
+            document.getElementById('ledgerBody').innerHTML = ledgerHtml;
+
+            const riderHtml = state.riders.map(r => `
+                <tr class="hover:bg-gray-50">
+                    <td>${r.name}</td>
+                    <td class="text-right font-mono font-bold text-blue-700">L ${r.wallet.toFixed(2)}</td>
+                </tr>
+            `).join('');
+            document.getElementById('ridersList').innerHTML = riderHtml;
+
+            const selectHtml = state.riders.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+            document.getElementById('riderSelect').innerHTML = selectHtml;
+        }
+
+        render();
+    </script>
+</body>
+</html>
