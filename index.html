@@ -1035,13 +1035,20 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
               <textarea id="f-descripcion" class="fi" rows="2" placeholder="Ej: 1x Combo Familiar, 2x Refrescos..."></textarea>
             </div>
 
-            <!-- Productos del comercio -->
+            <!-- Productos del comercio — Menú / Carrito -->
             <div class="fg" id="grp-productos-wiz" style="display:none;grid-column:1/-1">
-              <label class="fl">Productos del comercio <span style="color:var(--td);font-weight:400">(opcional)</span></label>
-              <div id="productos-wiz-lista" style="max-height:200px;overflow-y:auto;border:1px solid var(--g4);border-radius:10px;padding:6px"></div>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding:6px 10px;background:var(--g3);border-radius:8px;font-size:12px">
-                <span style="color:var(--td)">Subtotal productos:</span>
-                <span style="font-weight:800;color:var(--or)" id="wiz-subtotal-prod">L. 0.00</span>
+              <label class="fl">Menú del comercio</label>
+              <!-- Buscador de productos -->
+              <input type="text" id="wiz-prod-search" class="fi" placeholder="Buscar producto..." oninput="wizFiltrarProductos(this.value)" style="margin-bottom:6px">
+              <!-- Lista de productos agrupados por categoría -->
+              <div id="productos-wiz-lista" style="max-height:260px;overflow-y:auto;border:1px solid var(--g4);border-radius:10px"></div>
+              <!-- Carrito -->
+              <div id="wiz-carrito" style="display:none;margin-top:8px;border:1px solid rgba(255,140,0,.3);border-radius:10px;background:rgba(255,140,0,.04);overflow:hidden">
+                <div style="padding:8px 12px;background:rgba(255,140,0,.08);display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="document.getElementById('wiz-carrito-items').style.display=document.getElementById('wiz-carrito-items').style.display==='none'?'block':'none'">
+                  <span style="font-size:11px;font-weight:800;letter-spacing:.5px;color:var(--or)">🛒 CARRITO (<span id="wiz-carrito-count">0</span>)</span>
+                  <span style="font-size:14px;font-weight:900;color:var(--or)" id="wiz-subtotal-prod">L. 0.00</span>
+                </div>
+                <div id="wiz-carrito-items" style="max-height:150px;overflow-y:auto"></div>
               </div>
             </div>
 
@@ -3998,6 +4005,8 @@ distancia_km:             S._kmActual || null,   // ← guardar el km calculado
     // Observaciones
     observaciones:            document.getElementById('f-obs')?.value?.trim() || null,
     notas_especiales:         null,
+    // Detalle de productos del carrito
+    detalle_json:             _wizProductos.length ? _wizProductos.map(p=>({id:p.id,nombre:p.nombre,precio:p.precio,qty:p.qty,subtotal:parseFloat((p.precio*p.qty).toFixed(2))})) : null,
   };
 
   // Limpiar nulls — Supabase los acepta pero algunos campos NOT NULL pueden fallar
@@ -4018,10 +4027,12 @@ distancia_km:             S._kmActual || null,   // ← guardar el km calculado
     'f-descripcion','f-dir-ent','f-gps-ent','f-obs','f-cupon',
     'sv-prod-inp','sv-propina-inp'].forEach(id => { const el=document.getElementById(id); if(el)el.value=''; });
   const envioInp=document.getElementById('sv-envio-inp'); if(envioInp) envioInp.value='50';
-  _wizCliSel=null; _wizComSel=null; _wizProductos=[];
+  _wizCliSel=null; _wizComSel=null; _wizProductos=[]; _wizAllProds=[]; _wizCatsCache=[];
   document.getElementById('cli-seleccionado').style.display='none';
   document.getElementById('com-suc-grp').style.display='none';
   document.getElementById('grp-productos-wiz').style.display='none';
+  const carritoReset=document.getElementById('wiz-carrito'); if(carritoReset) carritoReset.style.display='none';
+  const searchReset=document.getElementById('wiz-prod-search'); if(searchReset) searchReset.value='';
   document.getElementById('cli-ubics-grp').style.display='none';
   document.getElementById('ent-ubics-grp').style.display='none';
   // Limpiar mini mapas
@@ -4321,27 +4332,117 @@ function wizSeleccionarSucursal() {
   wizCalcularTarifa();
 }
 
-// ─── Productos del comercio en wizard ────────────────────────
+// ─── Productos del comercio en wizard — Menú / Carrito ──────
+var _wizAllProds = []; // todos los productos cargados (para filtrar)
+
 async function wizCargarProductosComercio(comercioId) {
   const grp = document.getElementById('grp-productos-wiz');
   const lista = document.getElementById('productos-wiz-lista');
   if(!grp||!lista) return;
-  const {data} = await sb.from('productos').select('id,nombre,precio,imagen_url,estatus')
-    .eq('comercio_id',comercioId).eq('estatus','activo').order('nombre');
-  if(!data?.length) { grp.style.display='none'; return; }
+  // Cargar productos Y categorías del comercio en paralelo
+  const [{data:prods}, {data:cats}] = await Promise.all([
+    sb.from('productos').select('id,nombre,precio,imagen_url,estatus,categoria_id,descripcion,en_promocion,precio_promo')
+      .eq('comercio_id',comercioId).eq('estatus','activo').order('nombre'),
+    sb.from('categorias_comercio').select('id,nombre,icono,orden')
+      .eq('comercio_id',comercioId).eq('activo',true).order('orden')
+  ]);
+  if(!prods?.length) { grp.style.display='none'; _wizAllProds=[]; return; }
   grp.style.display='block';
   _wizProductos = [];
-  lista.innerHTML = data.map(p=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-bottom:1px solid var(--g3)">
-      <div style="flex:1;font-size:12px;font-weight:600">${p.nombre}</div>
-      <div style="font-size:12px;color:var(--or);font-weight:700;min-width:50px;text-align:right">L.${parseFloat(p.precio).toFixed(0)}</div>
-      <div style="display:flex;align-items:center;gap:4px">
-        <button type="button" onclick="wizCantProd('${p.id}',-1)" style="width:24px;height:24px;border-radius:6px;border:1px solid var(--g4);background:var(--g3);color:var(--tx);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>
-        <span id="wiz-qty-${p.id}" style="width:24px;text-align:center;font-size:12px;font-weight:700">0</span>
-        <button type="button" onclick="wizCantProd('${p.id}',1,${p.precio},'${p.nombre.replace(/'/g,"\'")}')" style="width:24px;height:24px;border-radius:6px;border:1px solid var(--g4);background:var(--g3);color:var(--tx);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
-      </div>
-    </div>`).join('');
+  _wizAllProds = prods;
+  _wizCatsCache = cats||[];
+  // Limpiar buscador
+  const searchInp = document.getElementById('wiz-prod-search');
+  if(searchInp) searchInp.value = '';
+  wizRenderProductos(prods, cats||[]);
 }
+
+function wizRenderProductos(prods, cats) {
+  const lista = document.getElementById('productos-wiz-lista');
+  if(!lista) return;
+  // Agrupar por categoría
+  const catMap = {};
+  (cats||[]).forEach(c => { catMap[c.id] = c; });
+  const grupos = {};
+  const sinCat = [];
+  prods.forEach(p => {
+    if(p.categoria_id && catMap[p.categoria_id]) {
+      if(!grupos[p.categoria_id]) grupos[p.categoria_id] = { cat: catMap[p.categoria_id], items:[] };
+      grupos[p.categoria_id].items.push(p);
+    } else {
+      sinCat.push(p);
+    }
+  });
+  // Ordenar grupos por orden de categoría
+  const gruposOrdenados = Object.values(grupos).sort((a,b) => (a.cat.orden||99) - (b.cat.orden||99));
+
+  let html = '';
+  // Renderizar cada grupo
+  gruposOrdenados.forEach(g => {
+    html += `<div style="border-bottom:1px solid var(--g4)">
+      <div style="padding:8px 12px;background:var(--g2);font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--td);display:flex;align-items:center;gap:6px">
+        <span style="font-size:14px">${g.cat.icono||'📂'}</span> ${g.cat.nombre}
+      </div>
+      ${g.items.map(p => wizProdItemHtml(p)).join('')}
+    </div>`;
+  });
+  // Sin categoría
+  if(sinCat.length) {
+    if(gruposOrdenados.length) {
+      html += `<div style="border-bottom:1px solid var(--g4)">
+        <div style="padding:8px 12px;background:var(--g2);font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--td)">📦 Otros</div>
+        ${sinCat.map(p => wizProdItemHtml(p)).join('')}
+      </div>`;
+    } else {
+      html += sinCat.map(p => wizProdItemHtml(p)).join('');
+    }
+  }
+  lista.innerHTML = html;
+}
+
+function wizProdItemHtml(p) {
+  const enCarrito = _wizProductos.find(x=>x.id===p.id);
+  const qty = enCarrito?.qty || 0;
+  const precioReal = p.en_promocion && p.precio_promo ? parseFloat(p.precio_promo) : parseFloat(p.precio);
+  const esPromo = p.en_promocion && p.precio_promo && parseFloat(p.precio_promo) < parseFloat(p.precio);
+  const nameEsc = (p.nombre||'').replace(/'/g,"\\'");
+  return `<div id="wiz-prod-row-${p.id}" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--g3);transition:background .1s${qty>0?';background:rgba(255,140,0,.06)':''}" onmouseover="this.style.background='var(--g3)'" onmouseout="this.style.background='${qty>0?'rgba(255,140,0,.06)':''}'">
+    ${p.imagen_url ? `<img src="${p.imagen_url}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0">` : `<div style="width:36px;height:36px;border-radius:6px;background:var(--g4);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">📦</div>`}
+    <div style="flex:1;min-width:0">
+      <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.nombre}</div>
+      ${p.descripcion ? `<div style="font-size:10px;color:var(--td);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.descripcion}</div>` : ''}
+    </div>
+    <div style="text-align:right;min-width:55px;flex-shrink:0">
+      ${esPromo ? `<div style="font-size:10px;color:var(--td);text-decoration:line-through">L.${parseFloat(p.precio).toFixed(0)}</div>` : ''}
+      <div style="font-size:12px;font-weight:800;color:${esPromo?'var(--verde)':'var(--or)'}">L.${precioReal.toFixed(0)}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
+      <button type="button" onclick="wizCantProd('${p.id}',-1)" style="width:26px;height:26px;border-radius:6px;border:1px solid ${qty>0?'rgba(255,140,0,.4)':'var(--g4)'};background:${qty>0?'rgba(255,140,0,.12)':'var(--g3)'};color:${qty>0?'var(--or)':'var(--td)'};font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s">−</button>
+      <span id="wiz-qty-${p.id}" style="width:22px;text-align:center;font-size:12px;font-weight:800;color:${qty>0?'var(--or)':'var(--td)'}">${qty}</span>
+      <button type="button" onclick="wizCantProd('${p.id}',1,${precioReal},'${nameEsc}')" style="width:26px;height:26px;border-radius:6px;border:1px solid ${qty>0?'rgba(255,140,0,.4)':'var(--g4)'};background:${qty>0?'rgba(255,140,0,.12)':'var(--g3)'};color:${qty>0?'var(--or)':'var(--tx)'};font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s">+</button>
+    </div>
+  </div>`;
+}
+
+function wizFiltrarProductos(q) {
+  if(!_wizAllProds.length) return;
+  const lista = document.getElementById('productos-wiz-lista');
+  if(!lista) return;
+  if(!q || !q.trim()) {
+    // Recargar todo con categorías (ya no las tenemos cached, re-render simple)
+    wizRenderProductos(_wizAllProds, _wizCatsCache||[]);
+    return;
+  }
+  const term = q.toLowerCase();
+  const filtrados = _wizAllProds.filter(p => p.nombre.toLowerCase().includes(term) || (p.descripcion||'').toLowerCase().includes(term));
+  if(!filtrados.length) {
+    lista.innerHTML = '<div style="padding:16px;text-align:center;color:var(--td);font-size:12px">Sin resultados para "'+q+'"</div>';
+    return;
+  }
+  // Render sin agrupación de categoría al filtrar
+  lista.innerHTML = filtrados.map(p => wizProdItemHtml(p)).join('');
+}
+var _wizCatsCache = [];
 
 function wizCantProd(id, delta, precio=0, nombre='') {
   const idx = _wizProductos.findIndex(p=>p.id===id);
@@ -4352,13 +4453,58 @@ function wizCantProd(id, delta, precio=0, nombre='') {
     _wizProductos.push({id, nombre, precio, qty:1});
   }
   const prod = _wizProductos.find(p=>p.id===id);
-  const el = document.getElementById('wiz-qty-'+id);
-  if(el) el.textContent = prod?.qty||0;
-  // Actualizar subtotal
-  const subtotal = _wizProductos.reduce((s,p)=>s+(p.precio*p.qty),0);
-  const el2 = document.getElementById('wiz-subtotal-prod');
-  if(el2) el2.textContent = `L. ${subtotal.toFixed(2)}`;
-  // Sincronizar con monto producto
+  const qty = prod?.qty||0;
+
+  // Actualizar qty en la fila del menú
+  const qtyEl = document.getElementById('wiz-qty-'+id);
+  if(qtyEl) {
+    qtyEl.textContent = qty;
+    qtyEl.style.color = qty>0 ? 'var(--or)' : 'var(--td)';
+  }
+  // Highlight de la fila
+  const row = document.getElementById('wiz-prod-row-'+id);
+  if(row) row.style.background = qty>0 ? 'rgba(255,140,0,.06)' : '';
+  // Estilo botones
+  row?.querySelectorAll('button').forEach(btn => {
+    btn.style.borderColor = qty>0 ? 'rgba(255,140,0,.4)' : 'var(--g4)';
+    btn.style.background  = qty>0 ? 'rgba(255,140,0,.12)' : 'var(--g3)';
+  });
+
+  // Actualizar carrito visual
+  wizActualizarCarrito();
+}
+
+function wizActualizarCarrito() {
+  const carritoDiv = document.getElementById('wiz-carrito');
+  const itemsDiv   = document.getElementById('wiz-carrito-items');
+  const countEl    = document.getElementById('wiz-carrito-count');
+  const subtotalEl = document.getElementById('wiz-subtotal-prod');
+  if(!carritoDiv) return;
+
+  const totalItems = _wizProductos.reduce((s,p) => s + p.qty, 0);
+  const subtotal   = _wizProductos.reduce((s,p) => s + (p.precio * p.qty), 0);
+
+  if(!_wizProductos.length) {
+    carritoDiv.style.display = 'none';
+  } else {
+    carritoDiv.style.display = 'block';
+    if(countEl) countEl.textContent = totalItems;
+    if(subtotalEl) subtotalEl.textContent = `L. ${subtotal.toFixed(2)}`;
+    if(itemsDiv) {
+      itemsDiv.innerHTML = _wizProductos.map(p => `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--g3)">
+          <div style="flex:1;font-size:12px;font-weight:600">${p.nombre}</div>
+          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+            <button type="button" onclick="wizCantProd('${p.id}',-1)" style="width:22px;height:22px;border-radius:4px;border:1px solid rgba(255,140,0,.3);background:rgba(255,140,0,.08);color:var(--or);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>
+            <span style="width:20px;text-align:center;font-size:12px;font-weight:800;color:var(--or)">${p.qty}</span>
+            <button type="button" onclick="wizCantProd('${p.id}',1,${p.precio},'${(p.nombre||'').replace(/'/g,"\\'")}')" style="width:22px;height:22px;border-radius:4px;border:1px solid rgba(255,140,0,.3);background:rgba(255,140,0,.08);color:var(--or);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
+          </div>
+          <div style="font-size:12px;font-weight:700;color:var(--or);min-width:55px;text-align:right">L.${(p.precio*p.qty).toFixed(0)}</div>
+        </div>`).join('');
+    }
+  }
+
+  // Sincronizar con monto producto del paso 3
   S.stepVals['sv-prod'] = subtotal;
   const inp = document.getElementById('sv-prod-inp');
   if(inp) inp.value = subtotal.toFixed(2);
