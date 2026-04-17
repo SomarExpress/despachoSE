@@ -4097,9 +4097,9 @@ async function wizBuscarCliente(q) {
   _wizCliTimer = setTimeout(async()=>{
     // Buscar en clientes Y comercios simultáneamente
     const [resC, resCom] = await Promise.all([
-      sb.from('clientes').select('id,nombre,celular,ciudad,direccion,colonia')
+      sb.from('clientes').select('id,nombre,celular,ciudad,direccion,colonia,ubicacion_gps')
         .or(`nombre.ilike.%${q}%,celular.ilike.%${q}%`).limit(6),
-      sb.from('comercios').select('id,nombre,ciudad,whatsapp,telefono')
+      sb.from('comercios').select('id,nombre,ciudad,whatsapp,telefono,direccion,ubicacion_gps')
         .ilike('nombre',`%${q}%`).eq('activo',true).limit(4)
     ]);
     if(!dd) return;
@@ -4149,9 +4149,19 @@ function wizSelCliente(c, tipo='cli') {
   // Pre-llenar destinatario
   document.getElementById('f-dest-nom').value = c.nombre;
   document.getElementById('f-dest-tel').value = c.celular||c.telefono||'';
+  // Pre-llenar GPS y dirección de entrega si el cliente tiene ubicacion_gps
+  if(c.ubicacion_gps) {
+    const gps=document.getElementById('f-gps-ent');
+    if(gps) { gps.value=c.ubicacion_gps; ubiAutodetectarZona(c.ubicacion_gps,'wiz-ent'); }
+  }
+  if(c.direccion) {
+    const dir=document.getElementById('f-dir-ent');
+    if(dir && !dir.value) dir.value=[c.colonia,c.direccion].filter(Boolean).join(', ');
+  }
   // Cargar ubicaciones de entrega
   if(c.id) wizCargarUbicsCli(c.id);
   actualizarResumen();
+  wizCalcularTarifa();
 }
 
 function wizLimpiarCliente() {
@@ -4215,9 +4225,9 @@ async function wizBuscarComercio(q) {
   if(!q || q.length < 1) { if(dd) dd.style.display='none'; return; }
   _wizComTimer = setTimeout(async()=>{
     const [resCom, resCli] = await Promise.all([
-      sb.from('comercios').select('id,nombre,ciudad,direccion,comision_pct,comision_tipo,categoria_id')
+      sb.from('comercios').select('id,nombre,ciudad,direccion,ubicacion_gps,comision_pct,comision_tipo,categoria_id')
         .ilike('nombre',`%${q}%`).eq('activo',true).limit(6),
-      sb.from('clientes').select('id,nombre,celular,ciudad,direccion')
+      sb.from('clientes').select('id,nombre,celular,ciudad,direccion,ubicacion_gps')
         .or(`nombre.ilike.%${q}%,celular.ilike.%${q}%`).limit(4)
     ]);
     if(!dd) return;
@@ -4273,8 +4283,10 @@ async function wizSelComercio(c) {
     if(prin) { sel.value=prin.id; wizSeleccionarSucursal(); }
   } else {
     grp.style.display='none';
-    // Usar dirección del comercio
+    // Usar dirección y GPS del comercio
     const dir=document.getElementById('f-dir-rec'); if(dir) dir.value=c.direccion||'';
+    const gps=document.getElementById('f-gps-rec');
+    if(gps && c.ubicacion_gps) { gps.value=c.ubicacion_gps; ubiAutodetectarZona(c.ubicacion_gps,'wiz-rec'); }
   }
   // Cargar productos del comercio
   wizCargarProductosComercio(c.id);
@@ -4290,8 +4302,11 @@ function wizSelComercioPersona(c) {
   document.getElementById('com-dropdown').style.display='none';
   document.getElementById('com-suc-grp').style.display='none';
   document.getElementById('f-dir-rec').value = c.direccion||'';
+  const gps=document.getElementById('f-gps-rec');
+  if(gps && c.ubicacion_gps) { gps.value=c.ubicacion_gps; ubiAutodetectarZona(c.ubicacion_gps,'wiz-rec'); }
   if(c.ciudad) { const el=document.getElementById('f-ciudad-rec'); if(el) el.value=c.ciudad; }
   document.getElementById('grp-productos-wiz').style.display='none';
+  wizCalcularTarifa();
 }
 
 function wizSeleccionarSucursal() {
