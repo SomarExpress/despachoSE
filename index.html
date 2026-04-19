@@ -662,6 +662,26 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
         Usuarios
       </div>
     </div>
+    <!-- SECCIÓN FINANZAS -->
+    <div class="nav-sec">
+      <div class="nav-lbl">Finanzas</div>
+      <div class="nav-item" onclick="nav('fin-dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        Dashboard Fin.
+      </div>
+      <div class="nav-item" onclick="nav('fin-egresos')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+        Egresos
+      </div>
+      <div class="nav-item" onclick="nav('fin-ingresos')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+        Ingresos Extras
+      </div>
+      <div class="nav-item" onclick="nav('fin-cuentas')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        Caja &amp; Cuentas
+      </div>
+    </div>
     </div><!-- /sb-nav-scroll -->
     <div class="sb-bot">
       <div class="user-chip">
@@ -1459,6 +1479,96 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
           <button class="btn btn-primary btn-sm" onclick="abrirModal('usuario')">+ Nuevo Usuario</button>
         </div>
         <div id="usuarios-lista" class="grid-lista"></div>
+      </div>
+
+      <!-- ═══ FIN DASHBOARD ═══════════════════════════════════ -->
+      <div class="view" id="view-fin-dashboard">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
+          <input type="date" id="fin-desde" class="fi" style="width:145px;">
+          <input type="date" id="fin-hasta" class="fi" style="width:145px;">
+          <button class="btn btn-primary btn-sm" onclick="cargarFinDashboard()">Actualizar</button>
+          <button class="btn btn-ghost btn-sm" onclick="setFinPeriodo('hoy')">Hoy</button>
+          <button class="btn btn-ghost btn-sm" onclick="setFinPeriodo('semana')">Semana</button>
+          <button class="btn btn-ghost btn-sm" onclick="setFinPeriodo('mes')">Mes</button>
+        </div>
+        <!-- KPIs -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px;">
+          <div class="card" style="padding:14px;text-align:center;">
+            <div style="font-size:11px;color:var(--td);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Ingresos Pedidos</div>
+            <div id="fd-ing-pedidos" class="mono" style="font-size:22px;font-weight:800;color:var(--verde)">L. 0.00</div>
+          </div>
+          <div class="card" style="padding:14px;text-align:center;">
+            <div style="font-size:11px;color:var(--td);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Ingresos Extras</div>
+            <div id="fd-ing-extras" class="mono" style="font-size:22px;font-weight:800;color:var(--verde)">L. 0.00</div>
+          </div>
+          <div class="card" style="padding:14px;text-align:center;">
+            <div style="font-size:11px;color:var(--td);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Egresos</div>
+            <div id="fd-egresos" class="mono" style="font-size:22px;font-weight:800;color:var(--rojo)">L. 0.00</div>
+          </div>
+          <div class="card" style="padding:14px;text-align:center;border:1px solid var(--or);">
+            <div style="font-size:11px;color:var(--or);text-transform:uppercase;letter-spacing:.07em;font-weight:700;margin-bottom:4px;">Utilidad Neta</div>
+            <div id="fd-utilidad" class="mono" style="font-size:26px;font-weight:900;color:var(--or)">L. 0.00</div>
+          </div>
+        </div>
+        <!-- Desglose ingresos pedidos -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;">
+          <div class="card" style="padding:14px;">
+            <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Desglose Pedidos</div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12px;color:var(--td)">Pedidos finalizados</span><span id="fd-cnt-ped" class="mono" style="font-weight:700">0</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12px;color:var(--td)">Tarifa envíos</span><span id="fd-tarifas" class="mono" style="color:var(--verde)">L. 0.00</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12px;color:var(--td)">Comisión comercios</span><span id="fd-com-com" class="mono" style="color:var(--az)">L. 0.00</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12px;color:var(--td)">Pagado a riders</span><span id="fd-pagado-riders" class="mono" style="color:var(--rojo)">- L. 0.00</span></div>
+          </div>
+          <div class="card" style="padding:14px;">
+            <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Top Egresos</div>
+            <div id="fd-top-egresos"><div class="empty" style="font-size:12px;">Sin egresos</div></div>
+          </div>
+        </div>
+        <!-- Cuentas -->
+        <div class="card" style="padding:14px;margin-bottom:18px;">
+          <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Saldos de Cuentas</div>
+          <div id="fd-cuentas" style="display:flex;flex-wrap:wrap;gap:10px;"></div>
+        </div>
+      </div>
+
+      <!-- ═══ FIN EGRESOS ════════════════════════════════════════ -->
+      <div class="view" id="view-fin-egresos">
+        <div class="card-hdr" style="margin-bottom:14px;">
+          <div class="filter-bar" style="flex-wrap:wrap;gap:6px;">
+            <input type="date" id="eg-desde" class="fi" style="width:140px;">
+            <input type="date" id="eg-hasta" class="fi" style="width:140px;">
+            <select id="eg-cat" class="fi" style="min-width:140px;"><option value="">Todas las categorías</option></select>
+            <button class="btn btn-primary btn-sm" onclick="cargarEgresos()">Buscar</button>
+          </div>
+          <button class="btn btn-primary btn-sm" style="background:var(--rojo);border-color:var(--rojo)" onclick="abrirModalEgreso()">+ Nuevo Egreso</button>
+        </div>
+        <div id="eg-resumen" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;"></div>
+        <div id="eg-lista"></div>
+      </div>
+
+      <!-- ═══ FIN INGRESOS EXTRAS ═══════════════════════════════ -->
+      <div class="view" id="view-fin-ingresos">
+        <div class="card-hdr" style="margin-bottom:14px;">
+          <div class="filter-bar">
+            <input type="date" id="ie-desde" class="fi" style="width:140px;">
+            <input type="date" id="ie-hasta" class="fi" style="width:140px;">
+            <button class="btn btn-primary btn-sm" onclick="cargarIngresosExtras()">Buscar</button>
+          </div>
+          <button class="btn btn-primary btn-sm" style="background:var(--verde);border-color:var(--verde)" onclick="abrirModalIngreso()">+ Nuevo Ingreso</button>
+        </div>
+        <div id="ie-resumen" style="margin-bottom:14px;"></div>
+        <div id="ie-lista"></div>
+      </div>
+
+      <!-- ═══ FIN CUENTAS ═══════════════════════════════════════ -->
+      <div class="view" id="view-fin-cuentas">
+        <div class="card-hdr" style="margin-bottom:14px;">
+          <div class="card-title">Cuentas Financieras</div>
+          <button class="btn btn-primary btn-sm" onclick="abrirModalTransferencia()">⇄ Transferir entre cuentas</button>
+        </div>
+        <div id="cuentas-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;"></div>
+        <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.07em;margin:20px 0 10px;">Últimos Movimientos</div>
+        <div id="cuentas-movs"></div>
       </div>
 
             <!-- ═══ HISTORIAL ════════════════════════════════════════ --><!-- ═══ HISTORIAL ════════════════════════════════════════ -->
@@ -6328,7 +6438,7 @@ function abrirAsignarRider(dId) {
 // ════════════════════════════════════════════════════════════
 // NAVEGACIÓN
 // ════════════════════════════════════════════════════════════
-var TITLES = { inicio:'Dashboard',pedidos:'Pedidos',kanban:'Kanban — Vista de Pedidos',config:'Configuración del Sistema',nuevo:'Nuevo Pedido',mapa:'Mapa en Vivo',riders:'Riders',solicitudes:'Solicitudes de Riders',solcom:'Solicitudes de Comercios',depositos:'Depósitos',liquidaciones:'Liquidaciones a Riders',turnos:'Gestión de Turnos',comprobantes:'Comprobantes de Pago',historial:'Historial',chat:'Chat',clientes:'Clientes',comercios:'Comercios',categorias:'Tipos de Comercio (Categorías)',productos:'Productos',cupones:'Cupones de Descuento',usuarios:'Usuarios del Sistema' };
+var TITLES = { inicio:'Dashboard',pedidos:'Pedidos',kanban:'Kanban — Vista de Pedidos',config:'Configuración del Sistema',nuevo:'Nuevo Pedido',mapa:'Mapa en Vivo',riders:'Riders',solicitudes:'Solicitudes de Riders',solcom:'Solicitudes de Comercios',depositos:'Depósitos',liquidaciones:'Liquidaciones a Riders',turnos:'Gestión de Turnos',comprobantes:'Comprobantes de Pago',historial:'Historial',chat:'Chat',clientes:'Clientes',comercios:'Comercios',categorias:'Tipos de Comercio (Categorías)',productos:'Productos',cupones:'Cupones de Descuento',usuarios:'Usuarios del Sistema','fin-dashboard':'Dashboard Financiero','fin-egresos':'Egresos','fin-ingresos':'Ingresos Extras','fin-cuentas':'Caja & Cuentas' };
 
 async function refreshApp() {
   const btn = document.getElementById('tb-refresh-btn');
@@ -6398,6 +6508,10 @@ function nav(v, pushHistory=true) {
     if(!S.riders.length) cargarRiders().then(renderChatContacts); else renderChatContacts();
   }
   if(v === 'nuevo') { wizGo(0); actualizarResumen(); }
+  if(v === 'fin-dashboard') cargarFinDashboard();
+  if(v === 'fin-egresos')   cargarEgresos();
+  if(v === 'fin-ingresos')  cargarIngresosExtras();
+  if(v === 'fin-cuentas')   cargarCuentas();
   closeSB();
 }
 
@@ -6534,5 +6648,536 @@ window.addEventListener('popstate', e => {
     </div>
   </div>
 </div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MÓDULO FINANCIERO — JavaScript completo
+════════════════════════════════════════════════════════════════ -->
+<script>
+// ── Helpers financieros ─────────────────────────────────────
+const fL = v => 'L. ' + parseFloat(v||0).toFixed(2);
+const fLr = v => parseFloat(v||0).toFixed(2);
+
+function setFinPeriodo(p) {
+  const hoy = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  let desde, hasta = fmt(hoy);
+  if(p === 'hoy') { desde = fmt(hoy); }
+  else if(p === 'semana') { const d=new Date(hoy); d.setDate(hoy.getDate()-6); desde=fmt(d); }
+  else if(p === 'mes') { desde=`${hoy.getFullYear()}-${pad(hoy.getMonth()+1)}-01`; }
+  document.getElementById('fin-desde').value = desde;
+  document.getElementById('fin-hasta').value = hasta;
+  cargarFinDashboard();
+}
+
+function finPeriodo() {
+  const hoy = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const desde = document.getElementById('fin-desde')?.value || `${hoy.getFullYear()}-${pad(hoy.getMonth()+1)}-01`;
+  const hasta = document.getElementById('fin-hasta')?.value || fmt(hoy);
+  return { desde, hasta };
+}
+
+// ── DASHBOARD FINANCIERO ─────────────────────────────────────
+async function cargarFinDashboard() {
+  const { desde, hasta } = finPeriodo();
+  if(!document.getElementById('fin-desde').value) setFinPeriodo('mes');
+
+  // Pedidos finalizados del período
+  const [{ data: peds }, { data: egs }, { data: ings }, { data: ctas }] = await Promise.all([
+    sb.from('pedidos')
+      .select('ingreso_somar,ingreso_delivery,tarifa_envio,base_app,hora_finalizado')
+      .eq('estatus','FINALIZADO')
+      .gte('hora_finalizado', desde+'T00:00:00')
+      .lte('hora_finalizado', hasta+'T23:59:59'),
+    sb.from('egresos')
+      .select('monto,categoria_id,categorias_egreso(nombre,icono)')
+      .eq('estatus','APROBADO').eq('anulado',false)
+      .gte('fecha',desde).lte('fecha',hasta),
+    sb.from('ingresos_extras')
+      .select('monto,concepto').eq('anulado',false)
+      .gte('fecha',desde).lte('fecha',hasta),
+    sb.from('cuentas_financieras').select('*').eq('activa',true).order('orden')
+  ]);
+
+  const pedArr = peds||[];
+  const egArr  = egs||[];
+  const ingArr = ings||[];
+
+  const ingPedidos = pedArr.reduce((s,p)=>s+parseFloat(p.ingreso_somar||0),0);
+  const pagadoRiders = pedArr.reduce((s,p)=>s+parseFloat(p.ingreso_delivery||0),0);
+  const tarifas = pedArr.reduce((s,p)=>s+parseFloat(p.tarifa_envio||0),0);
+  const comCom  = pedArr.reduce((s,p)=>s+parseFloat(p.base_app||0),0);
+  const ingExtras = ingArr.reduce((s,i)=>s+parseFloat(i.monto||0),0);
+  const totalEgresos = egArr.reduce((s,e)=>s+parseFloat(e.monto||0),0);
+  const utilidad = ingPedidos + ingExtras - totalEgresos;
+
+  document.getElementById('fd-ing-pedidos').textContent = fL(ingPedidos);
+  document.getElementById('fd-ing-extras').textContent  = fL(ingExtras);
+  document.getElementById('fd-egresos').textContent     = fL(totalEgresos);
+  document.getElementById('fd-utilidad').textContent    = fL(utilidad);
+  document.getElementById('fd-utilidad').style.color    = utilidad>=0 ? 'var(--or)' : 'var(--rojo)';
+  document.getElementById('fd-cnt-ped').textContent     = pedArr.length;
+  document.getElementById('fd-tarifas').textContent     = fL(tarifas);
+  document.getElementById('fd-com-com').textContent     = fL(comCom);
+  document.getElementById('fd-pagado-riders').textContent = '- '+fL(pagadoRiders);
+
+  // Top egresos por categoría
+  const porCat = {};
+  egArr.forEach(e => {
+    const nom = e.categorias_egreso?.nombre || 'Sin categoría';
+    const ico = e.categorias_egreso?.icono || '💸';
+    if(!porCat[nom]) porCat[nom] = { ico, total:0 };
+    porCat[nom].total += parseFloat(e.monto||0);
+  });
+  const sorted = Object.entries(porCat).sort((a,b)=>b[1].total-a[1].total).slice(0,5);
+  document.getElementById('fd-top-egresos').innerHTML = sorted.length
+    ? sorted.map(([nom,v])=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:12px;color:var(--tx)">${v.ico} ${nom}</span>
+          <span class="mono" style="font-size:12px;color:var(--rojo);font-weight:700">${fL(v.total)}</span>
+        </div>`).join('')
+    : '<div class="empty" style="font-size:12px">Sin egresos</div>';
+
+  // Cuentas
+  document.getElementById('fd-cuentas').innerHTML = (ctas||[]).map(ct=>`
+    <div style="background:var(--g2);border:1px solid var(--g4);border-radius:10px;padding:12px 16px;min-width:160px;flex:1;">
+      <div style="font-size:11px;color:var(--td);margin-bottom:2px;">${ct.icono||'🏦'} ${ct.nombre}</div>
+      <div class="mono" style="font-size:18px;font-weight:800;color:${ct.saldo_actual>=0?'var(--verde)':'var(--rojo)'}">
+        ${fL(ct.saldo_actual)}
+      </div>
+      <div style="font-size:10px;color:var(--td)">${ct.tipo}</div>
+    </div>`).join('');
+}
+
+// ── EGRESOS ──────────────────────────────────────────────────
+let _egCategorias = [];
+
+async function cargarEgresos() {
+  const { desde, hasta } = finPeriodo();
+  const egDesde = document.getElementById('eg-desde')?.value || desde;
+  const egHasta = document.getElementById('eg-hasta')?.value || hasta;
+  const catId   = document.getElementById('eg-cat')?.value;
+
+  // Cargar categorías para el select si aún no están cargadas
+  if(!_egCategorias.length) {
+    const { data } = await sb.from('categorias_egreso').select('id,nombre,icono,grupo').eq('activa',true).order('orden');
+    _egCategorias = data||[];
+    const sel = document.getElementById('eg-cat');
+    if(sel) {
+      sel.innerHTML = '<option value="">Todas las categorías</option>' +
+        _egCategorias.map(c=>`<option value="${c.id}">${c.icono||''} ${c.nombre}</option>`).join('');
+    }
+  }
+
+  let q = sb.from('egresos')
+    .select('id,fecha,monto,descripcion,proveedor_nombre,metodo_pago,estatus,anulado,registrado_por_nombre,created_at,categorias_egreso(nombre,icono),cuentas_financieras(nombre,icono)')
+    .eq('anulado',false)
+    .gte('fecha',egDesde).lte('fecha',egHasta)
+    .order('fecha',{ascending:false}).order('created_at',{ascending:false})
+    .limit(200);
+  if(catId) q = q.eq('categoria_id', catId);
+
+  const { data, error } = await q;
+  if(error) { toast('Error cargando egresos'); return; }
+  const arr = data||[];
+
+  const total = arr.reduce((s,e)=>s+parseFloat(e.monto||0),0);
+  document.getElementById('eg-resumen').innerHTML = `
+    <div style="background:var(--g2);border:1px solid var(--rojo);border-radius:10px;padding:10px 16px;display:flex;gap:16px;align-items:center;">
+      <span style="font-size:12px;color:var(--td)">${arr.length} registros</span>
+      <span class="mono" style="font-size:18px;font-weight:800;color:var(--rojo)">${fL(total)}</span>
+    </div>`;
+
+  document.getElementById('eg-lista').innerHTML = arr.length ? `
+    <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="border-bottom:2px solid var(--g4);">
+        <th style="padding:8px 6px;text-align:left;color:var(--td);font-weight:600">Fecha</th>
+        <th style="padding:8px 6px;text-align:left;color:var(--td);font-weight:600">Categoría</th>
+        <th style="padding:8px 6px;text-align:left;color:var(--td);font-weight:600">Descripción</th>
+        <th style="padding:8px 6px;text-align:left;color:var(--td);font-weight:600">Cuenta</th>
+        <th style="padding:8px 6px;text-align:right;color:var(--td);font-weight:600">Monto</th>
+        <th style="padding:8px 6px;text-align:center;color:var(--td);font-weight:600">Acciones</th>
+      </tr></thead>
+      <tbody>
+        ${arr.map(e=>`
+        <tr style="border-bottom:1px solid var(--g3);${e.estatus==='ANULADO'||e.anulado?'opacity:.45;text-decoration:line-through;':''}">
+          <td style="padding:8px 6px;color:var(--td);white-space:nowrap">${(e.fecha||'').slice(0,10)}</td>
+          <td style="padding:8px 6px">${e.categorias_egreso?.icono||'💸'} ${e.categorias_egreso?.nombre||'—'}</td>
+          <td style="padding:8px 6px;color:var(--tx)">${e.descripcion||e.proveedor_nombre||'—'}</td>
+          <td style="padding:8px 6px;color:var(--td);font-size:12px">${e.cuentas_financieras?.icono||'🏦'} ${e.cuentas_financieras?.nombre||'—'}</td>
+          <td style="padding:8px 6px;text-align:right;" class="mono"><span style="color:var(--rojo);font-weight:700">${fL(e.monto)}</span></td>
+          <td style="padding:8px 6px;text-align:center">
+            ${!e.anulado ? `<button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 8px;" onclick="anularEgreso('${e.id}')">Anular</button>` : '<span style="font-size:11px;color:var(--rojo)">Anulado</span>'}
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>` : '<div class="empty">No hay egresos en el período seleccionado</div>';
+}
+
+// ── INGRESOS EXTRAS ──────────────────────────────────────────
+async function cargarIngresosExtras() {
+  const { desde, hasta } = finPeriodo();
+  const ieDesde = document.getElementById('ie-desde')?.value || desde;
+  const ieHasta = document.getElementById('ie-hasta')?.value || hasta;
+
+  const { data, error } = await sb.from('ingresos_extras')
+    .select('id,fecha,concepto,descripcion,monto,entidad_nombre,registrado_por_nombre,anulado,cuentas_financieras(nombre,icono)')
+    .eq('anulado',false)
+    .gte('fecha',ieDesde).lte('fecha',ieHasta)
+    .order('fecha',{ascending:false})
+    .limit(200);
+  if(error){ toast('Error cargando ingresos'); return; }
+  const arr = data||[];
+
+  const total = arr.reduce((s,i)=>s+parseFloat(i.monto||0),0);
+  document.getElementById('ie-resumen').innerHTML = `
+    <div style="background:var(--g2);border:1px solid var(--verde);border-radius:10px;padding:10px 16px;display:flex;gap:16px;align-items:center;">
+      <span style="font-size:12px;color:var(--td)">${arr.length} registros</span>
+      <span class="mono" style="font-size:18px;font-weight:800;color:var(--verde)">${fL(total)}</span>
+    </div>`;
+
+  const conceptoLabel = {
+    LIQUIDACION_COMERCIO:'Liquidación Comercio',COBRO_CLIENTE_DIFERIDO:'Cobro Diferido',
+    REEMBOLSO:'Reembolso',AJUSTE_POSITIVO:'Ajuste +',INTERESES_BANCARIOS:'Intereses',
+    VENTA_ACTIVO:'Venta Activo',OTRO:'Otro'
+  };
+  document.getElementById('ie-lista').innerHTML = arr.length ? `
+    <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="border-bottom:2px solid var(--g4);">
+        <th style="padding:8px 6px;text-align:left;color:var(--td);font-weight:600">Fecha</th>
+        <th style="padding:8px 6px;text-align:left;color:var(--td);font-weight:600">Concepto</th>
+        <th style="padding:8px 6px;text-align:left;color:var(--td);font-weight:600">Descripción / Entidad</th>
+        <th style="padding:8px 6px;text-align:left;color:var(--td);font-weight:600">Cuenta</th>
+        <th style="padding:8px 6px;text-align:right;color:var(--td);font-weight:600">Monto</th>
+        <th style="padding:8px 6px;text-align:center;color:var(--td);font-weight:600">Acciones</th>
+      </tr></thead>
+      <tbody>
+        ${arr.map(i=>`
+        <tr style="border-bottom:1px solid var(--g3)">
+          <td style="padding:8px 6px;color:var(--td);white-space:nowrap">${(i.fecha||'').slice(0,10)}</td>
+          <td style="padding:8px 6px;font-size:12px">${conceptoLabel[i.concepto]||i.concepto||'—'}</td>
+          <td style="padding:8px 6px;color:var(--tx)">${i.descripcion||i.entidad_nombre||'—'}</td>
+          <td style="padding:8px 6px;color:var(--td);font-size:12px">${i.cuentas_financieras?.icono||'🏦'} ${i.cuentas_financieras?.nombre||'—'}</td>
+          <td style="padding:8px 6px;text-align:right" class="mono"><span style="color:var(--verde);font-weight:700">${fL(i.monto)}</span></td>
+          <td style="padding:8px 6px;text-align:center">
+            <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 8px;" onclick="anularIngresoExtra('${i.id}')">Anular</button>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>` : '<div class="empty">No hay ingresos extras en el período seleccionado</div>';
+}
+
+// ── CAJA & CUENTAS ────────────────────────────────────────────
+async function cargarCuentas() {
+  const [{ data: ctas }, { data: movs }] = await Promise.all([
+    sb.from('cuentas_financieras').select('*').eq('activa',true).order('orden'),
+    sb.from('movimientos_caja')
+      .select('id,fecha,monto,concepto,registrado_por_nombre,anulado,cuenta_origen:cuenta_origen_id(nombre,icono),cuenta_destino:cuenta_destino_id(nombre,icono)')
+      .eq('anulado',false).order('fecha',{ascending:false}).order('created_at',{ascending:false}).limit(50)
+  ]);
+
+  const tipoLabel = { CAJA:'💵 Caja', BANCO:'🏦 Banco', BILLETERA_DIGITAL:'📱 Billetera', CREDITO:'💳 Crédito' };
+  document.getElementById('cuentas-grid').innerHTML = (ctas||[]).map(ct=>`
+    <div style="background:var(--g2);border:2px solid ${ct.color||'#FF8C00'}22;border-radius:14px;padding:16px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="font-size:22px">${ct.icono||'🏦'}</span>
+        <div>
+          <div style="font-weight:700;font-size:14px">${ct.nombre}</div>
+          <div style="font-size:11px;color:var(--td)">${tipoLabel[ct.tipo]||ct.tipo}${ct.banco?' · '+ct.banco:''}</div>
+        </div>
+      </div>
+      <div class="mono" style="font-size:24px;font-weight:900;color:${ct.saldo_actual>=0?'var(--or)':'var(--rojo)'}">
+        ${fL(ct.saldo_actual)}
+      </div>
+      ${ct.numero_cuenta_masked?`<div style="font-size:11px;color:var(--td);margin-top:4px;">····${ct.numero_cuenta_masked}</div>`:''}
+      ${ct.notas?`<div style="font-size:11px;color:var(--td);margin-top:6px;font-style:italic">${ct.notas}</div>`:''}
+    </div>`).join('');
+
+  document.getElementById('cuentas-movs').innerHTML = (movs||[]).length ? `
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="border-bottom:2px solid var(--g4);">
+        <th style="padding:8px 6px;text-align:left;color:var(--td);font-weight:600">Fecha</th>
+        <th style="padding:8px 6px;text-align:left;color:var(--td);font-weight:600">Concepto</th>
+        <th style="padding:8px 6px;text-align:left;color:var(--td);font-weight:600">Desde → Hacia</th>
+        <th style="padding:8px 6px;text-align:right;color:var(--td);font-weight:600">Monto</th>
+      </tr></thead>
+      <tbody>
+        ${(movs||[]).map(m=>`
+        <tr style="border-bottom:1px solid var(--g3)">
+          <td style="padding:8px 6px;color:var(--td);white-space:nowrap">${(m.fecha||'').slice(0,10)}</td>
+          <td style="padding:8px 6px">${m.concepto||'—'}</td>
+          <td style="padding:8px 6px;font-size:12px;color:var(--td)">${m.cuenta_origen?.icono||''} ${m.cuenta_origen?.nombre||'?'} → ${m.cuenta_destino?.icono||''} ${m.cuenta_destino?.nombre||'?'}</td>
+          <td style="padding:8px 6px;text-align:right" class="mono"><span style="color:var(--az);font-weight:700">${fL(m.monto)}</span></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>` : '<div class="empty">Sin movimientos recientes</div>';
+}
+
+// ── MODAL NUEVO EGRESO ────────────────────────────────────────
+async function abrirModalEgreso() {
+  if(!_egCategorias.length) {
+    const { data } = await sb.from('categorias_egreso').select('id,nombre,icono,grupo').eq('activa',true).order('grupo').order('orden');
+    _egCategorias = data||[];
+  }
+  const { data: ctas } = await sb.from('cuentas_financieras').select('id,nombre,icono').eq('activa',true).order('orden');
+
+  const grupos = [...new Set(_egCategorias.map(c=>c.grupo))];
+  const catOpts = grupos.map(g=>`
+    <optgroup label="${g}">
+      ${_egCategorias.filter(c=>c.grupo===g).map(c=>`<option value="${c.id}">${c.icono||''} ${c.nombre}</option>`).join('')}
+    </optgroup>`).join('');
+
+  const ctaOpts = (ctas||[]).map(ct=>`<option value="${ct.id}">${ct.icono||'🏦'} ${ct.nombre}</option>`).join('');
+
+  const hoy = new Date().toISOString().slice(0,10);
+  const html = `
+    <div style="display:grid;gap:14px;">
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Fecha *</label>
+        <input type="date" id="eg-new-fecha" class="fi" value="${hoy}" style="width:100%"></div>
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Categoría *</label>
+        <select id="eg-new-cat" class="fi" style="width:100%">${catOpts}</select></div>
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Cuenta que paga *</label>
+        <select id="eg-new-cta" class="fi" style="width:100%">${ctaOpts}</select></div>
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Monto (L.) *</label>
+        <input type="number" id="eg-new-monto" class="fi" placeholder="0.00" min="0.01" step="0.01" style="width:100%"></div>
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Descripción</label>
+        <input type="text" id="eg-new-desc" class="fi" placeholder="¿En qué se gastó?" style="width:100%"></div>
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Proveedor / A quién se pagó</label>
+        <input type="text" id="eg-new-prov" class="fi" placeholder="Nombre del proveedor" style="width:100%"></div>
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Método de pago</label>
+        <select id="eg-new-metodo" class="fi" style="width:100%">
+          <option value="EFECTIVO">💵 Efectivo</option>
+          <option value="TRANSFERENCIA">📲 Transferencia</option>
+          <option value="DEBITO">💳 Débito</option>
+          <option value="CREDITO">🏦 Crédito</option>
+          <option value="OTRO">Otro</option>
+        </select></div>
+    </div>`;
+
+  document.getElementById('md-titulo').textContent = '+ Nuevo Egreso';
+  document.getElementById('md-cuerpo').innerHTML = html;
+  document.getElementById('md-guardar').textContent = '💾 Registrar Egreso';
+  document.getElementById('md-guardar').onclick = guardarEgreso;
+  document.getElementById('modal-datos').style.display = 'flex';
+}
+
+async function guardarEgreso() {
+  const fecha   = document.getElementById('eg-new-fecha')?.value;
+  const cat     = document.getElementById('eg-new-cat')?.value;
+  const cta     = document.getElementById('eg-new-cta')?.value;
+  const monto   = parseFloat(document.getElementById('eg-new-monto')?.value||0);
+  const desc    = document.getElementById('eg-new-desc')?.value?.trim();
+  const prov    = document.getElementById('eg-new-prov')?.value?.trim();
+  const metodo  = document.getElementById('eg-new-metodo')?.value;
+
+  if(!fecha) { toast('Selecciona una fecha'); return; }
+  if(!cat)   { toast('Selecciona una categoría'); return; }
+  if(!cta)   { toast('Selecciona la cuenta'); return; }
+  if(!monto||monto<=0) { toast('El monto debe ser mayor a 0'); return; }
+
+  document.getElementById('md-guardar').disabled = true;
+  document.getElementById('md-guardar').textContent = 'Guardando…';
+
+  const { error } = await sb.from('egresos').insert({
+    fecha, categoria_id: parseInt(cat), cuenta_financiera_id: parseInt(cta),
+    monto, descripcion: desc||null, proveedor_nombre: prov||null,
+    metodo_pago: metodo, estatus:'APROBADO',
+    registrado_por_nombre: document.getElementById('u-name')?.textContent || 'Despacho'
+  });
+
+  document.getElementById('md-guardar').disabled = false;
+  if(error){ toast('Error: '+error.message); document.getElementById('md-guardar').textContent='💾 Registrar Egreso'; return; }
+  cerrarModalDatos();
+  toast('✅ Egreso registrado');
+  cargarEgresos();
+}
+
+// ── MODAL NUEVO INGRESO EXTRA ─────────────────────────────────
+async function abrirModalIngreso() {
+  const { data: ctas } = await sb.from('cuentas_financieras').select('id,nombre,icono').eq('activa',true).order('orden');
+  const ctaOpts = (ctas||[]).map(ct=>`<option value="${ct.id}">${ct.icono||'🏦'} ${ct.nombre}</option>`).join('');
+  const hoy = new Date().toISOString().slice(0,10);
+
+  const html = `
+    <div style="display:grid;gap:14px;">
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Fecha *</label>
+        <input type="date" id="ie-new-fecha" class="fi" value="${hoy}" style="width:100%"></div>
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Tipo de ingreso *</label>
+        <select id="ie-new-concepto" class="fi" style="width:100%">
+          <option value="LIQUIDACION_COMERCIO">🏪 Liquidación Comercio</option>
+          <option value="COBRO_CLIENTE_DIFERIDO">👤 Cobro Cliente Diferido</option>
+          <option value="REEMBOLSO">↩️ Reembolso</option>
+          <option value="AJUSTE_POSITIVO">✅ Ajuste Positivo</option>
+          <option value="INTERESES_BANCARIOS">🏦 Intereses Bancarios</option>
+          <option value="VENTA_ACTIVO">📦 Venta de Activo</option>
+          <option value="OTRO">📋 Otro</option>
+        </select></div>
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Cuenta que recibe *</label>
+        <select id="ie-new-cta" class="fi" style="width:100%">${ctaOpts}</select></div>
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Monto (L.) *</label>
+        <input type="number" id="ie-new-monto" class="fi" placeholder="0.00" min="0.01" step="0.01" style="width:100%"></div>
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Descripción</label>
+        <input type="text" id="ie-new-desc" class="fi" placeholder="Detalle del ingreso" style="width:100%"></div>
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Entidad (comercio, cliente, etc.)</label>
+        <input type="text" id="ie-new-entidad" class="fi" placeholder="Nombre" style="width:100%"></div>
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Referencia / No. de comprobante</label>
+        <input type="text" id="ie-new-ref" class="fi" placeholder="Opcional" style="width:100%"></div>
+    </div>`;
+
+  document.getElementById('md-titulo').textContent = '+ Nuevo Ingreso Extra';
+  document.getElementById('md-cuerpo').innerHTML = html;
+  document.getElementById('md-guardar').textContent = '💾 Registrar Ingreso';
+  document.getElementById('md-guardar').onclick = guardarIngreso;
+  document.getElementById('modal-datos').style.display = 'flex';
+}
+
+async function guardarIngreso() {
+  const fecha    = document.getElementById('ie-new-fecha')?.value;
+  const concepto = document.getElementById('ie-new-concepto')?.value;
+  const cta      = document.getElementById('ie-new-cta')?.value;
+  const monto    = parseFloat(document.getElementById('ie-new-monto')?.value||0);
+  const desc     = document.getElementById('ie-new-desc')?.value?.trim();
+  const entidad  = document.getElementById('ie-new-entidad')?.value?.trim();
+  const ref      = document.getElementById('ie-new-ref')?.value?.trim();
+
+  if(!fecha)     { toast('Selecciona una fecha'); return; }
+  if(!cta)       { toast('Selecciona la cuenta'); return; }
+  if(!monto||monto<=0) { toast('El monto debe ser mayor a 0'); return; }
+
+  document.getElementById('md-guardar').disabled = true;
+  document.getElementById('md-guardar').textContent = 'Guardando…';
+
+  const { error } = await sb.from('ingresos_extras').insert({
+    fecha, concepto, cuenta_financiera_id: parseInt(cta),
+    monto, descripcion: desc||null,
+    entidad_nombre: entidad||null, referencia: ref||null,
+    registrado_por_nombre: document.getElementById('u-name')?.textContent || 'Despacho'
+  });
+
+  document.getElementById('md-guardar').disabled = false;
+  if(error){ toast('Error: '+error.message); document.getElementById('md-guardar').textContent='💾 Registrar Ingreso'; return; }
+  cerrarModalDatos();
+  toast('✅ Ingreso registrado');
+  cargarIngresosExtras();
+}
+
+// ── MODAL TRANSFERENCIA ENTRE CUENTAS ─────────────────────────
+async function abrirModalTransferencia() {
+  const { data: ctas } = await sb.from('cuentas_financieras').select('id,nombre,icono,saldo_actual').eq('activa',true).order('orden');
+  const ctaOpts = (ctas||[]).map(ct=>`<option value="${ct.id}">${ct.icono||'🏦'} ${ct.nombre} (${fL(ct.saldo_actual)})</option>`).join('');
+  const hoy = new Date().toISOString().slice(0,10);
+
+  const html = `
+    <div style="display:grid;gap:14px;">
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Fecha *</label>
+        <input type="date" id="tr-fecha" class="fi" value="${hoy}" style="width:100%"></div>
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Cuenta origen *</label>
+        <select id="tr-origen" class="fi" style="width:100%">${ctaOpts}</select></div>
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Cuenta destino *</label>
+        <select id="tr-destino" class="fi" style="width:100%">${ctaOpts}</select></div>
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Monto (L.) *</label>
+        <input type="number" id="tr-monto" class="fi" placeholder="0.00" min="0.01" step="0.01" style="width:100%"></div>
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Concepto *</label>
+        <input type="text" id="tr-concepto" class="fi" placeholder="Ej: Depósito de caja a banco" style="width:100%"></div>
+      <div><label style="font-size:12px;color:var(--td);font-weight:600;display:block;margin-bottom:4px">Referencia</label>
+        <input type="text" id="tr-ref" class="fi" placeholder="No. de transferencia, ticket, etc." style="width:100%"></div>
+    </div>`;
+
+  document.getElementById('md-titulo').textContent = '⇄ Transferir entre Cuentas';
+  document.getElementById('md-cuerpo').innerHTML = html;
+  document.getElementById('md-guardar').textContent = '⇄ Transferir';
+  document.getElementById('md-guardar').onclick = guardarTransferencia;
+  document.getElementById('modal-datos').style.display = 'flex';
+}
+
+async function guardarTransferencia() {
+  const fecha    = document.getElementById('tr-fecha')?.value;
+  const origen   = document.getElementById('tr-origen')?.value;
+  const destino  = document.getElementById('tr-destino')?.value;
+  const monto    = parseFloat(document.getElementById('tr-monto')?.value||0);
+  const concepto = document.getElementById('tr-concepto')?.value?.trim();
+  const ref      = document.getElementById('tr-ref')?.value?.trim();
+
+  if(!fecha)     { toast('Selecciona una fecha'); return; }
+  if(!origen)    { toast('Selecciona cuenta origen'); return; }
+  if(!destino)   { toast('Selecciona cuenta destino'); return; }
+  if(origen===destino) { toast('La cuenta origen y destino deben ser distintas'); return; }
+  if(!monto||monto<=0) { toast('El monto debe ser mayor a 0'); return; }
+  if(!concepto)  { toast('Escribe un concepto'); return; }
+
+  document.getElementById('md-guardar').disabled = true;
+  document.getElementById('md-guardar').textContent = 'Transfiriendo…';
+
+  const { error } = await sb.from('movimientos_caja').insert({
+    fecha,
+    cuenta_origen_id: parseInt(origen),
+    cuenta_destino_id: parseInt(destino),
+    monto, concepto, referencia: ref||null,
+    registrado_por_nombre: document.getElementById('u-name')?.textContent || 'Despacho'
+  });
+
+  document.getElementById('md-guardar').disabled = false;
+  if(error){ toast('Error: '+error.message); document.getElementById('md-guardar').textContent='⇄ Transferir'; return; }
+  cerrarModalDatos();
+  toast('✅ Transferencia registrada');
+  cargarCuentas();
+}
+
+// ── ANULACIONES ───────────────────────────────────────────────
+async function anularEgreso(id) {
+  if(!confirm('¿Anular este egreso? Esta acción no se puede deshacer.')) return;
+  const { error } = await sb.from('egresos').update({
+    anulado: true, anulado_at: new Date().toISOString(),
+    motivo_anulacion: 'Anulado por operador'
+  }).eq('id', id);
+  if(error){ toast('Error al anular'); return; }
+  toast('✅ Egreso anulado');
+  cargarEgresos();
+}
+
+async function anularIngresoExtra(id) {
+  if(!confirm('¿Anular este ingreso?')) return;
+  const { error } = await sb.from('ingresos_extras').update({
+    anulado: true, anulado_at: new Date().toISOString(),
+    motivo_anulacion: 'Anulado por operador'
+  }).eq('id', id);
+  if(error){ toast('Error al anular'); return; }
+  toast('✅ Ingreso anulado');
+  cargarIngresosExtras();
+}
+
+// ── REALTIME para tablas financieras ─────────────────────────
+function initRealtimeFinanzas() {
+  sb.channel('fin-changes')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'egresos'},()=>{
+      if(document.getElementById('view-fin-egresos')?.classList.contains('active')) cargarEgresos();
+      if(document.getElementById('view-fin-dashboard')?.classList.contains('active')) cargarFinDashboard();
+    })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'ingresos_extras'},()=>{
+      if(document.getElementById('view-fin-ingresos')?.classList.contains('active')) cargarIngresosExtras();
+      if(document.getElementById('view-fin-dashboard')?.classList.contains('active')) cargarFinDashboard();
+    })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'movimientos_caja'},()=>{
+      if(document.getElementById('view-fin-cuentas')?.classList.contains('active')) cargarCuentas();
+    })
+    .subscribe();
+}
+
+// Inicializar al cargar
+document.addEventListener('DOMContentLoaded', () => {
+  initRealtimeFinanzas();
+  // Poner fechas por defecto en vistas de egresos/ingresos al mes actual
+  const hoy = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const primerDiaMes = `${hoy.getFullYear()}-${pad(hoy.getMonth()+1)}-01`;
+  const hoyStr = `${hoy.getFullYear()}-${pad(hoy.getMonth()+1)}-${pad(hoy.getDate())}`;
+  ['eg-desde','ie-desde','fin-desde'].forEach(id => { const el=document.getElementById(id); if(el) el.value=primerDiaMes; });
+  ['eg-hasta','ie-hasta','fin-hasta'].forEach(id => { const el=document.getElementById(id); if(el) el.value=hoyStr; });
+});
+</script>
 </body>
 </html>
