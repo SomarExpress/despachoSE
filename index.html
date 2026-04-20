@@ -1214,6 +1214,13 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
                 <option value="10">10%</option>
               </select>
             </div>
+            <div class="fg" id="g-comision-tipo" style="display:none">
+              <label class="fl">Tipo de comisión</label>
+              <select id="f-comision-tipo" class="fi" onchange="actualizarResumen()">
+                <option value="ADICIONAL">Se suma al precio (cliente paga más)</option>
+                <option value="INCLUIDA">Incluida en el precio (rider paga menos)</option>
+              </select>
+            </div>
 
             <!-- Cupón -->
             <div class="fg" style="grid-column:1/-1">
@@ -2464,7 +2471,7 @@ function renderPanel(p) {
         p.propina > 0 ? ['Propina', fL(p.propina)] : null,
         p.descuento > 0 ? ['Descuento Cupón', '- '+fL(p.descuento)] : null,
         ['Total a Cobrar',   `<b style="color:var(--or)">${fL(p.monto_cobrar)}</b>`],
-        p.monto_pagado > 0 ? ['Monto a Pagar Establecimiento', `<b style="color:var(--az)">${fL(p.monto_pagado)}</b>`] : null,
+        p.monto_pagado > 0 ? [`Rider paga en recolecta${p.comision_tipo==='INCLUIDA'?' (com. incluida)':p.pct_comision>0?' (+ com.)':''}`, `<b style="color:var(--az)">${fL(p.monto_pagado)}</b>`] : null,
       ].filter(Boolean).map(([l,v]) =>
         `<div style="display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--g3);font-size:12px;">
           <span style="color:var(--td)">${l}</span><span>${v}</span>
@@ -4192,21 +4199,22 @@ async function guardarPedido() {
     direccion_entrega:        document.getElementById('f-dir-ent')?.value?.trim() || null,
     ubicacion_entrega_gps:    gpsEnt || null,
 
-// Montos
-subtotal:                 prod,
-tarifa_envio:             envio,
-tarifa_dinamica:          tarifaMod,
-propina:                  prop,
-descuento:                S.cuponData ? parseFloat(S.cuponData.descuento) : 0,
-cupon_id:                 S.cuponData?.cupon_id || null,
-total:                    total,
-monto_cobrar:             total,          // total que paga el cliente
-monto_pagado:             prod,           // monto a pagar al establecimiento (sin envío ni comisión)
-pct_comision:             pctCom,
-base_app:                 baseApp,
-ingreso_delivery:         ingDelivery,
-ingreso_somar:            parseFloat((envio * (1 - pctRiderEnvio) + baseApp).toFixed(2)),
-distancia_km:             S._kmActual || null,   // ← guardar el km calculado
+// Montos — usando lógica centralizada de actualizarResumen
+    subtotal:                 prod,                              // precio base del producto/compra
+    tarifa_envio:             envio,
+    tarifa_dinamica:          tarifaMod,
+    propina:                  prop,
+    descuento:                S.cuponData ? parseFloat(S.cuponData.descuento) : 0,
+    cupon_id:                 S.cuponData?.cupon_id || null,
+    total:                    S._montoResumen?.total ?? total,
+    monto_cobrar:             S._montoResumen?.total ?? total,  // lo que el rider COBRA al cliente
+    monto_pagado:             S._montoResumen?.montoPagado ?? prod, // lo que el rider PAGA en recolecta
+    pct_comision:             pctCom,
+    comision_tipo:            S._montoResumen?.comTipo || 'ADICIONAL',
+    base_app:                 S._montoResumen?.baseApp ?? baseApp,
+    ingreso_delivery:         S._montoResumen?.ingDel ?? ingDelivery,
+    ingreso_somar:            S._montoResumen?.ingSom ?? parseFloat((envio*(1-pctRiderEnvio)+baseApp).toFixed(2)),
+    distancia_km:             S._kmActual || null,
 
     // Pago
     quien_paga:               document.getElementById('f-quien-paga')?.value || 'DESTINATARIO',
@@ -4516,6 +4524,9 @@ async function wizSelComercio(c) {
   // Comisión
   const pctEl = document.getElementById('f-pct-comision');
   if(pctEl && c.comision_pct) pctEl.value = c.comision_pct;
+  // Auto-rellenar tipo de comisión del comercio
+  const comTipoEl = document.getElementById('f-comision-tipo');
+  if(comTipoEl && c.comision_tipo) comTipoEl.value = c.comision_tipo;
   wizCalcularTarifa();
 }
 
@@ -4797,12 +4808,45 @@ function actualizarResumen() {
   S.stepVals['sv-prod']   = prod;
   S.stepVals['sv-envio']  = envio;
   S.stepVals['sv-propina']= prop;
-  const pctCom = parseFloat(document.getElementById('f-pct-comision')?.value||0);
-  const baseApp= parseFloat((prod*pctCom/100).toFixed(2));
-  const desc   = S.cuponData ? parseFloat(S.cuponData.descuento) : 0;
-  const total  = prod + envio + prop - desc;
-  const ingDel = parseFloat((envio*0.66).toFixed(2));
-  const ingSom = parseFloat((envio*0.33+baseApp).toFixed(2));
+
+  const pctCom     = parseFloat(document.getElementById('f-pct-comision')?.value||0);
+  const comTipoEl  = document.getElementById('f-comision-tipo');
+  const comTipo    = comTipoEl?.value || 'ADICIONAL';
+
+  // Mostrar/ocultar selector de tipo si hay comisión
+  const gComTipo = document.getElementById('g-comision-tipo');
+  if(gComTipo) gComTipo.style.display = pctCom > 0 ? 'block' : 'none';
+
+  // Calcular comisión (base_app = ganancia de Somar sobre el producto)
+  const baseApp = parseFloat((prod * pctCom / 100).toFixed(2));
+
+  // monto_pagado = lo que el rider paga en recolecta al comercio
+  // ADICIONAL: el comercio cobra el precio base, Somar cobra su comisión aparte al cliente
+  // INCLUIDA:  el precio ya incluye la comisión, el rider solo paga (precio - comision) al comercio
+  const montoPagado = pctCom > 0
+    ? (comTipo === 'INCLUIDA'
+        ? parseFloat((prod - baseApp).toFixed(2))   // rider paga precio_base - comision
+        : prod)                                       // rider paga precio_base completo
+    : prod;                                           // sin comisión: igual al subtotal
+
+  // monto_cobrar = lo que el rider cobra al cliente
+  // ADICIONAL: precio_base + comision + envio + propina - desc
+  // INCLUIDA:  precio_base (ya tiene todo) + envio + propina - desc
+  const prodConCom = pctCom > 0 && comTipo === 'ADICIONAL'
+    ? prod + baseApp
+    : prod;
+
+  const desc  = S.cuponData ? parseFloat(S.cuponData.descuento) : 0;
+  const total = parseFloat((prodConCom + envio + prop - desc).toFixed(2));
+
+  // Ingresos
+  const pctRiderEnvio = parseFloat(S.config?.pct_rider_envio||66.66)/100;
+  const ingDel = parseFloat((envio*pctRiderEnvio).toFixed(2));
+  const ingSom = parseFloat((envio*(1-pctRiderEnvio)+baseApp).toFixed(2));
+
+  // Guardar para usar en guardarPedido
+  S._montoResumen = { prod, montoPagado, prodConCom, total, baseApp, comTipo, pctCom, ingDel, ingSom };
+
   const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
   set('r-cliente', _wizCliSel?.nombre||document.getElementById('f-cli-nom')?.value||'—');
   const tipoLabel={MANDADO:'Compra',TRASLADO:'Traslado',DELIVERY:'Delivery',ENVIO:'Envío'};
@@ -4814,8 +4858,24 @@ function actualizarResumen() {
   set('r-prod',  `L. ${prod.toFixed(2)}`);
   set('r-envio', `L. ${envio.toFixed(2)}`);
   set('r-total', `L. ${total.toFixed(2)}`);
+
+  // Desglose detallado en el resumen
   const desgEl=document.getElementById('r-desglose');
-  if(desgEl) desgEl.innerHTML=`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--td);padding-top:4px"><span>Rider: <b style="color:var(--verde)">L.${ingDel.toFixed(2)}</b></span><span>Somar: <b style="color:var(--or)">L.${ingSom.toFixed(2)}</b></span></div>`;
+  if(desgEl) {
+    let desgLines = [];
+    if(pctCom > 0) {
+      desgLines.push(`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--td)">
+        <span>Rider paga en recolecta</span><span style="color:var(--az);font-weight:700">L. ${montoPagado.toFixed(2)}</span></div>`);
+      if(comTipo==='ADICIONAL')
+        desgLines.push(`<div style="font-size:10px;color:var(--td);text-align:right">+ com. L.${baseApp.toFixed(2)} que cobra cliente</div>`);
+      else
+        desgLines.push(`<div style="font-size:10px;color:var(--td);text-align:right">com. L.${baseApp.toFixed(2)} ya incluida</div>`);
+    }
+    desgLines.push(`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--td);padding-top:4px">
+      <span>Rider: <b style="color:var(--verde)">L.${ingDel.toFixed(2)}</b></span>
+      <span>Somar: <b style="color:var(--or)">L.${ingSom.toFixed(2)}</b></span></div>`);
+    desgEl.innerHTML = desgLines.join('');
+  }
 }
 
 // Tipo de pedido — solo MANDADO y TRASLADO
