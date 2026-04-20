@@ -2542,9 +2542,9 @@ function abrirAsignar(pedidoId) {
       const act = S.pedidos.filter(p => p.delivery_id === d.id && FILTROS_ACTIVOS.includes(p.estatus)).length;
       const bloq = act >= 2;
       const saldoOk = parseFloat(d.saldo_billetera||0) >= 100;
-      return `<div id="dsel-${d.id}" onclick="${bloq?'':''}" data-id="${d.id}"
-        style="background:var(--g3);border:1px solid var(--g4);border-radius:8px;padding:11px;display:flex;align-items:center;gap:9px;cursor:${bloq?'not-allowed':'pointer'};opacity:${bloq?.55:1};"
-        ${!bloq ? `onclick="selRider('${d.id}')"` : ''}>
+      return `<div id="dsel-${d.id}" data-id="${d.id}"
+        ${!bloq ? `onclick="selRider('${d.id}')"` : ''}
+        style="background:var(--g3);border:1px solid var(--g4);border-radius:8px;padding:11px;display:flex;align-items:center;gap:9px;cursor:${bloq?'not-allowed':'pointer'};opacity:${bloq?.55:1};">
         <div class="ch-av" style="border:2px solid ${act>=2?'var(--rojo)':'var(--verde)'}">${inic(d.nombre)}</div>
         <div style="flex:1">
           <div style="font-weight:600;font-size:13px">${d.nombre}</div>
@@ -4053,12 +4053,6 @@ function wizGo(step) {
   if(step === 3) { wizCalcularTarifa(); actualizarResumen(); }
 }
 
-function setTipo(v) {
-  S.tipoPedido = v;
-  ['MANDADO','DELIVERY','TRASLADO'].forEach(t => document.getElementById('tt-'+t)?.classList.toggle('on', t===v));
-  actualizarResumen();
-}
-
 function setPagar(v) {
   S.pagarEstab = v;
   document.getElementById('tp-si')?.classList.toggle('on', v);
@@ -4070,13 +4064,6 @@ function setPagar(v) {
 function setMetodoPago(v) {
   S.metodoPago = v;
   ['EFECTIVO','TRANSFERENCIA','TARJETA'].forEach(t => document.getElementById('tpago-'+t)?.classList.toggle('on', t===v));
-}
-
-function stepVal(id, delta) {
-  S.stepVals[id] = Math.max(0, (S.stepVals[id]||0) + delta);
-  const el = document.getElementById(id);
-  if(el) el.textContent = S.stepVals[id].toFixed(2);
-  actualizarResumen();
 }
 
 function calcTarifa() {
@@ -4110,40 +4097,6 @@ async function validarCupon() {
     S.cuponData = data;
   }
   actualizarResumen();
-}
-
-function actualizarResumen() {
-  const cli   = document.getElementById('f-cli-nom')?.value || '—';
-  const rec   = document.getElementById('f-comercio')?.value || '—';
-  const ent   = document.getElementById('f-dir-ent')?.value || document.getElementById('f-gps-ent')?.value || '—';
-  const prod  = parseFloat(document.getElementById('sv-prod-inp')?.value||0)  || S.stepVals['sv-prod']  || 0;
-  const envio = parseFloat(document.getElementById('sv-envio-inp')?.value||0) || S.stepVals['sv-envio'] || 50;
-  const prop  = parseFloat(document.getElementById('sv-propina-inp')?.value||0)||S.stepVals['sv-propina']||0;
-  const desc  = S.cuponData ? parseFloat(S.cuponData.descuento) : 0;
-  const pctCom= parseFloat(document.getElementById('f-pct-comision')?.value || 0);
-  const baseApp = parseFloat(((prod * pctCom) / 100).toFixed(2));
-  const total = prod + envio + prop - desc;
-  const ingDel = parseFloat((envio * 0.66).toFixed(2));
-  const ingSom = parseFloat((envio * 0.34 + baseApp - desc).toFixed(2));
-  const set = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-  set('r-cliente', cli);
-  const tipoLabel = {MANDADO:'Compra/Mandado',DELIVERY:'Delivery',TRASLADO:'Traslado',ENVIO:'Envío',RECOGER_PAQUETE:'Recoger Paquete'};
-  set('r-tipo', `${tipoLabel[S.tipoPedido]||S.tipoPedido} · ${S.metodoPago}`);
-  set('r-recolecta', rec.length > 28 ? rec.substring(0,28)+'...' : rec);
-  set('r-entrega',   ent.length > 28 ? ent.substring(0,28)+'...' : ent);
-  set('r-pago', S.metodoPago);
-  set('r-prod', `L. ${prod.toFixed(2)}`);
-  set('r-envio', `L. ${envio.toFixed(2)}`);
-  if(desc > 0) set('r-total', `L. ${total.toFixed(2)} (- L.${desc.toFixed(2)} cupón)`);
-  else set('r-total', `L. ${total.toFixed(2)}`);
-  // Mostrar desglose financiero
-  const desgEl = document.getElementById('r-desglose');
-  if(desgEl) desgEl.innerHTML = `
-    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--td);margin-top:4px">
-      <span>Rider recibe: <b style="color:var(--verde)">L.${ingDel.toFixed(2)}</b></span>
-      <span>Somar: <b style="color:var(--or)">L.${ingSom.toFixed(2)}</b></span>
-      ${pctCom>0?`<span>Margen prod: <b>L.${baseApp.toFixed(2)}</b></span>`:''}
-    </div>`;
 }
 
 async function guardarPedido() {
@@ -6415,15 +6368,6 @@ guardarDatos.usuario = async()=>{
   } catch(e){ toast('Error: '+e.message,'danger'); console.error('[crear staff]',e); }
 };
 
-// ─── UTIL: eliminar registro ──────────────────────────────────
-async function eliminar(tabla,id,callback){
-  if(!confirm('¿Eliminar este registro?')) return;
-  const {error}=await sb.from(tabla).delete().eq('id',id);
-  if(error){toast('Error: '+error.message,'danger');return;}
-  toast('✅ Eliminado');
-  if(callback) callback();
-}
-
 // ─── CONFIGURACIÓN ───────────────────────────────────────────
 
 async function cargarNotifsDespacho() {
@@ -6675,6 +6619,14 @@ function finPrimerDiaMes() {
   const h = new Date();
   return `${h.getFullYear()}-${String(h.getMonth()+1).padStart(2,'0')}-01`;
 }
+function actualizarZonasFiltradas(selectId, ciudad) {
+  const sel = document.getElementById(selectId);
+  if(!sel) return;
+  const zonas = (MD.zonas||[]).filter(z => z.activo && (!ciudad || z.ciudad === ciudad));
+  sel.innerHTML = '<option value="">— Sin zona —</option>' +
+    zonas.map(z=>`<option value="${z.id}">${z.nombre}</option>`).join('');
+}
+
 function fL(v) { return `L. ${parseFloat(v||0).toFixed(2)}`; }
 
 // ─── Selector de período en Dashboard ───────────────────────
@@ -6847,8 +6799,7 @@ async function guardarEgreso() {
     p_referencia: document.getElementById('eg-referencia').value.trim() || null,
     p_no_factura: document.getElementById('eg-factura').value.trim() || null,
     p_deducible: document.getElementById('eg-deducible').checked,
-    p_notas: document.getElementById('eg-notas').value.trim() || null,
-    p_registrado_por: agente
+    p_notas: document.getElementById('eg-notas').value.trim() || null
   });
   btn.disabled = false; btn.textContent = '💾 Guardar Egreso';
   if(error) { toast('Error: '+error.message,'danger'); return; }
@@ -6860,7 +6811,7 @@ async function guardarEgreso() {
 async function anularEgreso(id) {
   if(!confirm('¿Anular este egreso? Esta acción no se puede deshacer.')) return;
   const agente = document.getElementById('u-name')?.textContent || 'Despacho';
-  const { error } = await sb.rpc('fn_anular_egreso', { p_egreso_id: id, p_motivo: 'Anulado por operador', p_usuario: agente });
+  const { error } = await sb.rpc('fn_anular_egreso', { p_egreso_id: id, p_motivo: 'Anulado por operador' });
   if(error) { toast('Error al anular: '+error.message,'danger'); return; }
   toast('✅ Egreso anulado'); cargarEgresos();
 }
@@ -6914,9 +6865,7 @@ async function guardarIngresoExtra() {
     p_fecha: fecha, p_concepto: concepto, p_descripcion: desc,
     p_cuenta_id: cuentaId, p_monto: monto,
     p_entidad_nombre: document.getElementById('ie-entidad').value.trim() || null,
-    p_referencia: document.getElementById('ie-referencia').value.trim() || null,
-    p_notas: document.getElementById('ie-notas').value.trim() || null,
-    p_registrado_por: agente
+    p_referencia: document.getElementById('ie-referencia').value.trim() || null
   });
   btn.disabled = false; btn.textContent = '💾 Guardar Ingreso';
   if(error) { toast('Error: '+error.message,'danger'); return; }
@@ -6928,7 +6877,7 @@ async function guardarIngresoExtra() {
 async function anularIngresoExtra(id) {
   if(!confirm('¿Anular este ingreso extra?')) return;
   const agente = document.getElementById('u-name')?.textContent || 'Despacho';
-  const { error } = await sb.rpc('fn_anular_ingreso_extra', { p_ingreso_id: id, p_motivo: 'Anulado por operador', p_usuario: agente });
+  const { error } = await sb.rpc('fn_anular_ingreso_extra', { p_ingreso_id: id, p_motivo: 'Anulado por operador' });
   if(error) { toast('Error al anular: '+error.message,'danger'); return; }
   toast('✅ Ingreso anulado'); cargarIngresosExtras();
 }
@@ -6990,10 +6939,10 @@ async function guardarTransferencia() {
   btn.disabled = true; btn.textContent = '⏳ Procesando...';
   const agente = document.getElementById('u-name')?.textContent || 'Despacho';
   const { error } = await sb.rpc('fn_transferir_entre_cuentas', {
+    p_fecha: new Date().toISOString().split('T')[0],
     p_cuenta_origen_id: origen, p_cuenta_destino_id: destino,
     p_monto: monto, p_concepto: concepto,
-    p_referencia: document.getElementById('tr-referencia').value.trim() || null,
-    p_registrado_por: agente
+    p_referencia: document.getElementById('tr-referencia').value.trim() || null
   });
   btn.disabled = false; btn.textContent = '⇄ Transferir';
   if(error) { toast('Error: '+error.message,'danger'); return; }
