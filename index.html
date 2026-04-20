@@ -3098,9 +3098,9 @@ async function accionSolicitud(id, nombre, accion, nomDrv, correoDrv, celDrv) {
       .single();
     if(solErr || !sol) { toast('Error al obtener solicitud: ' + (solErr?.message||'no encontrada'), 'danger'); return; }
 
-    const match = sol.notas?.match(/auth_uid:([a-f0-9-]{36})/);
-    if(!match) { toast('⚠️ No se encontró auth_uid en la solicitud. El rider debe registrarse de nuevo.', 'danger'); return; }
-    const uid = match[1];
+    // Usar columna auth_uid directamente, con fallback a notas legacy
+    const uid = sol.auth_uid || sol.notas?.match(/auth_uid:([a-f0-9-]{36})/)?.[1];
+    if(!uid) { toast('⚠️ No se encontró auth_uid en la solicitud. El rider debe registrarse de nuevo.', 'danger'); return; }
 
     // 2. Upsert en perfiles (evita el 406 del .single() cuando no existe)
     const { error: perfilErr } = await sb.from('perfiles').upsert(
