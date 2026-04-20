@@ -739,10 +739,14 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
             <div class="metric-val" style="color:var(--az)" id="m-proc">—</div>
             <div class="metric-sub">activos ahora</div>
           </div>
-          <div class="metric">
+          <div class="metric" style="position:relative">
             <div class="metric-lbl">Sin Asignar</div>
             <div class="metric-val pulse" style="color:var(--rojo)" id="m-sa">—</div>
             <div class="metric-sub">requieren acción</div>
+            <button id="btn-reintentar-asig" onclick="reintentarAsignacion()" title="Reintentar asignación automática"
+              style="display:none;position:absolute;top:10px;right:10px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--rojo);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;letter-spacing:.3px">
+              ↺ REINTENTAR
+            </button>
           </div>
         </div>
         <div class="dash-grid">
@@ -2075,6 +2079,8 @@ async function cargarMetricas() {
   document.getElementById('m-fin').textContent   = fin;
   document.getElementById('m-proc').textContent  = proc;
   document.getElementById('m-sa').textContent    = sa;
+  const btnReintentar = document.getElementById('btn-reintentar-asig');
+  if(btnReintentar) btnReintentar.style.display = sa > 0 ? 'block' : 'none';
   document.getElementById('m-tsub').textContent  = `↑ hoy`;
   document.getElementById('m-fsub').textContent  = total > 0 ? `${Math.round(fin/total*100)}% tasa éxito` : '—';
   document.getElementById('fin-ing').textContent       = `L. ${ing.toFixed(2)}`;
@@ -2596,6 +2602,19 @@ async function confirmarAsig() {
   if(pedErr) { toast('Error actualizando pedido: ' + pedErr.message, 'danger'); return; }
   closeModal('modal-asignar');
   toast('🏍 Repartidor asignado. Pedido enviado al rider.', 'success');
+}
+
+async function reintentarAsignacion() {
+  const btn = document.getElementById('btn-reintentar-asig');
+  if(btn) { btn.textContent = '⏳ Buscando...'; btn.disabled = true; }
+  const { data, error } = await sb.rpc('reintentar_pedidos_sin_rider');
+  if(btn) { btn.textContent = '↺ REINTENTAR'; btn.disabled = false; }
+  if(error) { toast('Error: ' + error.message, 'danger'); return; }
+  if(data?.asignados > 0) {
+    toast(`✅ ${data.asignados} pedido${data.asignados>1?'s':''} asignado${data.asignados>1?'s':''} · ${data.sin_rider} sin rider disponible`, 'success');
+  } else {
+    toast(`Sin riders disponibles ahora. ${data?.pendientes||0} pedido${data?.pendientes!==1?'s':''} en espera.`, 'ghost');
+  }
 }
 
 // ════════════════════════════════════════════════════════════
