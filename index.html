@@ -2439,6 +2439,22 @@ function renderPanel(p) {
       ${p.observaciones ? row('Observaciones', p.observaciones) : ''}
     </div>
 
+    <!-- Productos del carrito -->
+    ${(p.detalle_json && (p.detalle_json.items || Array.isArray(p.detalle_json)) && (p.detalle_json.items || p.detalle_json).length) ? (() => {
+      const items = p.detalle_json.items || p.detalle_json;
+      return `<div style="font-size:10px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">🛒 Productos del pedido</div>
+    <div style="background:var(--g2);border-radius:10px;overflow:hidden;margin-bottom:14px;">
+      ${items.map(it => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid var(--g3);font-size:12px;">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700">${it.qty}× ${it.nombre}</div>
+            <div style="font-size:10px;color:var(--td)">L.${parseFloat(it.precio).toFixed(2)} c/u</div>
+          </div>
+          <div style="font-weight:800;color:var(--or)">L.${parseFloat(it.subtotal).toFixed(2)}</div>
+        </div>`).join('')}
+    </div>`;
+    })() : ''}
+
     <!-- Finanzas -->
     <div style="font-size:10px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Finanzas</div>
     <div style="background:var(--g2);border-radius:10px;overflow:hidden;margin-bottom:6px;">
@@ -4194,7 +4210,7 @@ distancia_km:             S._kmActual || null,   // ← guardar el km calculado
     observaciones:            document.getElementById('f-obs')?.value?.trim() || null,
     notas_especiales:         null,
     // Detalle de productos del carrito
-    detalle_json:             _wizProductos.length ? _wizProductos.map(p=>({id:p.id,nombre:p.nombre,precio:p.precio,qty:p.qty,subtotal:parseFloat((p.precio*p.qty).toFixed(2))})) : null,
+    detalle_json:             _wizProductos.length ? { items: _wizProductos.map(p=>({id:p.id,nombre:p.nombre,precio:p.precio,qty:p.qty,subtotal:parseFloat((p.precio*p.qty).toFixed(2))})), subtotal: parseFloat(_wizProductos.reduce((a,p)=>a+p.precio*p.qty,0).toFixed(2)) } : null,
   };
 
   // Limpiar nulls — Supabase los acepta pero algunos campos NOT NULL pueden fallar
