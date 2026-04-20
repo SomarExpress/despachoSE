@@ -662,6 +662,27 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
         Usuarios
       </div>
     </div>
+
+    <!-- Finanzas -->
+    <div class="nav-sec">
+      <div class="nav-lbl">Finanzas</div>
+      <div class="nav-item" id="nav-fin-dashboard" onclick="nav('fin-dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 8l3 3 2-2 3 3"/></svg>
+        Dashboard Fin.
+      </div>
+      <div class="nav-item" id="nav-fin-egresos" onclick="nav('fin-egresos')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7 7 7-7"/></svg>
+        Egresos
+      </div>
+      <div class="nav-item" id="nav-fin-ingresos" onclick="nav('fin-ingresos')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
+        Ingresos Extras
+      </div>
+      <div class="nav-item" id="nav-fin-cuentas" onclick="nav('fin-cuentas')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        Caja &amp; Cuentas
+      </div>
+    </div>
     </div><!-- /sb-nav-scroll -->
     <div class="sb-bot">
       <div class="user-chip">
@@ -1484,6 +1505,103 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
         </div>
       </div>
 
+      <!-- ═══ FIN: DASHBOARD FINANCIERO ═════════════════════════ -->
+      <div class="view" id="view-fin-dashboard">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+          <button class="fbtn active" id="fdb-hoy"    onclick="finPeriodo('hoy')">Hoy</button>
+          <button class="fbtn"        id="fdb-semana"  onclick="finPeriodo('semana')">Semana</button>
+          <button class="fbtn"        id="fdb-mes"     onclick="finPeriodo('mes')">Este mes</button>
+          <input type="date" id="fin-desde" class="fi" style="width:140px;font-size:12px;padding:5px 8px">
+          <input type="date" id="fin-hasta" class="fi" style="width:140px;font-size:12px;padding:5px 8px">
+          <button class="btn btn-ghost btn-sm" onclick="cargarFinDashboard()">Aplicar</button>
+        </div>
+        <!-- KPIs -->
+        <div class="metrics" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;" id="fin-kpis">
+          <div class="metric"><div class="metric-lbl">Ingresos Pedidos</div><div class="metric-val" id="fk-ing-pedidos">L.0</div><div class="metric-sub" id="fk-ing-pedidos-sub">—</div></div>
+          <div class="metric"><div class="metric-lbl">Ingresos Extras</div><div class="metric-val" id="fk-ing-extras">L.0</div><div class="metric-sub" id="fk-ing-extras-sub">—</div></div>
+          <div class="metric"><div class="metric-lbl">Egresos</div><div class="metric-val" style="color:var(--rojo)" id="fk-egresos">L.0</div><div class="metric-sub" id="fk-egresos-sub">—</div></div>
+          <div class="metric"><div class="metric-lbl">Utilidad Neta</div><div class="metric-val" style="color:var(--verde)" id="fk-utilidad">L.0</div><div class="metric-sub" id="fk-utilidad-sub">—</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <!-- Desglose pedidos -->
+          <div class="card">
+            <div class="card-hdr"><div class="card-title">💰 Desglose de Ingresos Pedidos</div></div>
+            <div id="fin-desglose-ped" style="padding:12px 14px;font-size:12px;"></div>
+          </div>
+          <!-- Top egresos por categoría -->
+          <div class="card">
+            <div class="card-hdr"><div class="card-title">📊 Top Egresos por Categoría</div></div>
+            <div id="fin-top-egresos" style="padding:12px 14px;font-size:12px;"></div>
+          </div>
+          <!-- Saldos cuentas -->
+          <div class="card" style="grid-column:1/-1">
+            <div class="card-hdr"><div class="card-title">🏦 Saldos Actuales por Cuenta</div></div>
+            <div id="fin-saldos-cuentas" style="padding:12px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ FIN: EGRESOS ═══════════════════════════════════════ -->
+      <div class="view" id="view-fin-egresos">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+          <input type="date" id="eg-desde" class="fi" style="width:140px;font-size:12px;padding:5px 8px">
+          <span style="color:var(--td);font-size:12px">al</span>
+          <input type="date" id="eg-hasta" class="fi" style="width:140px;font-size:12px;padding:5px 8px">
+          <select id="eg-cat-filtro" class="fi" style="width:180px;font-size:12px;padding:5px 8px" onchange="cargarEgresos()">
+            <option value="">Todas las categorías</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="cargarEgresos()">Buscar</button>
+          <button class="btn btn-primary btn-sm" onclick="abrirModalEgreso()">+ Nuevo Egreso</button>
+          <span id="eg-total-badge" style="margin-left:auto;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--rojo)"></span>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="eg-tabla">
+            <thead><tr>
+              <th>Fecha</th><th>Categoría</th><th>Descripción</th><th>Proveedor</th><th>Cuenta</th><th>Monto</th><th>Estado</th><th></th>
+            </tr></thead>
+            <tbody id="eg-tbody"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══ FIN: INGRESOS EXTRAS ═══════════════════════════════ -->
+      <div class="view" id="view-fin-ingresos">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+          <input type="date" id="ie-desde" class="fi" style="width:140px;font-size:12px;padding:5px 8px">
+          <span style="color:var(--td);font-size:12px">al</span>
+          <input type="date" id="ie-hasta" class="fi" style="width:140px;font-size:12px;padding:5px 8px">
+          <button class="btn btn-ghost btn-sm" onclick="cargarIngresosExtras()">Buscar</button>
+          <button class="btn btn-primary btn-sm" onclick="abrirModalIngresoExtra()">+ Nuevo Ingreso</button>
+          <span id="ie-total-badge" style="margin-left:auto;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--verde)"></span>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="ie-tabla">
+            <thead><tr>
+              <th>Fecha</th><th>Concepto</th><th>Descripción</th><th>Entidad</th><th>Cuenta</th><th>Monto</th><th>Estado</th><th></th>
+            </tr></thead>
+            <tbody id="ie-tbody"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══ FIN: CAJA & CUENTAS ════════════════════════════════ -->
+      <div class="view" id="view-fin-cuentas">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+          <div style="font-size:13px;color:var(--td)">Saldos en tiempo real de todas las cuentas</div>
+          <button class="btn btn-primary btn-sm" onclick="abrirModalTransferencia()">⇄ Transferir entre Cuentas</button>
+        </div>
+        <div id="fin-cuentas-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-bottom:18px;"></div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-title">📋 Últimos 50 Movimientos entre Cuentas</div></div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th>Fecha</th><th>Desde</th><th>Hacia</th><th>Concepto</th><th>Monto</th><th>Estado</th></tr></thead>
+              <tbody id="mov-tbody"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- ═══ CHAT ══════════════════════════════════════════════ -->
       <div class="view" id="view-chat" style="height:calc(100vh - 52px);overflow:hidden;padding:0;flex-direction:column;">
         <div class="chat-layout" id="chat-layout">
@@ -1717,6 +1835,7 @@ async function init() {
   // Badge solicitudes de comercios pendientes
   sb.from('solicitudes_comercios').select('id',{count:'exact',head:true}).eq('estatus','PENDIENTE').then(({count})=>{ const b=document.getElementById('badge-solcom');if(b&&count>0){b.textContent=count;b.style.display='inline';} }).catch(()=>{});
   initRealtime();
+  initRealtimeFinanzas();
 }
 
 function clockTick() {
@@ -6425,7 +6544,7 @@ function abrirAsignarRider(dId) {
 // ════════════════════════════════════════════════════════════
 // NAVEGACIÓN
 // ════════════════════════════════════════════════════════════
-var TITLES = { inicio:'Dashboard',pedidos:'Pedidos',kanban:'Kanban — Vista de Pedidos',config:'Configuración del Sistema',nuevo:'Nuevo Pedido',mapa:'Mapa en Vivo',riders:'Riders',solicitudes:'Solicitudes de Riders',solcom:'Solicitudes de Comercios',depositos:'Depósitos',liquidaciones:'Liquidaciones a Riders',turnos:'Gestión de Turnos',comprobantes:'Comprobantes de Pago',historial:'Historial',chat:'Chat',clientes:'Clientes',comercios:'Comercios',categorias:'Tipos de Comercio (Categorías)',productos:'Productos',cupones:'Cupones de Descuento',usuarios:'Usuarios del Sistema' };
+var TITLES = { inicio:'Dashboard',pedidos:'Pedidos',kanban:'Kanban — Vista de Pedidos',config:'Configuración del Sistema',nuevo:'Nuevo Pedido',mapa:'Mapa en Vivo',riders:'Riders',solicitudes:'Solicitudes de Riders',solcom:'Solicitudes de Comercios',depositos:'Depósitos',liquidaciones:'Liquidaciones a Riders',turnos:'Gestión de Turnos',comprobantes:'Comprobantes de Pago',historial:'Historial',chat:'Chat',clientes:'Clientes',comercios:'Comercios',categorias:'Tipos de Comercio (Categorías)',productos:'Productos',cupones:'Cupones de Descuento',usuarios:'Usuarios del Sistema','fin-dashboard':'Dashboard Financiero','fin-egresos':'Egresos','fin-ingresos':'Ingresos Extras','fin-cuentas':'Caja & Cuentas' };
 
 async function refreshApp() {
   const btn = document.getElementById('tb-refresh-btn');
@@ -6495,6 +6614,10 @@ function nav(v, pushHistory=true) {
     if(!S.riders.length) cargarRiders().then(renderChatContacts); else renderChatContacts();
   }
   if(v === 'nuevo') { wizGo(0); actualizarResumen(); }
+  if(v === 'fin-dashboard') { finPeriodo('mes'); }
+  if(v === 'fin-egresos')   { cargarEgresos(); abrirModalEgreso().then(()=>document.getElementById('modal-egreso').style.display='none'); }
+  if(v === 'fin-ingresos')  cargarIngresosExtras();
+  if(v === 'fin-cuentas')   cargarCuentas();
   closeSB();
 }
 
@@ -6537,6 +6660,364 @@ function notif(titulo, cuerpo, urgente=false) {
 
 // Cerrar modals al hacer click fuera
 document.querySelectorAll('.modal-bg').forEach(bg => bg.addEventListener('click', e => { if(e.target === bg) bg.classList.remove('open'); }));
+
+// ════════════════════════════════════════════════════════════
+// MÓDULO FINANCIERO
+// ════════════════════════════════════════════════════════════
+
+// ─── Helpers de fecha ────────────────────────────────────────
+function finFechaHoy() {
+  const h = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  return `${h.getFullYear()}-${pad(h.getMonth()+1)}-${pad(h.getDate())}`;
+}
+function finPrimerDiaMes() {
+  const h = new Date();
+  return `${h.getFullYear()}-${String(h.getMonth()+1).padStart(2,'0')}-01`;
+}
+function fL(v) { return `L. ${parseFloat(v||0).toFixed(2)}`; }
+
+// ─── Selector de período en Dashboard ───────────────────────
+function finPeriodo(p) {
+  const hoy = finFechaHoy();
+  let desde = hoy;
+  if(p === 'semana') {
+    const d = new Date(); d.setDate(d.getDate()-6);
+    desde = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  } else if(p === 'mes') {
+    desde = finPrimerDiaMes();
+  }
+  document.getElementById('fin-desde').value = desde;
+  document.getElementById('fin-hasta').value = hoy;
+  ['hoy','semana','mes'].forEach(x => document.getElementById('fdb-'+x)?.classList.toggle('active', x===p));
+  cargarFinDashboard();
+}
+
+// ─── DASHBOARD FINANCIERO ────────────────────────────────────
+async function cargarFinDashboard() {
+  const desde = document.getElementById('fin-desde')?.value || finPrimerDiaMes();
+  const hasta = document.getElementById('fin-hasta')?.value || finFechaHoy();
+
+  // Pedidos finalizados en el período
+  const { data: peds } = await sb.from('pedidos').select('total,tarifa_envio,subtotal,ingreso_delivery,ingreso_somar,base_app,propina')
+    .eq('estatus','FINALIZADO').gte('created_at', desde+'T00:00:00').lte('created_at', hasta+'T23:59:59');
+
+  const totalPedidos = peds?.length || 0;
+  const ingPedidos   = peds?.reduce((s,p)=>s+parseFloat(p.ingreso_somar||0),0) || 0;
+  const ingEnvios    = peds?.reduce((s,p)=>s+parseFloat(p.tarifa_envio||0)*0.34,0) || 0;
+  const ingComs      = peds?.reduce((s,p)=>s+parseFloat(p.base_app||0),0) || 0;
+  const ingPropinas  = peds?.reduce((s,p)=>s+parseFloat(p.propina||0),0) || 0;
+
+  // Ingresos extras
+  const { data: extras } = await sb.from('ingresos_extras').select('monto')
+    .eq('anulado',false).gte('fecha',desde).lte('fecha',hasta);
+  const ingExtras = extras?.reduce((s,i)=>s+parseFloat(i.monto||0),0) || 0;
+
+  // Egresos
+  const { data: egs } = await sb.from('egresos').select('monto,categoria_id,categorias_egreso!inner(nombre)')
+    .eq('anulado',false).gte('fecha',desde).lte('fecha',hasta);
+  const totalEgresos = egs?.reduce((s,e)=>s+parseFloat(e.monto||0),0) || 0;
+
+  const utilidad = ingPedidos + ingExtras - totalEgresos;
+
+  // Render KPIs
+  document.getElementById('fk-ing-pedidos').textContent = fL(ingPedidos);
+  document.getElementById('fk-ing-pedidos-sub').textContent = `${totalPedidos} pedidos finalizados`;
+  document.getElementById('fk-ing-extras').textContent = fL(ingExtras);
+  document.getElementById('fk-ing-extras-sub').textContent = `${extras?.length||0} registros`;
+  document.getElementById('fk-egresos').textContent = fL(totalEgresos);
+  document.getElementById('fk-egresos-sub').textContent = `${egs?.length||0} egresos`;
+  document.getElementById('fk-utilidad').textContent = fL(utilidad);
+  document.getElementById('fk-utilidad-sub').textContent = utilidad >= 0 ? 'Positiva ✓' : 'Negativa ⚠';
+  document.getElementById('fk-utilidad').style.color = utilidad >= 0 ? 'var(--verde)' : 'var(--rojo)';
+
+  // Desglose pedidos
+  document.getElementById('fin-desglose-ped').innerHTML = [
+    ['Tarifa envío (Somar 34%)', fL(ingEnvios)],
+    ['Comisión productos', fL(ingComs)],
+    ['Propinas', fL(ingPropinas)],
+    ['Total Somar de pedidos', fL(ingPedidos)],
+  ].map(([l,v],i)=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--g3);${i===3?'font-weight:800;border:none;padding-top:10px;':''}">
+    <span style="color:var(--td)">${l}</span><span style="color:${i===3?'var(--or)':'inherit'}">${v}</span></div>`).join('');
+
+  // Top egresos por categoría
+  const catMap = {};
+  egs?.forEach(e => {
+    const nom = e.categorias_egreso?.nombre || 'Sin categoría';
+    catMap[nom] = (catMap[nom]||0) + parseFloat(e.monto||0);
+  });
+  const topCats = Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  document.getElementById('fin-top-egresos').innerHTML = topCats.length
+    ? topCats.map(([nom,monto])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--g3)">
+        <span style="color:var(--td);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%">${nom}</span>
+        <span style="color:var(--rojo);font-weight:700">${fL(monto)}</span></div>`).join('')
+    : '<div class="empty">Sin egresos en el período</div>';
+
+  // Saldos cuentas
+  const { data: cuentas } = await sb.from('cuentas_financieras').select('nombre,icono,tipo,saldo_actual,uso_mixto').eq('activa',true).order('orden');
+  document.getElementById('fin-saldos-cuentas').innerHTML = cuentas?.map(c=>`
+    <div style="background:var(--g3);border-radius:10px;padding:12px 14px;border:1px solid var(--g4)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:18px">${c.icono||'🏦'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nombre}</div>
+          <div style="font-size:10px;color:var(--td)">${c.tipo}${c.uso_mixto?' · mixta':''}</div>
+        </div>
+      </div>
+      <div style="font-family:'Space Mono',monospace;font-size:18px;font-weight:700;color:${parseFloat(c.saldo_actual||0)>=0?'var(--verde)':'var(--rojo)'}">${fL(c.saldo_actual)}</div>
+    </div>`).join('') || '<div class="empty">Sin cuentas</div>';
+}
+
+// ─── EGRESOS ─────────────────────────────────────────────────
+async function cargarEgresos() {
+  const desde = document.getElementById('eg-desde')?.value || finPrimerDiaMes();
+  const hasta = document.getElementById('eg-hasta')?.value || finFechaHoy();
+  const catId = document.getElementById('eg-cat-filtro')?.value || '';
+
+  let q = sb.from('egresos').select('*,categorias_egreso(nombre,grupo),cuentas_financieras(nombre,icono)')
+    .eq('anulado',false).gte('fecha',desde).lte('fecha',hasta).order('fecha',{ascending:false}).order('created_at',{ascending:false});
+  if(catId) q = q.eq('categoria_id', catId);
+
+  const { data, error } = await q;
+  const tbody = document.getElementById('eg-tbody');
+  if(error || !data?.length) { tbody.innerHTML = `<tr><td colspan="8" class="empty">${error?'Error: '+error.message:'Sin egresos en el período'}</td></tr>`; document.getElementById('eg-total-badge').textContent=''; return; }
+
+  const total = data.reduce((s,e)=>s+parseFloat(e.monto||0),0);
+  document.getElementById('eg-total-badge').textContent = `Total: ${fL(total)}`;
+
+  tbody.innerHTML = data.map(e=>`<tr>
+    <td class="mono" style="font-size:11px">${e.fecha}</td>
+    <td>${e.categorias_egreso?.nombre||'—'}</td>
+    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.descripcion||''}">${e.descripcion||'—'}</td>
+    <td style="color:var(--td)">${e.proveedor_nombre||'—'}</td>
+    <td>${e.cuentas_financieras?.icono||''} ${e.cuentas_financieras?.nombre||'—'}</td>
+    <td class="mono" style="color:var(--rojo);font-weight:700">${fL(e.monto)}</td>
+    <td><span class="chip chip-${e.estatus==='APROBADO'?'FINALIZADO':'PENDIENTE'}" style="font-size:10px">${e.estatus||'REGISTRADO'}</span></td>
+    <td><button class="btn btn-danger btn-sm" onclick="anularEgreso('${e.id}')" title="Anular">✕</button></td>
+  </tr>`).join('');
+}
+
+async function abrirModalEgreso() {
+  // Cargar categorías con optgroup
+  const { data: cats } = await sb.from('categorias_egreso').select('id,nombre,grupo').eq('activa',true).order('grupo').order('orden');
+  const { data: cuentas } = await sb.from('cuentas_financieras').select('id,nombre,icono').eq('activa',true).order('orden');
+
+  const sel = document.getElementById('eg-categoria');
+  const grupos = {};
+  cats?.forEach(c => { if(!grupos[c.grupo]) grupos[c.grupo]=[]; grupos[c.grupo].push(c); });
+  sel.innerHTML = '<option value="">Seleccionar categoría...</option>' +
+    Object.entries(grupos).map(([g,items])=>
+      `<optgroup label="${g}">${items.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('')}</optgroup>`
+    ).join('');
+
+  const selC = document.getElementById('eg-cuenta');
+  selC.innerHTML = '<option value="">Seleccionar cuenta...</option>' +
+    (cuentas?.map(c=>`<option value="${c.id}">${c.icono||''} ${c.nombre}</option>`)||[]).join('');
+
+  // Poblar select de categorías en filtro también
+  const filtro = document.getElementById('eg-cat-filtro');
+  if(filtro) filtro.innerHTML = '<option value="">Todas las categorías</option>' + (cats?.map(c=>`<option value="${c.id}">${c.nombre}</option>`)||[]).join('');
+
+  document.getElementById('eg-fecha').value = finFechaHoy();
+  document.getElementById('eg-monto').value = '';
+  document.getElementById('eg-descripcion').value = '';
+  document.getElementById('eg-proveedor').value = '';
+  document.getElementById('eg-referencia').value = '';
+  document.getElementById('eg-factura').value = '';
+  document.getElementById('eg-notas').value = '';
+  document.getElementById('eg-deducible').checked = false;
+  document.getElementById('modal-egreso').style.display = 'flex';
+}
+
+async function guardarEgreso() {
+  const btn = document.getElementById('eg-guardar-btn');
+  const catId = document.getElementById('eg-categoria').value;
+  const cuentaId = document.getElementById('eg-cuenta').value;
+  const monto = parseFloat(document.getElementById('eg-monto').value);
+  const desc = document.getElementById('eg-descripcion').value.trim();
+  const fecha = document.getElementById('eg-fecha').value;
+  if(!catId || !cuentaId || !monto || !desc || !fecha) { toast('Completa los campos obligatorios','danger'); return; }
+  btn.disabled = true; btn.textContent = '⏳ Guardando...';
+  const agente = document.getElementById('u-name')?.textContent || 'Despacho';
+  const { error } = await sb.rpc('fn_registrar_egreso', {
+    p_fecha: fecha, p_categoria_id: catId, p_cuenta_id: cuentaId,
+    p_monto: monto, p_descripcion: desc,
+    p_proveedor: document.getElementById('eg-proveedor').value.trim() || null,
+    p_metodo_pago: document.getElementById('eg-metodo').value,
+    p_referencia: document.getElementById('eg-referencia').value.trim() || null,
+    p_no_factura: document.getElementById('eg-factura').value.trim() || null,
+    p_deducible: document.getElementById('eg-deducible').checked,
+    p_notas: document.getElementById('eg-notas').value.trim() || null,
+    p_registrado_por: agente
+  });
+  btn.disabled = false; btn.textContent = '💾 Guardar Egreso';
+  if(error) { toast('Error: '+error.message,'danger'); return; }
+  toast('✅ Egreso registrado');
+  document.getElementById('modal-egreso').style.display = 'none';
+  cargarEgresos();
+}
+
+async function anularEgreso(id) {
+  if(!confirm('¿Anular este egreso? Esta acción no se puede deshacer.')) return;
+  const agente = document.getElementById('u-name')?.textContent || 'Despacho';
+  const { error } = await sb.rpc('fn_anular_egreso', { p_egreso_id: id, p_motivo: 'Anulado por operador', p_usuario: agente });
+  if(error) { toast('Error al anular: '+error.message,'danger'); return; }
+  toast('✅ Egreso anulado'); cargarEgresos();
+}
+
+// ─── INGRESOS EXTRAS ──────────────────────────────────────────
+async function cargarIngresosExtras() {
+  const desde = document.getElementById('ie-desde')?.value || finPrimerDiaMes();
+  const hasta = document.getElementById('ie-hasta')?.value || finFechaHoy();
+  const { data, error } = await sb.from('ingresos_extras')
+    .select('*,cuentas_financieras(nombre,icono)')
+    .eq('anulado',false).gte('fecha',desde).lte('fecha',hasta)
+    .order('fecha',{ascending:false}).order('created_at',{ascending:false});
+  const tbody = document.getElementById('ie-tbody');
+  if(error || !data?.length) { tbody.innerHTML = `<tr><td colspan="8" class="empty">${error?'Error: '+error.message:'Sin ingresos extras en el período'}</td></tr>`; document.getElementById('ie-total-badge').textContent=''; return; }
+  const total = data.reduce((s,i)=>s+parseFloat(i.monto||0),0);
+  document.getElementById('ie-total-badge').textContent = `Total: ${fL(total)}`;
+  tbody.innerHTML = data.map(i=>`<tr>
+    <td class="mono" style="font-size:11px">${i.fecha}</td>
+    <td>${i.concepto||'—'}</td>
+    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.descripcion||'—'}</td>
+    <td style="color:var(--td)">${i.entidad_nombre||'—'}</td>
+    <td>${i.cuentas_financieras?.icono||''} ${i.cuentas_financieras?.nombre||'—'}</td>
+    <td class="mono" style="color:var(--verde);font-weight:700">${fL(i.monto)}</td>
+    <td><span class="chip chip-FINALIZADO" style="font-size:10px">ACTIVO</span></td>
+    <td><button class="btn btn-danger btn-sm" onclick="anularIngresoExtra('${i.id}')" title="Anular">✕</button></td>
+  </tr>`).join('');
+}
+
+async function abrirModalIngresoExtra() {
+  const { data: cuentas } = await sb.from('cuentas_financieras').select('id,nombre,icono').eq('activa',true).order('orden');
+  const selC = document.getElementById('ie-cuenta');
+  selC.innerHTML = '<option value="">Seleccionar cuenta...</option>' +
+    (cuentas?.map(c=>`<option value="${c.id}">${c.icono||''} ${c.nombre}</option>`)||[]).join('');
+  document.getElementById('ie-fecha').value = finFechaHoy();
+  ['ie-monto','ie-descripcion','ie-entidad','ie-referencia','ie-notas'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('ie-concepto').value = '';
+  document.getElementById('modal-ingreso-extra').style.display = 'flex';
+}
+
+async function guardarIngresoExtra() {
+  const btn = document.getElementById('ie-guardar-btn');
+  const cuentaId = document.getElementById('ie-cuenta').value;
+  const monto = parseFloat(document.getElementById('ie-monto').value);
+  const desc = document.getElementById('ie-descripcion').value.trim();
+  const concepto = document.getElementById('ie-concepto').value;
+  const fecha = document.getElementById('ie-fecha').value;
+  if(!cuentaId || !monto || !desc || !concepto || !fecha) { toast('Completa los campos obligatorios','danger'); return; }
+  btn.disabled = true; btn.textContent = '⏳ Guardando...';
+  const agente = document.getElementById('u-name')?.textContent || 'Despacho';
+  const { error } = await sb.rpc('fn_registrar_ingreso_extra', {
+    p_fecha: fecha, p_concepto: concepto, p_descripcion: desc,
+    p_cuenta_id: cuentaId, p_monto: monto,
+    p_entidad_nombre: document.getElementById('ie-entidad').value.trim() || null,
+    p_referencia: document.getElementById('ie-referencia').value.trim() || null,
+    p_notas: document.getElementById('ie-notas').value.trim() || null,
+    p_registrado_por: agente
+  });
+  btn.disabled = false; btn.textContent = '💾 Guardar Ingreso';
+  if(error) { toast('Error: '+error.message,'danger'); return; }
+  toast('✅ Ingreso registrado');
+  document.getElementById('modal-ingreso-extra').style.display = 'none';
+  cargarIngresosExtras();
+}
+
+async function anularIngresoExtra(id) {
+  if(!confirm('¿Anular este ingreso extra?')) return;
+  const agente = document.getElementById('u-name')?.textContent || 'Despacho';
+  const { error } = await sb.rpc('fn_anular_ingreso_extra', { p_ingreso_id: id, p_motivo: 'Anulado por operador', p_usuario: agente });
+  if(error) { toast('Error al anular: '+error.message,'danger'); return; }
+  toast('✅ Ingreso anulado'); cargarIngresosExtras();
+}
+
+// ─── CAJA & CUENTAS ──────────────────────────────────────────
+async function cargarCuentas() {
+  const { data: cuentas } = await sb.from('cuentas_financieras').select('*').eq('activa',true).order('orden');
+  const grid = document.getElementById('fin-cuentas-grid');
+  grid.innerHTML = cuentas?.map(c=>`
+    <div style="background:var(--g2);border:1px solid var(--g4);border-radius:12px;padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="width:40px;height:40px;border-radius:10px;background:var(--g3);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${c.icono||'🏦'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nombre}</div>
+          <div style="font-size:10px;color:var(--td)">${c.banco||c.tipo||''}${c.es_empresarial?' · Empresarial':c.uso_mixto?' · Mixta':''}</div>
+        </div>
+      </div>
+      <div style="font-family:'Space Mono',monospace;font-size:22px;font-weight:900;color:${parseFloat(c.saldo_actual||0)>=0?'var(--verde)':'var(--rojo)'}">${fL(c.saldo_actual)}</div>
+      ${c.numero_cuenta_masked?`<div style="font-size:10px;color:var(--td);margin-top:4px">${c.numero_cuenta_masked}</div>`:''}
+      ${c.titular_nombre?`<div style="font-size:10px;color:var(--td)">${c.titular_nombre}</div>`:''}
+    </div>`).join('') || '<div class="empty">Sin cuentas</div>';
+
+  // Movimientos
+  const { data: movs } = await sb.from('movimientos_caja')
+    .select('*,cuenta_origen:cuenta_origen_id(nombre,icono),cuenta_destino:cuenta_destino_id(nombre,icono)')
+    .eq('anulado',false).order('created_at',{ascending:false}).limit(50);
+  const tbody = document.getElementById('mov-tbody');
+  tbody.innerHTML = movs?.length ? movs.map(m=>`<tr>
+    <td class="mono" style="font-size:11px">${m.fecha||fmtFecha(m.created_at)}</td>
+    <td>${m.cuenta_origen?.icono||''} ${m.cuenta_origen?.nombre||'—'}</td>
+    <td>${m.cuenta_destino?.icono||''} ${m.cuenta_destino?.nombre||'—'}</td>
+    <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.concepto||'—'}</td>
+    <td class="mono" style="font-weight:700;color:var(--az)">${fL(m.monto)}</td>
+    <td><span class="chip chip-FINALIZADO" style="font-size:10px">OK</span></td>
+  </tr>`).join('') : '<tr><td colspan="6" class="empty">Sin movimientos</td></tr>';
+
+  // Poblar selects de modal transferencia
+  const selOrig = document.getElementById('tr-origen');
+  const selDest = document.getElementById('tr-destino');
+  const opts = '<option value="">Seleccionar...</option>' + (cuentas?.map(c=>`<option value="${c.id}">${c.icono||''} ${c.nombre}</option>`)||[]).join('');
+  if(selOrig) selOrig.innerHTML = opts;
+  if(selDest) selDest.innerHTML = opts;
+}
+
+async function abrirModalTransferencia() {
+  await cargarCuentas();
+  ['tr-monto','tr-concepto','tr-referencia'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('modal-transferencia').style.display = 'flex';
+}
+
+async function guardarTransferencia() {
+  const btn = document.getElementById('tr-guardar-btn');
+  const origen = document.getElementById('tr-origen').value;
+  const destino = document.getElementById('tr-destino').value;
+  const monto = parseFloat(document.getElementById('tr-monto').value);
+  const concepto = document.getElementById('tr-concepto').value.trim();
+  if(!origen || !destino || !monto || !concepto) { toast('Completa todos los campos','danger'); return; }
+  if(origen === destino) { toast('Origen y destino no pueden ser la misma cuenta','danger'); return; }
+  btn.disabled = true; btn.textContent = '⏳ Procesando...';
+  const agente = document.getElementById('u-name')?.textContent || 'Despacho';
+  const { error } = await sb.rpc('fn_transferir_entre_cuentas', {
+    p_cuenta_origen_id: origen, p_cuenta_destino_id: destino,
+    p_monto: monto, p_concepto: concepto,
+    p_referencia: document.getElementById('tr-referencia').value.trim() || null,
+    p_registrado_por: agente
+  });
+  btn.disabled = false; btn.textContent = '⇄ Transferir';
+  if(error) { toast('Error: '+error.message,'danger'); return; }
+  toast('✅ Transferencia registrada');
+  document.getElementById('modal-transferencia').style.display = 'none';
+  cargarCuentas();
+}
+
+// ─── REALTIME finanzas ────────────────────────────────────────
+function initRealtimeFinanzas() {
+  sb.channel('fin-changes')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'egresos'},()=>{
+      if(document.getElementById('view-fin-egresos')?.classList.contains('active')) cargarEgresos();
+      if(document.getElementById('view-fin-dashboard')?.classList.contains('active')) cargarFinDashboard();
+    })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'ingresos_extras'},()=>{
+      if(document.getElementById('view-fin-ingresos')?.classList.contains('active')) cargarIngresosExtras();
+      if(document.getElementById('view-fin-dashboard')?.classList.contains('active')) cargarFinDashboard();
+    })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'movimientos_caja'},()=>{
+      if(document.getElementById('view-fin-cuentas')?.classList.contains('active')) cargarCuentas();
+    })
+    .subscribe();
+}
 </script>
 
 <script>
@@ -6631,6 +7112,110 @@ window.addEventListener('popstate', e => {
     </div>
   </div>
 </div>
+<!-- ═══ MODAL NUEVO EGRESO ══════════════════════════════════ -->
+<div id="modal-egreso" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:600;align-items:center;justify-content:center;padding:12px" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--g1);border:1px solid var(--g4);border-radius:18px;width:100%;max-width:600px;max-height:94vh;overflow:hidden;display:flex;flex-direction:column">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--g4);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+      <div style="font-size:14px;font-weight:800;color:var(--or)">NUEVO EGRESO</div>
+      <button onclick="document.getElementById('modal-egreso').style.display='none'" style="background:none;border:none;color:var(--td);font-size:22px;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:18px;overflow-y:auto;flex:1">
+      <div class="form-grid">
+        <div class="fg"><label class="fl">Fecha *</label><input type="date" class="fi" id="eg-fecha"></div>
+        <div class="fg"><label class="fl">Monto (L.) *</label><input type="number" class="fi" id="eg-monto" min="0" step="0.01" placeholder="0.00"></div>
+        <div class="fg full"><label class="fl">Categoría *</label>
+          <select class="fi" id="eg-categoria"><option value="">Seleccionar...</option></select></div>
+        <div class="fg full"><label class="fl">Cuenta que paga *</label>
+          <select class="fi" id="eg-cuenta"><option value="">Seleccionar...</option></select></div>
+        <div class="fg full"><label class="fl">Descripción *</label><input type="text" class="fi" id="eg-descripcion" placeholder="Descripción del egreso"></div>
+        <div class="fg"><label class="fl">Proveedor / Beneficiario</label><input type="text" class="fi" id="eg-proveedor" placeholder="Nombre del proveedor"></div>
+        <div class="fg"><label class="fl">Método de Pago</label>
+          <select class="fi" id="eg-metodo">
+            <option value="EFECTIVO">Efectivo</option>
+            <option value="TRANSFERENCIA">Transferencia</option>
+            <option value="TARJETA">Tarjeta</option>
+            <option value="CHEQUE">Cheque</option>
+          </select>
+        </div>
+        <div class="fg"><label class="fl">No. Referencia / Comprobante</label><input type="text" class="fi" id="eg-referencia" placeholder="Ej: TRX-12345"></div>
+        <div class="fg"><label class="fl">No. Factura</label><input type="text" class="fi" id="eg-factura" placeholder="Opcional"></div>
+        <div class="fg" style="align-items:center;flex-direction:row;gap:10px;padding-top:18px">
+          <input type="checkbox" id="eg-deducible" style="width:16px;height:16px;accent-color:var(--or)">
+          <label for="eg-deducible" class="fl" style="margin:0">Deducible de ISR</label>
+        </div>
+        <div class="fg full"><label class="fl">Notas adicionales</label><textarea class="fi" id="eg-notas" rows="2" placeholder="Notas opcionales"></textarea></div>
+      </div>
+    </div>
+    <div style="padding:14px 18px;border-top:1px solid var(--g4);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-egreso').style.display='none'">Cancelar</button>
+      <button class="btn btn-primary" id="eg-guardar-btn" onclick="guardarEgreso()">💾 Guardar Egreso</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL NUEVO INGRESO EXTRA ═══════════════════════════ -->
+<div id="modal-ingreso-extra" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:600;align-items:center;justify-content:center;padding:12px" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--g1);border:1px solid var(--g4);border-radius:18px;width:100%;max-width:560px;max-height:94vh;overflow:hidden;display:flex;flex-direction:column">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--g4);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+      <div style="font-size:14px;font-weight:800;color:var(--verde)">NUEVO INGRESO EXTRA</div>
+      <button onclick="document.getElementById('modal-ingreso-extra').style.display='none'" style="background:none;border:none;color:var(--td);font-size:22px;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:18px;overflow-y:auto;flex:1">
+      <div class="form-grid">
+        <div class="fg"><label class="fl">Fecha *</label><input type="date" class="fi" id="ie-fecha"></div>
+        <div class="fg"><label class="fl">Monto (L.) *</label><input type="number" class="fi" id="ie-monto" min="0" step="0.01" placeholder="0.00"></div>
+        <div class="fg full"><label class="fl">Concepto *</label>
+          <select class="fi" id="ie-concepto">
+            <option value="">Seleccionar...</option>
+            <option value="DEPOSITO_RIDER">Depósito de Rider</option>
+            <option value="COMISION_COMERCIO">Comisión de Comercio</option>
+            <option value="PUBLICIDAD">Publicidad / Patrocinio</option>
+            <option value="AJUSTE_POSITIVO">Ajuste Positivo</option>
+            <option value="PRESTAMO_RECIBIDO">Préstamo Recibido</option>
+            <option value="VENTA_ACTIVO">Venta de Activo</option>
+            <option value="OTRO">Otro</option>
+          </select>
+        </div>
+        <div class="fg full"><label class="fl">Cuenta receptora *</label>
+          <select class="fi" id="ie-cuenta"><option value="">Seleccionar...</option></select></div>
+        <div class="fg full"><label class="fl">Descripción *</label><input type="text" class="fi" id="ie-descripcion" placeholder="Descripción del ingreso"></div>
+        <div class="fg"><label class="fl">Entidad / Fuente</label><input type="text" class="fi" id="ie-entidad" placeholder="Ej: Rider Juan, Comercio X"></div>
+        <div class="fg"><label class="fl">Referencia / Comprobante</label><input type="text" class="fi" id="ie-referencia" placeholder="Ej: TRX-12345"></div>
+        <div class="fg full"><label class="fl">Notas</label><textarea class="fi" id="ie-notas" rows="2" placeholder="Notas opcionales"></textarea></div>
+      </div>
+    </div>
+    <div style="padding:14px 18px;border-top:1px solid var(--g4);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-ingreso-extra').style.display='none'">Cancelar</button>
+      <button class="btn btn-primary" id="ie-guardar-btn" onclick="guardarIngresoExtra()">💾 Guardar Ingreso</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL TRANSFERENCIA ══════════════════════════════════ -->
+<div id="modal-transferencia" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:600;align-items:center;justify-content:center;padding:12px" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--g1);border:1px solid var(--g4);border-radius:18px;width:100%;max-width:480px;max-height:94vh;overflow:hidden;display:flex;flex-direction:column">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--g4);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+      <div style="font-size:14px;font-weight:800;color:var(--az)">TRANSFERIR ENTRE CUENTAS</div>
+      <button onclick="document.getElementById('modal-transferencia').style.display='none'" style="background:none;border:none;color:var(--td);font-size:22px;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:18px;overflow-y:auto;flex:1">
+      <div class="form-grid">
+        <div class="fg full"><label class="fl">Cuenta Origen *</label>
+          <select class="fi" id="tr-origen"><option value="">Seleccionar...</option></select></div>
+        <div class="fg full"><label class="fl">Cuenta Destino *</label>
+          <select class="fi" id="tr-destino"><option value="">Seleccionar...</option></select></div>
+        <div class="fg full"><label class="fl">Monto (L.) *</label><input type="number" class="fi" id="tr-monto" min="0" step="0.01" placeholder="0.00"></div>
+        <div class="fg full"><label class="fl">Concepto *</label><input type="text" class="fi" id="tr-concepto" placeholder="Ej: Traslado de efectivo a BAC"></div>
+        <div class="fg full"><label class="fl">Referencia / Comprobante</label><input type="text" class="fi" id="tr-referencia" placeholder="Opcional"></div>
+      </div>
+    </div>
+    <div style="padding:14px 18px;border-top:1px solid var(--g4);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-transferencia').style.display='none'">Cancelar</button>
+      <button class="btn btn-primary" id="tr-guardar-btn" onclick="guardarTransferencia()">⇄ Transferir</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ MODAL DETALLE SOLICITUD RIDER ═══════════════════════ -->
 <div id="modal-sol-det" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;align-items:center;justify-content:center;padding:12px" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--g1);border:1px solid var(--g4);border-radius:18px;width:100%;max-width:680px;max-height:94vh;overflow:hidden;display:flex;flex-direction:column">
