@@ -2625,6 +2625,26 @@ async function confirmarAsig() {
   if(pedErr) { toast('Error actualizando pedido: ' + pedErr.message, 'danger'); return; }
   closeModal('modal-asignar');
   toast('🏍 Repartidor asignado. Pedido enviado al rider.', 'success');
+  // Enviar Web Push al rider (background notification)
+  enviarPushARider(parseInt(S.selRiderId), S.selPedidoId);
+}
+
+async function enviarPushARider(deliveryId, pedidoId) {
+  try {
+    const pedido = S.pedidos?.find(p => p.id === pedidoId);
+    const titulo = '🔔 Nuevo Pedido';
+    const cuerpo = (pedido?.nombre_comercio || 'Pedido nuevo') +
+                   (pedido?.ciudad_destino ? ' · ' + pedido.ciudad_destino : '');
+    const { data: { session } } = await sb.auth.getSession();
+    await fetch('https://jjrmzouigcmeztkybrvp.supabase.co/functions/v1/notify-rider', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session?.access_token },
+      body: JSON.stringify({ delivery_id: deliveryId, title: titulo, body: cuerpo, tag: 'nuevo-pedido', data: { pedido_id: pedidoId } }),
+    });
+    console.log('[Push] Notificación enviada al rider', deliveryId);
+  } catch(e) {
+    console.warn('[Push] Error enviando push:', e);
+  }
 }
 
 async function reintentarAsignacion() {
