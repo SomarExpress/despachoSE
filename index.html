@@ -966,6 +966,14 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
               </select>
             </div>
 
+            <!-- Ubicaciones guardadas del cliente -->
+            <div class="fg" id="cli-ubics-grp" style="display:none;grid-column:1/-1">
+              <label class="fl">Dirección de entrega guardada</label>
+              <select id="f-cli-ubic" class="fi" onchange="wizSeleccionarUbicCli()">
+                <option value="">Ingresar dirección manual...</option>
+              </select>
+            </div>
+
           </div>
           <div class="wiz-footer">
             <button class="btn btn-primary" onclick="wizGo(1)">Siguiente →</button>
@@ -1056,31 +1064,16 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
             <div class="fg" id="grp-productos-wiz" style="display:none;grid-column:1/-1">
               <label class="fl">Menú del comercio</label>
               <!-- Buscador de productos -->
-              <div style="position:relative;margin-bottom:8px">
-                <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--td);pointer-events:none">🔍</span>
-                <input type="text" id="wiz-prod-search" class="fi" placeholder="Buscar producto en el menú..." oninput="wizFiltrarProductos(this.value)" style="padding-left:34px">
-              </div>
+              <input type="text" id="wiz-prod-search" class="fi" placeholder="Buscar producto..." oninput="wizFiltrarProductos(this.value)" style="margin-bottom:6px">
               <!-- Lista de productos agrupados por categoría -->
-              <div id="productos-wiz-lista" style="max-height:340px;overflow-y:auto;border:1px solid var(--g4);border-radius:10px;background:var(--g1)"></div>
-              <!-- Carrito (sticky abajo, siempre visible cuando hay items) -->
-              <div id="wiz-carrito" style="display:none;position:sticky;bottom:8px;margin-top:10px;border:1.5px solid var(--or);border-radius:12px;background:linear-gradient(180deg,rgba(255,140,0,.15) 0%,rgba(255,140,0,.06) 100%);overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.35),0 0 0 1px rgba(255,140,0,.1);z-index:5">
-                <div style="padding:10px 14px;background:rgba(255,140,0,.12);display:flex;align-items:center;justify-content:space-between;cursor:pointer;gap:10px" onclick="wizToggleCarrito()">
-                  <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
-                    <div style="width:34px;height:34px;border-radius:50%;background:var(--or);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;box-shadow:0 2px 8px rgba(255,140,0,.4)">🛒</div>
-                    <div style="min-width:0">
-                      <div style="font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--or);text-transform:uppercase">Carrito · <span id="wiz-carrito-count">0</span> ítem(s)</div>
-                      <div style="font-size:10px;color:var(--td)" id="wiz-carrito-hint">Toca para ver/ocultar</div>
-                    </div>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-                    <span style="font-size:18px;font-weight:900;color:var(--or)" id="wiz-subtotal-prod">L. 0.00</span>
-                    <span id="wiz-carrito-chevron" style="font-size:12px;color:var(--or);transition:transform .2s">▼</span>
-                  </div>
+              <div id="productos-wiz-lista" style="max-height:260px;overflow-y:auto;border:1px solid var(--g4);border-radius:10px"></div>
+              <!-- Carrito -->
+              <div id="wiz-carrito" style="display:none;margin-top:8px;border:1px solid rgba(255,140,0,.3);border-radius:10px;background:rgba(255,140,0,.04);overflow:hidden">
+                <div style="padding:8px 12px;background:rgba(255,140,0,.08);display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="document.getElementById('wiz-carrito-items').style.display=document.getElementById('wiz-carrito-items').style.display==='none'?'block':'none'">
+                  <span style="font-size:11px;font-weight:800;letter-spacing:.5px;color:var(--or)">🛒 CARRITO (<span id="wiz-carrito-count">0</span>)</span>
+                  <span style="font-size:14px;font-weight:900;color:var(--or)" id="wiz-subtotal-prod">L. 0.00</span>
                 </div>
-                <div id="wiz-carrito-items" style="max-height:200px;overflow-y:auto;background:var(--g1)"></div>
-                <div id="wiz-carrito-foot" style="display:none;padding:8px 14px;background:rgba(0,0,0,.2);border-top:1px solid rgba(255,140,0,.2);text-align:right">
-                  <button type="button" class="btn btn-ghost btn-sm" onclick="wizVaciarCarrito()" style="font-size:11px;color:var(--rojo);border-color:rgba(239,68,68,.3)">🗑 Vaciar carrito</button>
-                </div>
+                <div id="wiz-carrito-items" style="max-height:150px;overflow-y:auto"></div>
               </div>
             </div>
 
@@ -1687,6 +1680,39 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 const SUPA_URL  = 'https://jjrmzouigcmeztkybrvp.supabase.co';
 const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impqcm16b3VpZ2NtZXp0a3licnZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5MzExNDgsImV4cCI6MjA4ODUwNzE0OH0.tNUHxGWMWh7Q6v4mH3y5gOxpczpEJHwNqwH2TehL61I';
 const sb = supabase.createClient(SUPA_URL, SUPA_ANON);
+
+// ─── 🔐 FIRMAR URL DE riders-docs (bucket privado desde nov 2026) ───
+// Acepta tanto URL pública vieja como path nuevo. Devuelve URL firmada (1h).
+// Cache simple para no firmar la misma URL múltiples veces en una sesión.
+const _signedRiderDocCache = new Map();
+async function firmarDocRider(urlOPath, expSec=3600) {
+  if (!urlOPath) return null;
+  const cached = _signedRiderDocCache.get(urlOPath);
+  if (cached && cached.exp > Date.now()) return cached.url;
+  let path = urlOPath;
+  const marker = '/riders-docs/';
+  const idx = urlOPath.indexOf(marker);
+  if (idx !== -1) path = urlOPath.substring(idx + marker.length);
+  path = path.split('?')[0];
+  try {
+    const { data, error } = await sb.storage.from('riders-docs').createSignedUrl(path, expSec);
+    if (error || !data?.signedUrl) return null;
+    _signedRiderDocCache.set(urlOPath, { url: data.signedUrl, exp: Date.now() + (expSec - 60)*1000 });
+    return data.signedUrl;
+  } catch (e) {
+    console.warn('[firmarDocRider]', e.message);
+    return null;
+  }
+}
+// Firma todos los campos URL de un objeto solicitud/rider en paralelo
+async function firmarUrlsSolicitud(s) {
+  if (!s) return s;
+  const fields = ['foto_url','identidad_delantera_url','identidad_trasera_url','licencia_url','revision_vehiculo_url','moto_propia_url','mochila_url','antecedentes_url','rtn_url'];
+  const signed = await Promise.all(fields.map(f => firmarDocRider(s[f])));
+  const out = { ...s };
+  fields.forEach((f, i) => { out[f] = signed[i]; });
+  return out;
+}
 
 // ════════════════════════════════════════════════════════════
 // ESTADO
@@ -2764,6 +2790,8 @@ async function abrirDetalleRider(riderId) {
         .order('created_at', { ascending: false })
         .limit(1);
       sol = sols?.[0] || null;
+      // Firmar URLs (bucket privado)
+      if (sol) sol = await firmarUrlsSolicitud(sol);
     }
 
     // 3) Stats del rider
@@ -3126,10 +3154,12 @@ async function guardarBono() {
 // ════════════════════════════════════════════════════════════
 async function cargarSolicitudes(estatus='PENDIENTE') {
   S.solFiltro = estatus;
-  const { data } = await sb.from('aplicaciones_delivery').select('*').eq('estatus', estatus).order('created_at', { ascending: false });
+  const { data: rawData } = await sb.from('aplicaciones_delivery').select('*').eq('estatus', estatus).order('created_at', { ascending: false });
   const el = document.getElementById('sol-lista');
-  if(!data?.length) { el.innerHTML = '<div class="empty">Sin solicitudes ' + estatus.toLowerCase() + 's</div>'; return; }
-  document.getElementById('badge-sol').textContent = estatus === 'PENDIENTE' ? data.length : parseInt(document.getElementById('badge-sol').textContent||0);
+  if(!rawData?.length) { el.innerHTML = '<div class="empty">Sin solicitudes ' + estatus.toLowerCase() + 's</div>'; return; }
+  document.getElementById('badge-sol').textContent = estatus === 'PENDIENTE' ? rawData.length : parseInt(document.getElementById('badge-sol').textContent||0);
+  // Firmar URLs de docs en paralelo (bucket privado)
+  const data = await Promise.all(rawData.map(firmarUrlsSolicitud));
   // Cachear solicitudes para modal
   data.forEach(s => { if(!window._solCache) window._solCache = {}; window._solCache[s.id] = s; });
   el.innerHTML = data.map(s => `
@@ -4149,34 +4179,14 @@ async function validarCupon() {
 }
 
 async function guardarPedido() {
-  const cli       = document.getElementById('f-cli-nom')?.value?.trim();
-  const tel       = document.getElementById('f-cli-tel')?.value?.trim();
-  const gpsRec    = document.getElementById('f-gps-rec')?.value?.trim();
-  const dirRec    = document.getElementById('f-dir-rec')?.value?.trim();
-  const comercio  = document.getElementById('f-comercio')?.value?.trim();
-  const gpsEnt    = document.getElementById('f-gps-ent')?.value?.trim();
-  const dirEnt    = document.getElementById('f-dir-ent')?.value?.trim();
-  const destNom   = document.getElementById('f-dest-nom')?.value?.trim();
-
-  // ── Validación centralizada — listar todo lo que falta ──
-  const faltantes = [];
-  let pasoIr = null;
-  if(!cli)                         { faltantes.push('Nombre del cliente'); pasoIr ??= 0; }
-  if(!tel)                         { faltantes.push('Teléfono del cliente'); pasoIr ??= 0; }
-  if(!comercio && !dirRec)         { faltantes.push('Comercio o dirección de recolecta'); pasoIr ??= 1; }
-  if(!dirEnt)                      { faltantes.push('Dirección de entrega'); pasoIr ??= 2; }
-  if(!destNom)                     { faltantes.push('Nombre de quien recibe'); pasoIr ??= 2; }
-
-  if(faltantes.length) {
-    toast('⚠️ Falta: ' + faltantes.join(' · '), 'danger');
-    if(pasoIr !== null) wizGo(pasoIr);
-    return;
-  }
-
+  const cli = document.getElementById('f-cli-nom')?.value?.trim();
+  const gpsEnt = document.getElementById('f-gps-ent')?.value?.trim();
+  if(!cli) return toast('El nombre del cliente es requerido', 'danger');
   const btn = document.getElementById('btn-guardar');
   btn.disabled = true; btn.textContent = '⏳ Calculando ruta...';
   // Garantizar km calculado ANTES de guardar (wizCalcularTarifa es async)
-  if(gpsRec && gpsEnt) await wizCalcularTarifa();
+  const gpsRecFinal = document.getElementById('f-gps-rec')?.value?.trim();
+  if(gpsRecFinal && gpsEnt) await wizCalcularTarifa();
   btn.textContent = '⏳ Guardando...';
   const prod  = parseFloat(document.getElementById('sv-prod-inp')?.value||0)  || S.stepVals['sv-prod']  || 0;
   const envio = parseFloat(document.getElementById('sv-envio-inp')?.value||0) || S.stepVals['sv-envio'] || 50;
@@ -4280,6 +4290,7 @@ async function guardarPedido() {
   document.getElementById('grp-productos-wiz').style.display='none';
   const carritoReset=document.getElementById('wiz-carrito'); if(carritoReset) carritoReset.style.display='none';
   const searchReset=document.getElementById('wiz-prod-search'); if(searchReset) searchReset.value='';
+  document.getElementById('cli-ubics-grp').style.display='none';
   document.getElementById('ent-ubics-grp').style.display='none';
   // Limpiar mini mapas
   ['wiz-rec-minimapa','wiz-ent-minimapa'].forEach(id=>{
@@ -4427,22 +4438,41 @@ function wizLimpiarCliente() {
     const el=document.getElementById(id); if(el) el.value='';
   });
   document.getElementById('cli-seleccionado').style.display='none';
+  document.getElementById('cli-ubics-grp').style.display='none';
   document.getElementById('ent-ubics-grp').style.display='none';
 }
 
 async function wizCargarUbicsCli(clienteId) {
   const {data} = await sb.from('ubicaciones_cliente').select('*')
     .eq('cliente_id',clienteId).order('es_principal',{ascending:false});
-  // Solo selector en paso 2 (entrega)
+  // Selector en paso 0
+  const grp0 = document.getElementById('cli-ubics-grp');
+  const sel0 = document.getElementById('f-cli-ubic');
+  // Selector en paso 2 (entrega)
   const grp2 = document.getElementById('ent-ubics-grp');
   const sel2 = document.getElementById('f-ent-ubic');
-  if(!data?.length) { if(grp2) grp2.style.display='none'; return; }
+  if(!data?.length) { if(grp0) grp0.style.display='none'; if(grp2) grp2.style.display='none'; return; }
   const opts = '<option value="">Ingresar dirección manual...</option>' +
     data.map(u=>`<option value="${u.id}"
       data-dir="${u.direccion||''}" data-col="${u.colonia||''}"
       data-gps="${u.ubicacion_gps||''}" data-ciudad="${u.ciudad||''}"
       >${u.es_principal?'⭐':''} ${u.nombre} — ${u.direccion||u.colonia||''}</option>`).join('');
+  if(grp0 && sel0) { grp0.style.display='block'; sel0.innerHTML=opts; }
   if(grp2 && sel2) { grp2.style.display='block'; sel2.innerHTML=opts; }
+}
+
+function wizSeleccionarUbicCli() {
+  const sel = document.getElementById('f-cli-ubic');
+  const opt = sel?.options[sel.selectedIndex];
+  if(!opt?.value) return;
+  // Rellenar en paso 2
+  const dir = document.getElementById('f-dir-ent');
+  const gps = document.getElementById('f-gps-ent');
+  const ciudad = document.getElementById('f-ciudad');
+  if(dir) dir.value = [opt.dataset.col,opt.dataset.dir].filter(Boolean).join(', ');
+  if(gps && opt.dataset.gps) { gps.value=opt.dataset.gps; ubiAutodetectarZona(opt.dataset.gps,'wiz-ent'); }
+  if(ciudad && opt.dataset.ciudad) ciudad.value = opt.dataset.ciudad;
+  wizCalcularTarifa();
 }
 
 function wizSeleccionarUbicEnt() {
@@ -4707,7 +4737,6 @@ function wizCantProd(id, delta, precio=0, nombre='') {
 function wizActualizarCarrito() {
   const carritoDiv = document.getElementById('wiz-carrito');
   const itemsDiv   = document.getElementById('wiz-carrito-items');
-  const footDiv    = document.getElementById('wiz-carrito-foot');
   const countEl    = document.getElementById('wiz-carrito-count');
   const subtotalEl = document.getElementById('wiz-subtotal-prod');
   if(!carritoDiv) return;
@@ -4722,29 +4751,17 @@ function wizActualizarCarrito() {
     if(countEl) countEl.textContent = totalItems;
     if(subtotalEl) subtotalEl.textContent = `L. ${subtotal.toFixed(2)}`;
     if(itemsDiv) {
-      itemsDiv.innerHTML = _wizProductos.map(p => {
-        // Buscar imagen del producto en _wizAllProds (ya cargado)
-        const full = _wizAllProds.find(x=>x.id===p.id);
-        const img = full?.imagen_url
-          ? `<img src="${full.imagen_url}" style="width:34px;height:34px;border-radius:6px;object-fit:cover;flex-shrink:0">`
-          : `<div style="width:34px;height:34px;border-radius:6px;background:var(--g4);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">📦</div>`;
-        const nameEsc = (p.nombre||'').replace(/'/g,"\\'");
-        return `<div style="display:flex;align-items:center;gap:9px;padding:8px 12px;border-bottom:1px solid var(--g3)">
-          ${img}
-          <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.nombre}</div>
-            <div style="font-size:10px;color:var(--td)">L.${p.precio.toFixed(2)} × ${p.qty}</div>
-          </div>
+      itemsDiv.innerHTML = _wizProductos.map(p => `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--g3)">
+          <div style="flex:1;font-size:12px;font-weight:600">${p.nombre}</div>
           <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-            <button type="button" onclick="wizCantProd('${p.id}',-1)" style="width:24px;height:24px;border-radius:5px;border:1px solid rgba(255,140,0,.4);background:rgba(255,140,0,.12);color:var(--or);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">−</button>
-            <span style="width:22px;text-align:center;font-size:13px;font-weight:800;color:var(--or)">${p.qty}</span>
-            <button type="button" onclick="wizCantProd('${p.id}',1,${p.precio},'${nameEsc}')" style="width:24px;height:24px;border-radius:5px;border:1px solid rgba(255,140,0,.4);background:rgba(255,140,0,.12);color:var(--or);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">+</button>
+            <button type="button" onclick="wizCantProd('${p.id}',-1)" style="width:22px;height:22px;border-radius:4px;border:1px solid rgba(255,140,0,.3);background:rgba(255,140,0,.08);color:var(--or);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>
+            <span style="width:20px;text-align:center;font-size:12px;font-weight:800;color:var(--or)">${p.qty}</span>
+            <button type="button" onclick="wizCantProd('${p.id}',1,${p.precio},'${(p.nombre||'').replace(/'/g,"\\'")}')" style="width:22px;height:22px;border-radius:4px;border:1px solid rgba(255,140,0,.3);background:rgba(255,140,0,.08);color:var(--or);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
           </div>
-          <div style="font-size:13px;font-weight:800;color:var(--or);min-width:62px;text-align:right">L.${(p.precio*p.qty).toFixed(0)}</div>
-        </div>`;
-      }).join('');
+          <div style="font-size:12px;font-weight:700;color:var(--or);min-width:55px;text-align:right">L.${(p.precio*p.qty).toFixed(0)}</div>
+        </div>`).join('');
     }
-    if(footDiv) footDiv.style.display = 'block';
   }
 
   // Sincronizar con monto producto del paso 3
@@ -4752,38 +4769,6 @@ function wizActualizarCarrito() {
   const inp = document.getElementById('sv-prod-inp');
   if(inp) inp.value = subtotal.toFixed(2);
   actualizarResumen();
-}
-
-// Toggle expandir/colapsar carrito
-function wizToggleCarrito() {
-  const items = document.getElementById('wiz-carrito-items');
-  const foot  = document.getElementById('wiz-carrito-foot');
-  const chev  = document.getElementById('wiz-carrito-chevron');
-  const hint  = document.getElementById('wiz-carrito-hint');
-  if(!items) return;
-  const isOpen = items.style.display !== 'none';
-  if(isOpen) {
-    items.style.display = 'none';
-    if(foot) foot.style.display = 'none';
-    if(chev) chev.style.transform = 'rotate(-90deg)';
-    if(hint) hint.textContent = 'Toca para ver detalle';
-  } else {
-    items.style.display = 'block';
-    if(foot) foot.style.display = 'block';
-    if(chev) chev.style.transform = 'rotate(0)';
-    if(hint) hint.textContent = 'Toca para ocultar';
-  }
-}
-
-// Vaciar todo el carrito
-function wizVaciarCarrito() {
-  if(!_wizProductos.length) return;
-  if(!confirm('¿Vaciar el carrito? Se eliminarán todos los productos.')) return;
-  _wizProductos = [];
-  // Refrescar render de los productos en el menú
-  if(_wizAllProds.length) wizRenderProductos(_wizAllProds, _wizCatsCache||[]);
-  wizActualizarCarrito();
-  toast('Carrito vaciado', 'ghost');
 }
 
 // ─── wizSetDestinatario ───────────────────────────────────────
