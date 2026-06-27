@@ -3213,15 +3213,61 @@ async function guardarBono() {
 // ════════════════════════════════════════════════════════════
 // SOLICITUDES DE RIDERS
 // ════════════════════════════════════════════════════════════
+// Convierte ruta relativa de Supabase Storage → URL pública del bucket delivery-docs
+// Si ya es una URL absoluta (http/https), la devuelve sin cambio.
+function storageUrl(path) {
+  if(!path) return null;
+  if(path.startsWith('http://') || path.startsWith('https://')) return path;
+  // URL pública directa (bucket delivery-docs es privado, usamos signed URL cacheada)
+  return null; // será resuelta por resolverSignedUrls
+}
+
+// Genera signed URLs para todos los campos de imagen de una solicitud
+async function resolverSignedUrls(sol) {
+  const campos = [
+    'foto_url','identidad_delantera_url','identidad_trasera_url',
+    'licencia_url','revision_vehiculo_url','moto_propia_url',
+    'mochila_url','antecedentes_url','rtn_url'
+  ];
+  const necesitan = campos.filter(c => sol[c] && !sol[c].startsWith('http'));
+  if(!necesitan.length) return sol; // ya tiene URLs absolutas
+
+  const signed = await Promise.all(necesitan.map(async c => {
+    // Intentar riders-docs primero (bucket de la landing de aplicaciones)
+    let result = await sb.storage.from('riders-docs').createSignedUrl(sol[c], 60 * 60 * 6);
+    if(!result.data?.signedUrl) {
+      // Fallback a delivery-docs (bucket de documentos internos)
+      result = await sb.storage.from('delivery-docs').createSignedUrl(sol[c], 60 * 60 * 6);
+    }
+    return { campo: c, url: result.data?.signedUrl || null };
+  }));
+
+  const result = { ...sol };
+  signed.forEach(({ campo, url }) => { if(url) result[campo] = url; });
+  return result;
+}
+
 async function cargarSolicitudes(estatus='PENDIENTE') {
   S.solFiltro = estatus;
-  const { data } = await sb.from('aplicaciones_delivery').select('*').eq('estatus', estatus).order('created_at', { ascending: false });
   const el = document.getElementById('sol-lista');
+  el.innerHTML = '<div class="empty" style="padding:20px">Cargando solicitudes...</div>';
+
+  const { data } = await sb.from('aplicaciones_delivery').select('*').eq('estatus', estatus).order('created_at', { ascending: false });
   if(!data?.length) { el.innerHTML = '<div class="empty">Sin solicitudes ' + estatus.toLowerCase() + 's</div>'; return; }
-  document.getElementById('badge-sol').textContent = estatus === 'PENDIENTE' ? data.length : parseInt(document.getElementById('badge-sol').textContent||0);
-  // Cachear solicitudes para modal
-  data.forEach(s => { if(!window._solCache) window._solCache = {}; window._solCache[s.id] = s; });
-  el.innerHTML = data.map(s => `
+
+  // Resolver signed URLs en paralelo para todas las solicitudes
+  const solicitudes = await Promise.all(data.map(resolverSignedUrls));
+
+  if(estatus === 'PENDIENTE') {
+    const b = document.getElementById('badge-sol');
+    if(b) { b.textContent = solicitudes.length; b.style.display = 'inline'; }
+  }
+
+  // Cachear con URLs ya resueltas para el modal de detalle
+  if(!window._solCache) window._solCache = {};
+  solicitudes.forEach(s => { window._solCache[s.id] = s; });
+
+  el.innerHTML = solicitudes.map(s => `
     <div class="dep-card">
       <div class="dep-hdr">
         <div class="ch-av" style="width:40px;height:40px;font-size:14px;border:2px solid var(--or);flex-shrink:0">${inic(s.nombre)}</div>
@@ -3232,7 +3278,11 @@ async function cargarSolicitudes(estatus='PENDIENTE') {
         </div>
         <span class="chip chip-${estatus}">${estatus}</span>
       </div>
-      ${s.identidad_delantera_url ? `<div class="dep-img" onclick="window.open('${s.identidad_delantera_url}','_blank')" style="background-image:url(${s.identidad_delantera_url})"><div class="dep-img-overlay">🪪 Ver DUI ↗</div></div>` : ''}
+      ${s.identidad_delantera_url
+        ? `<div class="dep-img" onclick="window.open('${s.identidad_delantera_url}','_blank')"
+             style="background-image:url('${s.identidad_delantera_url}')">
+             <div class="dep-img-overlay">🪪 Ver DUI ↗</div></div>`
+        : ''}
       <div class="dep-footer">
         <button class="btn btn-ghost btn-sm" onclick="verDetalleSolicitud('${s.id}')">👁 Ver más</button>
         ${estatus === 'PENDIENTE' ? `
