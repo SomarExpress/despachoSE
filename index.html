@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow:wght@300;400;500;600;700;800;900&family=Barlow+Condensed:wght@600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
 <style>
 :root{
   --or:#FF8C00;--or-dim:#cc7000;--or-glow:rgba(255,140,0,.12);
@@ -531,6 +531,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Somar Despacho">
   <link rel="apple-touch-icon" href="https://res.cloudinary.com/drkaxsziu/image/upload/v1767871213/Somar_Express_2048_x_2048_px_18_x_18_in__20250623_221102_0000_o0bv7a.png">
+  <link rel="icon" type="image/png" href="https://res.cloudinary.com/drkaxsziu/image/upload/v1767871213/Somar_Express_2048_x_2048_px_18_x_18_in__20250623_221102_0000_o0bv7a.png">
 </head>
 <body>
 
@@ -1683,7 +1684,16 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 // ════════════════════════════════════════════════════════════
 const SUPA_URL  = 'https://jjrmzouigcmeztkybrvp.supabase.co';
 const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impqcm16b3VpZ2NtZXp0a3licnZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5MzExNDgsImV4cCI6MjA4ODUwNzE0OH0.tNUHxGWMWh7Q6v4mH3y5gOxpczpEJHwNqwH2TehL61I';
-const sb = supabase.createClient(SUPA_URL, SUPA_ANON);
+const sb = supabase.createClient(SUPA_URL, SUPA_ANON, {
+  realtime: {
+    params: { eventsPerSecond: 10 }
+  },
+  global: {
+    fetch: (...args) => fetch(...args)
+  }
+});
+// Desconectar Realtime hasta que haya sesión activa
+sb.realtime.disconnect();
 
 // ════════════════════════════════════════════════════════════
 // ESTADO
@@ -1918,6 +1928,8 @@ function tickPanelTimer(ahora) {
 // REALTIME
 // ════════════════════════════════════════════════════════════
 function initRealtime() {
+  // Conectar WebSocket solo después de tener sesión autenticada
+  sb.realtime.connect();
   sb.channel('despacho-main')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, p => {
       onPedidoChange(p);
@@ -1979,8 +1991,6 @@ function initRealtime() {
     .subscribe(status => {
       const ok = status === 'SUBSCRIBED';
       document.getElementById('rt-dot').classList.toggle('off', !ok);
-      // rt-txt reemplazado por fecha-hoy, solo actualizar el dot
-    document.getElementById('rt-dot').classList.toggle('off', !ok);
     });
 }
 
@@ -3185,11 +3195,11 @@ async function guardarBono() {
   });
   if(depErr){ toast('Error al registrar bono: '+depErr.message,'danger'); return; }
 
-  // 2. Actualizar saldo_billetera del rider
-  const {data:drv, error:drvErr} = await sb.from('delivery').select('saldo_billetera').eq('id', _bonoRiderId).single();
-  if(drvErr){ toast('Bono registrado pero error al actualizar saldo: '+drvErr.message,'danger'); return; }
-  const nuevoSaldo = parseFloat(drv?.saldo_billetera||0) + monto;
-  const {error:updErr} = await sb.from('delivery').update({saldo_billetera: nuevoSaldo}).eq('id', _bonoRiderId);
+  // 2. Actualizar saldo_billetera del rider — atómico vía RPC
+  const { data: nuevoSaldo, error: updErr } = await sb.rpc('incrementar_saldo_billetera', {
+    p_delivery_id: parseInt(_bonoRiderId),
+    p_delta: monto
+  });
   if(updErr){ toast('Error actualizando saldo: '+updErr.message,'danger'); return; }
 
   // 3. Actualizar estado local inmediatamente
@@ -3573,16 +3583,16 @@ async function accionDep(id, accion, deliveryId, monto) {
   const updates = { estatus: accion, notas_despacho: notas, aprobado_por: 'Despacho', aprobado_at: new Date().toISOString() };
   await sb.from('depositos_delivery').update(updates).eq('id', id);
   if(accion === 'APROBADO' && deliveryId && monto) {
-    // Leer saldo actual y sumar el depósito
-    const { data: drv, error: drvErr } = await sb.from('delivery').select('saldo_billetera').eq('id', deliveryId).single();
-    if(drvErr) { toast('Error leyendo saldo: ' + drvErr.message, 'danger'); return; }
-    const nuevoSaldo = parseFloat(drv?.saldo_billetera || 0) + parseFloat(monto);
-    const { error: updErr } = await sb.from('delivery').update({ saldo_billetera: nuevoSaldo }).eq('id', deliveryId);
+    // Actualizar saldo del rider — atómico vía RPC para evitar race condition
+    const { data: nuevoSaldo, error: updErr } = await sb.rpc('incrementar_saldo_billetera', {
+      p_delivery_id: parseInt(deliveryId),
+      p_delta: parseFloat(monto)
+    });
     if(updErr) { toast('Error actualizando saldo: ' + updErr.message, 'danger'); return; }
-    // Actualizar también en S.riders local para que se vea inmediatamente
+    // Actualizar en S.riders local para reflejo inmediato
     const rIdx = S.riders.findIndex(r => r.id === parseInt(deliveryId));
     if(rIdx >= 0) { S.riders[rIdx].saldo_billetera = nuevoSaldo; renderRidersMini(); renderRidersGrid(); }
-    console.log('[deposito] saldo anterior:', drv?.saldo_billetera, '→ nuevo:', nuevoSaldo);
+    console.log('[deposito] nuevo saldo:', nuevoSaldo);
   }
   await cargarDepositos(S.solFiltro || 'PENDIENTE');
   await cargarRiders(); // Recargar riders para reflejar nuevo saldo
