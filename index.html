@@ -1506,13 +1506,17 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 
       <!-- ═══ CONFIGURACIÓN ════════════════════════════════════ -->
       <div class="view" id="view-config">
-        <div style="max-width:600px;">
-          <div class="card" style="margin-bottom:14px;">
-            <div class="card-hdr"><div class="card-title">⚙️ Configuración del Sistema</div></div>
-            <div id="config-content" style="padding:14px;">
-              <div class="empty">Cargando configuración...</div>
-            </div>
-          </div>
+        <!-- Tabs de sección -->
+        <div id="cfg-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+          <button class="cfg-tab active" data-tab="comisiones" onclick="cfgTab('comisiones')">💰 Comisiones</button>
+          <button class="cfg-tab" data-tab="tarifas" onclick="cfgTab('tarifas')">🗺️ Tarifas</button>
+          <button class="cfg-tab" data-tab="billetera" onclick="cfgTab('billetera')">👛 Billetera</button>
+          <button class="cfg-tab" data-tab="recargos" onclick="cfgTab('recargos')">⚡ Recargos</button>
+          <button class="cfg-tab" data-tab="puntos" onclick="cfgTab('puntos')">⭐ Puntos Clientes</button>
+          <button class="cfg-tab" data-tab="operacion" onclick="cfgTab('operacion')">⚙️ Operación</button>
+        </div>
+        <div id="config-content">
+          <div class="empty">Cargando configuración...</div>
         </div>
       </div>
 
@@ -1680,39 +1684,6 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 const SUPA_URL  = 'https://jjrmzouigcmeztkybrvp.supabase.co';
 const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impqcm16b3VpZ2NtZXp0a3licnZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5MzExNDgsImV4cCI6MjA4ODUwNzE0OH0.tNUHxGWMWh7Q6v4mH3y5gOxpczpEJHwNqwH2TehL61I';
 const sb = supabase.createClient(SUPA_URL, SUPA_ANON);
-
-// ─── 🔐 FIRMAR URL DE riders-docs (bucket privado desde nov 2026) ───
-// Acepta tanto URL pública vieja como path nuevo. Devuelve URL firmada (1h).
-// Cache simple para no firmar la misma URL múltiples veces en una sesión.
-const _signedRiderDocCache = new Map();
-async function firmarDocRider(urlOPath, expSec=3600) {
-  if (!urlOPath) return null;
-  const cached = _signedRiderDocCache.get(urlOPath);
-  if (cached && cached.exp > Date.now()) return cached.url;
-  let path = urlOPath;
-  const marker = '/riders-docs/';
-  const idx = urlOPath.indexOf(marker);
-  if (idx !== -1) path = urlOPath.substring(idx + marker.length);
-  path = path.split('?')[0];
-  try {
-    const { data, error } = await sb.storage.from('riders-docs').createSignedUrl(path, expSec);
-    if (error || !data?.signedUrl) return null;
-    _signedRiderDocCache.set(urlOPath, { url: data.signedUrl, exp: Date.now() + (expSec - 60)*1000 });
-    return data.signedUrl;
-  } catch (e) {
-    console.warn('[firmarDocRider]', e.message);
-    return null;
-  }
-}
-// Firma todos los campos URL de un objeto solicitud/rider en paralelo
-async function firmarUrlsSolicitud(s) {
-  if (!s) return s;
-  const fields = ['foto_url','identidad_delantera_url','identidad_trasera_url','licencia_url','revision_vehiculo_url','moto_propia_url','mochila_url','antecedentes_url','rtn_url'];
-  const signed = await Promise.all(fields.map(f => firmarDocRider(s[f])));
-  const out = { ...s };
-  fields.forEach((f, i) => { out[f] = signed[i]; });
-  return out;
-}
 
 // ════════════════════════════════════════════════════════════
 // ESTADO
@@ -2513,8 +2484,8 @@ function renderPanel(p) {
     </div>
     <div style="background:var(--g2);border-radius:10px;overflow:hidden;margin-bottom:14px;">
       ${[
-        [`Ingreso Rider (${parseFloat(S.config?.pct_rider_envio||66).toFixed(0)}%)`, `<span style="color:var(--verde)">${fL(p.ingreso_delivery)}</span>`],
-        [`Ingreso Somar (${(100-parseFloat(S.config?.pct_rider_envio||66)).toFixed(0)}%)`, `<span style="color:var(--or)">${fL(p.ingreso_somar)}</span>`],
+        [`Ingreso Rider (${parseFloat(S.config?.delivery_pct||66).toFixed(0)}%)`, `<span style="color:var(--verde)">${fL(p.ingreso_delivery)}</span>`],
+        [`Ingreso Somar (${(100-parseFloat(S.config?.delivery_pct||66)).toFixed(0)}%)`, `<span style="color:var(--or)">${fL(p.ingreso_somar)}</span>`],
       ].map(([l,v]) =>
         `<div style="display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--g3);font-size:12px;">
           <span style="color:var(--td)">${l}</span><span>${v}</span>
@@ -2790,8 +2761,6 @@ async function abrirDetalleRider(riderId) {
         .order('created_at', { ascending: false })
         .limit(1);
       sol = sols?.[0] || null;
-      // Firmar URLs (bucket privado)
-      if (sol) sol = await firmarUrlsSolicitud(sol);
     }
 
     // 3) Stats del rider
@@ -2937,14 +2906,61 @@ async function abrirDetalleRider(riderId) {
         </div>
 
         <!-- BLOQUEAR / DESBLOQUEAR -->
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--g4)">
           <div>
             <div style="font-size:13px;font-weight:700">Bloqueo</div>
             <div style="font-size:10px;color:var(--td)">${bloqueado ? 'Rider bloqueado, no puede iniciar turno ni recibir pedidos' : 'Sin restricciones de seguridad'}</div>
           </div>
           ${bloqueado
             ? `<button class="btn btn-success btn-sm" onclick="desbloquearRider(${d.id})">🔓 Desbloquear</button>`
-            : `<button class="btn btn-danger btn-sm" onclick="bloquearRider(${d.id},'${(d.nombre||'').replace(/'/g,'\\\'')}')">🔒 Bloquear</button>`}
+            : `<button class="btn btn-danger btn-sm" onclick="bloquearRider(${d.id},'${(d.nombre||'').replace(/'/g,'\\\\\'')}')")>🔒 Bloquear</button>`}
+        </div>
+
+        <!-- NIVEL SOMAR PRO -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--g4)">
+          <div>
+            <div style="font-size:13px;font-weight:700">Nivel Somar Pro</div>
+            <div style="font-size:10px;color:var(--td)">Define la comisión por nivel cuando los tiers están activos en Configuración.</div>
+          </div>
+          <select id="mr-nivel-${d.id}"
+            style="background:var(--g3);border:1px solid var(--g5);border-radius:8px;padding:7px 10px;color:var(--tx);font-size:13px;font-weight:700;cursor:pointer;outline:none"
+            onchange="guardarNivelRider(${d.id},this.value,this)">
+            <option value="BRONCE" ${d.nivel==='BRONCE'?'selected':''}>🟤 Bronce</option>
+            <option value="PLATA"  ${d.nivel==='PLATA' ?'selected':''}>⚪ Plata</option>
+            <option value="ORO"    ${d.nivel==='ORO'   ?'selected':''}>🟡 Oro</option>
+          </select>
+        </div>
+
+        <!-- COMISIÓN PERSONALIZADA -->
+        <div style="padding:10px 0">
+          <div style="margin-bottom:8px">
+            <div style="font-size:13px;font-weight:700">Comisión personalizada (%)</div>
+            <div style="font-size:10px;color:var(--td)">Override individual. Tiene prioridad sobre nivel y general. Deja vacío para usar nivel/general.</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div style="position:relative;flex:1;max-width:200px">
+              <input type="number" id="mr-comision-${d.id}"
+                value="${d.comision_pct_custom !== null && d.comision_pct_custom !== undefined ? d.comision_pct_custom : ''}"
+                min="0" max="100" step="1" placeholder="Sin override"
+                style="width:100%;background:var(--g3);border:1px solid var(--g5);border-radius:8px;padding:7px 12px;color:var(--tx);font-size:14px;font-weight:700;outline:none;box-sizing:border-box"
+                onkeydown="if(event.key==='Enter')guardarComisionRider(${d.id},this.value,document.getElementById('mr-com-btn-${d.id}'))">
+              <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--td);font-size:12px;pointer-events:none">%</span>
+            </div>
+            <button id="mr-com-btn-${d.id}" class="btn btn-primary btn-sm"
+              onclick="guardarComisionRider(${d.id},document.getElementById('mr-comision-${d.id}').value,this)">
+              Guardar
+            </button>
+            <button class="btn btn-ghost btn-sm"
+              onclick="guardarComisionRider(${d.id},null,this)"
+              title="Quitar override">✕</button>
+          </div>
+          <div style="margin-top:8px;padding:7px 10px;background:var(--g2);border-radius:8px;font-size:11px;color:var(--td)">
+            Comisión efectiva: <strong style="color:var(--or)">${comisionRiderPct(d).toFixed(0)}%</strong>
+            <span style="color:var(--g6)">
+              ${d.comision_pct_custom !== null && d.comision_pct_custom !== undefined && d.comision_pct_custom !== '' ? '(override individual)' :
+                String(S.config?.tiers_activos) === 'true' ? '(nivel ' + (d.nivel || 'BRONCE') + ')' : '(comisión general)'}
+            </span>
+          </div>
         </div>
       </div>
     `;
@@ -3038,6 +3054,41 @@ async function desbloquearRider(riderId) {
   renderRidersGrid();
   renderRidersMini();
   abrirDetalleRider(riderId);
+}
+
+// ── COMISIÓN Y NIVEL POR RIDER ────────────────────────────────
+async function guardarNivelRider(riderId, nivel, sel) {
+  if(sel) sel.disabled = true;
+  const { error } = await sb.from('delivery').update({ nivel }).eq('id', riderId);
+  if(error) { toast('Error: '+error.message, 'danger'); }
+  else {
+    const r = S.riders.find(x => x.id === riderId);
+    if(r) r.nivel = nivel;
+    toast('✅ Nivel actualizado a '+nivel, 'success');
+    abrirDetalleRider(riderId);
+  }
+  if(sel) sel.disabled = false;
+}
+
+async function guardarComisionRider(riderId, valor, btn) {
+  if(btn) { btn.disabled = true; btn.textContent = '...'; }
+  const comision_pct_custom = (valor === null || valor === '' || valor === undefined)
+    ? null
+    : parseFloat(valor);
+  if(comision_pct_custom !== null && (isNaN(comision_pct_custom) || comision_pct_custom < 0 || comision_pct_custom > 100)) {
+    toast('Valor inválido (0–100)', 'danger');
+    if(btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+    return;
+  }
+  const { error } = await sb.from('delivery').update({ comision_pct_custom }).eq('id', riderId);
+  if(error) { toast('Error: '+error.message, 'danger'); }
+  else {
+    const r = S.riders.find(x => x.id === riderId);
+    if(r) r.comision_pct_custom = comision_pct_custom;
+    toast(comision_pct_custom === null ? '✅ Override eliminado' : `✅ Comisión personalizada: ${comision_pct_custom}%`, 'success');
+    abrirDetalleRider(riderId);
+  }
+  if(btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
 }
 
 // ── MODAL BONO / RECARGA DE SALDO ────────────────────────────
@@ -3154,12 +3205,10 @@ async function guardarBono() {
 // ════════════════════════════════════════════════════════════
 async function cargarSolicitudes(estatus='PENDIENTE') {
   S.solFiltro = estatus;
-  const { data: rawData } = await sb.from('aplicaciones_delivery').select('*').eq('estatus', estatus).order('created_at', { ascending: false });
+  const { data } = await sb.from('aplicaciones_delivery').select('*').eq('estatus', estatus).order('created_at', { ascending: false });
   const el = document.getElementById('sol-lista');
-  if(!rawData?.length) { el.innerHTML = '<div class="empty">Sin solicitudes ' + estatus.toLowerCase() + 's</div>'; return; }
-  document.getElementById('badge-sol').textContent = estatus === 'PENDIENTE' ? rawData.length : parseInt(document.getElementById('badge-sol').textContent||0);
-  // Firmar URLs de docs en paralelo (bucket privado)
-  const data = await Promise.all(rawData.map(firmarUrlsSolicitud));
+  if(!data?.length) { el.innerHTML = '<div class="empty">Sin solicitudes ' + estatus.toLowerCase() + 's</div>'; return; }
+  document.getElementById('badge-sol').textContent = estatus === 'PENDIENTE' ? data.length : parseInt(document.getElementById('badge-sol').textContent||0);
   // Cachear solicitudes para modal
   data.forEach(s => { if(!window._solCache) window._solCache = {}; window._solCache[s.id] = s; });
   el.innerHTML = data.map(s => `
@@ -4193,7 +4242,7 @@ async function guardarPedido() {
   const prop  = parseFloat(document.getElementById('sv-propina-inp')?.value||0)||S.stepVals['sv-propina']||0;
   const total = prod + envio + prop;
   // Porcentaje rider sobre tarifa de envío — viene de config o default 66.66%
-  const pctRiderEnvio = parseFloat(S.config?.pct_rider_envio || 66.66) / 100;
+  const pctRiderEnvio = parseFloat(S.config?.delivery_pct || 66) / 100;
   const ingDelivery = parseFloat((envio * pctRiderEnvio).toFixed(2));
   // Calcular multiplicador de tarifa dinámica
   const tarifaModos = { NORMAL:1, LLUVIA:1.2, HORA_PICO:1.3, NOCTURNO:1.15 };
@@ -4877,7 +4926,7 @@ function actualizarResumen() {
   const total = parseFloat((prodConCom + envio + prop - desc).toFixed(2));
 
   // Ingresos
-  const pctRiderEnvio = parseFloat(S.config?.pct_rider_envio||66.66)/100;
+  const pctRiderEnvio = parseFloat(S.config?.delivery_pct||66.66)/100;
   const ingDel = parseFloat((envio*pctRiderEnvio).toFixed(2));
   const ingSom = parseFloat((envio*(1-pctRiderEnvio)+baseApp).toFixed(2));
 
@@ -6556,6 +6605,34 @@ async function limpiarNotifs() {
   renderBadgeNotifs(); renderNotifsPanel();
 }
 
+// ── Comisión jerárquica del rider ───────────────────────────
+// Resuelve el % que recibe el rider con esta precedencia:
+//   1) comision_pct_custom del rider (override individual)
+//   2) comisión por nivel (Bronce/Plata/Oro) si tiers_activos
+//   3) comisión general (config.comision_general_rider / delivery_pct)
+function comisionRiderPct(rider) {
+  const general = parseFloat(S.config?.comision_general_rider ?? S.config?.delivery_pct ?? 66);
+  if (!rider) return general;
+  // 1) Override individual
+  if (rider.comision_pct_custom !== null && rider.comision_pct_custom !== undefined && rider.comision_pct_custom !== '') {
+    const c = parseFloat(rider.comision_pct_custom);
+    if (!isNaN(c)) return c;
+  }
+  // 2) Por nivel (solo si los tiers están activos)
+  const tiersOn = String(S.config?.tiers_activos) === 'true';
+  if (tiersOn && rider.nivel) {
+    const porNivel = {
+      BRONCE: parseFloat(S.config?.comision_general_rider ?? 66),
+      PLATA:  parseFloat(S.config?.comision_plata_rider  ?? S.config?.comision_general_rider ?? 66),
+      ORO:    parseFloat(S.config?.comision_oro_rider    ?? S.config?.comision_general_rider ?? 66),
+    };
+    const c = porNivel[rider.nivel];
+    if (!isNaN(c)) return c;
+  }
+  // 3) General
+  return general;
+}
+
 async function cargarConfig() {
   const {data,error}=await sb.from('configuracion').select('*').order('clave');
   if(error){console.error('[config]',error.message);return;}
@@ -6570,35 +6647,216 @@ async function guardarConfigClave(clave,valor,btn) {
   else{S.config[clave]=String(valor);toast('✅ Configuración guardada','success');}
   if(btn){btn.disabled=false;btn.textContent='Guardar';}
 }
-function renderConfig() {
-  const el=document.getElementById('config-content');
-  if(!el) return;
-  const cfg=S.config;
-  const fila=(clave,label,desc,tipo='number',min=0,max=9999,step=0.5)=>`
-    <div style="padding:14px 0;border-bottom:1px solid var(--g4);">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:180px;">
-          <div style="font-size:13px;font-weight:700;margin-bottom:3px;">${label}</div>
-          <div style="font-size:11px;color:var(--td);">${desc}</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
-          <input type="${tipo}" id="cfg-${clave}" value="${cfg[clave]||''}" min="${min}" max="${max}" step="${step}"
-            style="width:100px;background:var(--g3);border:1px solid var(--g5);border-radius:6px;padding:7px 10px;color:var(--tx);font-size:14px;font-weight:700;text-align:center;">
-          <button class="btn btn-primary btn-sm" onclick="guardarConfigClave('${clave}',document.getElementById('cfg-${clave}').value,this)">Guardar</button>
-        </div>
-      </div>
-    </div>`;
-  el.innerHTML=`
-    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">🗺️ Zonas</div>
-    ${fila('zona_radio_km','Radio de zona (km)','Distancia máxima del rider al centro de la zona','number',0.5,20,0.5)}
-    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-top:16px;margin-bottom:2px;">💰 Comisiones</div>
-    ${fila('comision_bronce','Comisión Bronce (%)','','number',0,100,1)}
-    ${fila('comision_plata','Comisión Plata (%)','75+ pedidos/mes','number',0,100,1)}
-    ${fila('comision_oro','Comisión Oro (%)','150+ pedidos/mes','number',0,100,1)}
-    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-top:16px;margin-bottom:2px;">👛 Billetera</div>
-    ${fila('saldo_minimo','Saldo mínimo (L.)','Para operar','number',0,9999,10)}`;
+function cfgTab(tab) {
+  document.querySelectorAll('.cfg-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  S._cfgTab = tab;
+  renderConfig();
 }
 
+function renderConfig() {
+  const el = document.getElementById('config-content');
+  if (!el) return;
+  const cfg  = S.config || {};
+  const tab  = S._cfgTab || 'comisiones';
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+  const v = k => cfg[k] ?? '';
+
+  const inp = (clave, min, max, step, extra='') =>
+    `<input type="number" id="cfg-${clave}" value="${v(clave)}" min="${min}" max="${max}" step="${step}"
+      ${extra}
+      style="width:90px;background:var(--g3);border:1px solid var(--g5);border-radius:8px;padding:7px 10px;
+             color:var(--tx);font-size:14px;font-weight:700;text-align:center;outline:none;"
+      onkeydown="if(event.key==='Enter')guardarConfigClave('${clave}',this.value)">`;
+
+  const btnGuardar = (clave) =>
+    `<button class="btn btn-primary btn-sm"
+      onclick="guardarConfigClave('${clave}',document.getElementById('cfg-${clave}').value,this)"
+      style="white-space:nowrap">Guardar</button>`;
+
+  const toggle = (clave, labelOn='Activo', labelOff='Inactivo') => {
+    const on = String(v(clave)) === 'true';
+    return `<button id="cfg-toggle-${clave}" onclick="cfgToggle('${clave}',this)"
+      style="display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:20px;border:none;cursor:pointer;font-size:13px;font-weight:700;
+             background:${on?'rgba(255,140,0,.18)':'var(--g4)'};color:${on?'var(--or)':'var(--td)'};transition:all .2s">
+      <span style="width:14px;height:14px;border-radius:50%;background:${on?'var(--or)':'var(--g6)'};display:inline-block;flex-shrink:0"></span>
+      ${on?labelOn:labelOff}
+    </button>`;
+  };
+
+  const fila = (clave, label, desc, min=0, max=9999, step=1) => `
+    <div class="cfg-fila">
+      <div class="cfg-fila-txt">
+        <div class="cfg-lbl">${label}</div>
+        ${desc ? `<div class="cfg-desc">${desc}</div>` : ''}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        ${inp(clave,min,max,step)}
+        ${btnGuardar(clave)}
+      </div>
+    </div>`;
+
+  const filaBool = (clave, label, desc) => `
+    <div class="cfg-fila">
+      <div class="cfg-fila-txt">
+        <div class="cfg-lbl">${label}</div>
+        ${desc ? `<div class="cfg-desc">${desc}</div>` : ''}
+      </div>
+      ${toggle(clave)}
+    </div>`;
+
+  const filaTexto = (clave, label, desc, placeholder='') => `
+    <div class="cfg-fila">
+      <div class="cfg-fila-txt">
+        <div class="cfg-lbl">${label}</div>
+        ${desc ? `<div class="cfg-desc">${desc}</div>` : ''}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        <input type="text" id="cfg-${clave}" value="${v(clave)}" placeholder="${placeholder}"
+          style="width:130px;background:var(--g3);border:1px solid var(--g5);border-radius:8px;padding:7px 10px;
+                 color:var(--tx);font-size:13px;font-weight:600;outline:none;"
+          onkeydown="if(event.key==='Enter')guardarConfigClave('${clave}',this.value)">
+        ${btnGuardar(clave)}
+      </div>
+    </div>`;
+
+  const seccion = (emoji, titulo, contenido) => `
+    <div class="card" style="margin-bottom:12px;">
+      <div class="card-hdr" style="padding:12px 16px;">
+        <div class="card-title">${emoji} ${titulo}</div>
+      </div>
+      <div style="padding:0 16px 6px">${contenido}</div>
+    </div>`;
+
+  const tiersOn = String(v('tiers_activos')) === 'true';
+
+  // ── TABS ─────────────────────────────────────────────────────────────────
+  const tabs = {
+
+    comisiones: `
+      ${seccion('💰','Comisión General',`
+        ${fila('comision_general_rider','Comisión general del rider (%)','% de la tarifa de envío que recibe el rider. Aplica cuando los niveles están desactivados.',0,100,1)}
+      `)}
+      ${seccion('🏆','Sistema de Niveles (Somar Pro)',`
+        ${filaBool('tiers_activos','Activar niveles','Cuando está activo, la comisión varía según el nivel del rider: Bronce → Plata → Oro.')}
+        <div style="margin-top:10px;padding:10px 12px;background:${tiersOn?'rgba(255,140,0,.07)':'var(--g2)'};
+                    border-radius:8px;border:1px solid ${tiersOn?'rgba(255,140,0,.25)':'var(--g4)'};">
+          <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">
+            Comisiones por nivel — % que recibe el rider
+          </div>
+          ${fila('comision_general_rider','🟤 Bronce','Nivel de entrada.',0,100,1)}
+          ${fila('comision_plata_rider','⚪ Plata','Riders con historial sólido.',0,100,1)}
+          ${fila('comision_oro_rider','🟡 Oro','Riders con alto desempeño.',0,100,1)}
+        </div>
+        <div style="margin-top:8px;padding:8px 12px;background:rgba(59,130,246,.07);border-radius:8px;border:1px solid rgba(59,130,246,.2);font-size:11px;color:#7ba4e8;">
+          ℹ️ El nivel de cada rider se asigna individualmente desde su perfil. El override personalizado tiene prioridad sobre el nivel.
+        </div>
+      `)}
+      ${seccion('🎯','Override Individual',`
+        <div style="padding:10px 0 6px;font-size:13px;color:var(--td);line-height:1.6;">
+          Para asignar una comisión personalizada a un rider específico, ve a
+          <strong style="color:var(--or)">Riders → perfil del rider → Comisión personalizada</strong>.
+          El override individual siempre tiene la mayor prioridad, sobre el nivel y la general.
+        </div>
+      `)}
+      ${seccion('🏪','Comisión de Comercios',`
+        ${fila('comision_comercio_pct','Comisión a comercios (%)','% del subtotal de productos que cobra Somar al comercio. 0 = sin comisión de producto.',0,100,1)}
+      `)}
+    `,
+
+    tarifas: `
+      ${seccion('📐','Tarifa Base',`
+        ${fila('tarifa_base','Tarifa base (L.)','Monto fijo inicial por cualquier envío antes de aplicar km adicionales.',0,500,5)}
+        ${fila('costo_por_km','Costo por km adicional (L.)','Se multiplica por la distancia en km.',0,100,0.5)}
+        ${fila('tarifa_minima','Tarifa mínima (L.)','Ningún envío puede cobrarse por menos de este valor.',0,500,5)}
+        ${fila('redondear_a_multiplo','Redondear al múltiplo de (L.)','Ej: 5 redondea L.53 → L.55. Usa 0 para no redondear.',0,50,5)}
+      `)}
+      ${seccion('🚀','Tarifa Dinámica',`
+        ${filaBool('tarifa_dinamica_activa','Activar tarifa dinámica','Aplica multiplicador en momentos de alta demanda.')}
+        ${fila('multiplicador_dinamico','Multiplicador','Ej: 1.5 significa tarifa × 1.5. Aplica sobre la tarifa calculada.',1,5,0.1)}
+      `)}
+      ${seccion('🗺️','Cobertura y Zonas',`
+        ${fila('zona_radio_km','Radio de zona del rider (km)','Distancia máxima que un rider puede estar del centro de su zona para recibir pedidos.',0.5,20,0.5)}
+      `)}
+    `,
+
+    billetera: `
+      ${seccion('👛','Saldo Operativo',`
+        ${fila('saldo_minimo','Saldo mínimo para operar (L.)','Si el saldo supera este monto positivo, el rider queda bloqueado hasta depositar.',0,9999,10)}
+      `)}
+    `,
+
+    recargos: `
+      ${seccion('🌧️','Recargo por Lluvia',`
+        ${filaBool('lluvia_activa','Lluvia activa ahora','Activa el recargo de lluvia manualmente desde despacho. Se desactiva al cambiar el turno.')}
+        ${fila('recargo_lluvia','Monto del recargo lluvia (L.)','Va 100% al rider.',0,200,5)}
+      `)}
+      ${seccion('🌙','Recargo Nocturno',`
+        ${filaTexto('hora_inicio_noche','Inicio horario nocturno','Formato 24h, ej: 19:00','19:00')}
+        ${filaTexto('hora_fin_noche','Fin horario nocturno','Formato 24h, ej: 06:00','06:00')}
+        ${fila('recargo_noche','Monto recargo nocturno (L.)','Se suma a la tarifa en horario nocturno.',0,200,5)}
+      `)}
+    `,
+
+    puntos: `
+      ${seccion('⭐','Programa de Puntos',`
+        ${filaBool('puntos_activos','Programa de puntos activo','Desactivar congela la acumulación y canje de puntos para todos los clientes.')}
+        ${fila('puntos_gasto_cada_lps','Acumula 1 punto cada (L.)','El cliente gana 1 punto por cada X lempiras gastados en productos (excluye envío).',1,1000,5)}
+        ${fila('puntos_por_lempira','Puntos por L.1 de ganancia Somar','Puntos al cliente calculados sobre el ingreso de Somar en el pedido.',1,1000,1)}
+        ${fila('puntos_por_resena','Puntos por evaluación completada','Se otorgan al cliente que califica su pedido.',0,500,5)}
+      `)}
+      ${seccion('🎁','Referidos',`
+        ${fila('puntos_por_referido_dar','Puntos para quien comparte código','Quien refiere gana estos puntos cuando su referido hace su 1er pedido.',0,5000,50)}
+        ${fila('puntos_por_referido_rec','Puntos de bienvenida al referido','El nuevo cliente recibe estos puntos al registrarse con un código.',0,5000,50)}
+      `)}
+      ${seccion('🔄','Canje',`
+        ${fila('puntos_a_lempiras','Puntos para equivaler L.1','Ej: 100 significa que 100 pts = L.1 de descuento.',1,10000,10)}
+        ${fila('canje_minimo_puntos','Mínimo de puntos para canjear','El cliente necesita al menos este saldo antes de poder canjear.',0,10000,50)}
+        ${fila('puntos_vencimiento_dias','Días de inactividad para expirar puntos','0 = nunca expiran.',0,3650,30)}
+      `)}
+    `,
+
+    operacion: `
+      ${seccion('⚙️','Control de Capacidad',`
+        ${fila('max_pedidos_delivery','Pedidos simultáneos por rider','Máximo de pedidos activos que puede tener un rider al mismo tiempo.',1,10,1)}
+        ${fila('max_riders_turno','Riders máximos por turno','Límite de riders en turno activo simultáneamente.',1,20,1)}
+        ${fila('tiempo_aceptacion_min','Minutos para aceptar pedido','Si el rider no acepta en este tiempo, se reasigna automáticamente.',1,30,1)}
+      `)}
+      ${seccion('📱','Notificaciones',`
+        ${filaTexto('whatsapp_notificaciones','WhatsApp alertas internas','Número con código de país, sin espacios ni guiones.','50498765432')}
+      `)}
+    `,
+  };
+
+  el.innerHTML = `
+    <style>
+      .cfg-tab {
+        padding:7px 14px;border-radius:20px;border:1px solid var(--g5);
+        background:var(--g3);color:var(--td);cursor:pointer;font-size:12px;font-weight:700;
+        transition:all .15s;white-space:nowrap;
+      }
+      .cfg-tab.active { background:var(--or);border-color:var(--or);color:#fff; }
+      .cfg-fila {
+        display:flex;justify-content:space-between;align-items:center;
+        gap:12px;padding:12px 0;border-bottom:1px solid var(--g4);flex-wrap:wrap;
+      }
+      .cfg-fila:last-child { border-bottom:none; }
+      .cfg-fila-txt { flex:1;min-width:180px; }
+      .cfg-lbl { font-size:13px;font-weight:700;margin-bottom:2px; }
+      .cfg-desc { font-size:11px;color:var(--td);line-height:1.5; }
+    </style>
+    ${tabs[tab] || ''}
+  `;
+}
+
+async function cfgToggle(clave, btn) {
+  const actual = String(S.config?.[clave]) === 'true';
+  const nuevo  = !actual;
+  btn.style.opacity = '0.5';
+  await guardarConfigClave(clave, String(nuevo));
+  btn.style.opacity = '1';
+  renderConfig();  // re-render para reflejar el nuevo estado
+}
 
 // ─── Haversine + tarifa local ────────────────────────────────
 function haversineKm(lat1,lon1,lat2,lon2) {
