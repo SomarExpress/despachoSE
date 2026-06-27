@@ -879,7 +879,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 
       <!-- ═══ PEDIDOS ══════════════════════════════════════════ -->
       <div class="view" id="view-pedidos">
-        <div class="filter-bar">
+        <div class="filter-bar" style="flex-wrap:wrap;gap:6px">
           <button class="fbtn active" onclick="filtPed(this,'todos')">Todos</button>
           <button class="fbtn" onclick="filtPed(this,'activos')">Activos</button>
           <button class="fbtn" onclick="filtPed(this,'sinAsignar')">Sin Asignar</button>
@@ -888,10 +888,34 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
           <button class="fbtn" onclick="filtPed(this,'FINALIZADO')">Finalizados</button>
           <button class="fbtn" onclick="filtPed(this,'CANCELADO')">Cancelados</button>
         </div>
+        <!-- Filtros avanzados -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;padding:10px 14px;background:var(--g2);border:1px solid var(--g4);border-radius:10px;">
+          <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px">
+            <label style="font-size:10px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em">Desde</label>
+            <input type="date" id="ped-desde" class="fi" style="padding:5px 8px;font-size:12px" onchange="buscarPedidosAvanzado()">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px">
+            <label style="font-size:10px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em">Hasta</label>
+            <input type="date" id="ped-hasta" class="fi" style="padding:5px 8px;font-size:12px" onchange="buscarPedidosAvanzado()">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;flex:2;min-width:160px">
+            <label style="font-size:10px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em">Cliente</label>
+            <input type="text" id="ped-fil-cliente" class="fi" style="padding:5px 8px;font-size:12px" placeholder="Nombre o teléfono" oninput="debounceBuscarPedidos()">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;flex:2;min-width:160px">
+            <label style="font-size:10px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em">Comercio</label>
+            <input type="text" id="ped-fil-comercio" class="fi" style="padding:5px 8px;font-size:12px" placeholder="Nombre del comercio" oninput="debounceBuscarPedidos()">
+          </div>
+          <div style="display:flex;gap:6px;align-items:flex-end">
+            <button class="btn btn-primary btn-sm" onclick="buscarPedidosAvanzado()">Buscar</button>
+            <button class="btn btn-ghost btn-sm" onclick="limpiarFiltrosPedidos()">✕ Limpiar</button>
+          </div>
+          <div style="font-size:10px;color:var(--td);align-self:flex-end;padding-bottom:6px" id="ped-modo-label"></div>
+        </div>
         <div class="card">
           <div class="card-hdr">
             <div class="card-title" id="ped-count">— pedidos</div>
-            <input type="text" id="ped-search" placeholder="Buscar..." class="fi" style="width:180px;padding:5px 10px;font-size:12px;" oninput="renderTablaPedidos()">
+            <input type="text" id="ped-search" placeholder="Buscar en resultados..." class="fi" style="width:180px;padding:5px 10px;font-size:12px;" oninput="renderTablaPedidos()">
           </div>
           <div class="tbl-wrap">
             <table class="tbl">
@@ -1702,6 +1726,7 @@ sb.realtime.disconnect();
 const S = {
   pedidos: [], riders: [], depositos: [], solFiltro: 'PENDIENTE',
   pedFiltro: 'todos', selRiderId: null, selPedidoId: null,
+  _pedsFiltrados: null,
   mapInit: false, map: null, markers: {},
   mapRidersInit: false, mapRiders: null, markersRiders: {},
   chatRiderId: null, chatSub: null,
@@ -2211,6 +2236,59 @@ function renderListaActivos() {
 // ════════════════════════════════════════════════════════════
 const FILTROS_ACTIVOS = ['ASIGNADO','ACEPTADO','EN_ESTABLECIMIENTO','PEDIDO_EN_CAMINO','ENTREGANDO'];
 
+// Debounce para inputs de texto
+let _debPed = null;
+function debounceBuscarPedidos() {
+  clearTimeout(_debPed);
+  _debPed = setTimeout(buscarPedidosAvanzado, 450);
+}
+
+function limpiarFiltrosPedidos() {
+  document.getElementById('ped-desde').value = '';
+  document.getElementById('ped-hasta').value = '';
+  document.getElementById('ped-fil-cliente').value = '';
+  document.getElementById('ped-fil-comercio').value = '';
+  document.getElementById('ped-modo-label').textContent = '';
+  S._pedsFiltrados = null;
+  renderTablaPedidos();
+}
+
+async function buscarPedidosAvanzado() {
+  const desde    = document.getElementById('ped-desde')?.value;
+  const hasta    = document.getElementById('ped-hasta')?.value;
+  const cliente  = document.getElementById('ped-fil-cliente')?.value.trim();
+  const comercio = document.getElementById('ped-fil-comercio')?.value.trim();
+  const modoLabel = document.getElementById('ped-modo-label');
+
+  // Si no hay ningún filtro avanzado, volver a memoria local
+  if(!desde && !hasta && !cliente && !comercio) {
+    S._pedsFiltrados = null;
+    if(modoLabel) modoLabel.textContent = '';
+    renderTablaPedidos();
+    return;
+  }
+
+  if(modoLabel) modoLabel.textContent = '⏳ Buscando...';
+
+  let q = sb.from('pedidos').select('*').order('created_at', { ascending: false }).limit(500);
+
+  if(desde)    q = q.gte('created_at', desde + 'T00:00:00');
+  if(hasta)    q = q.lte('created_at', hasta + 'T23:59:59');
+  if(cliente)  q = q.or(`nombre_cliente.ilike.%${cliente}%,celular_cliente.ilike.%${cliente}%,nombre_destinatario.ilike.%${cliente}%`);
+  if(comercio) q = q.ilike('nombre_comercio', `%${comercio}%`);
+
+  const { data, error } = await q;
+  if(error) { toast('Error al buscar: ' + error.message, 'danger'); if(modoLabel) modoLabel.textContent = ''; return; }
+
+  S._pedsFiltrados = data || [];
+  const tags = [];
+  if(desde || hasta) tags.push(`📅 ${desde||'…'} → ${hasta||'…'}`);
+  if(cliente)        tags.push(`👤 "${cliente}"`);
+  if(comercio)       tags.push(`🏪 "${comercio}"`);
+  if(modoLabel) modoLabel.textContent = `${S._pedsFiltrados.length} resultados · ${tags.join(' · ')}`;
+  renderTablaPedidos();
+}
+
 function filtPed(btn, f) {
   document.querySelectorAll('.filter-bar .fbtn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
@@ -2220,11 +2298,18 @@ function filtPed(btn, f) {
 
 function renderTablaPedidos() {
   const q = (document.getElementById('ped-search')?.value || '').toLowerCase();
-  let peds = S.pedidos;
-  if(S.pedFiltro === 'activos')     peds = peds.filter(p => FILTROS_ACTIVOS.includes(p.estatus));
+  // Usar resultados filtrados de DB si hay búsqueda avanzada activa, si no la memoria local
+  let peds = S._pedsFiltrados ?? S.pedidos;
+  if(S.pedFiltro === 'activos')       peds = peds.filter(p => FILTROS_ACTIVOS.includes(p.estatus));
   else if(S.pedFiltro === 'sinAsignar') peds = peds.filter(p => p.estatus === 'PENDIENTE');
-  else if(S.pedFiltro !== 'todos')  peds = peds.filter(p => p.estatus === S.pedFiltro);
-  if(q) peds = peds.filter(p => JSON.stringify(p).toLowerCase().includes(q));
+  else if(S.pedFiltro !== 'todos')    peds = peds.filter(p => p.estatus === S.pedFiltro);
+  if(q) peds = peds.filter(p =>
+    (p.no_orden||'').toLowerCase().includes(q) ||
+    (p.nombre_comercio||'').toLowerCase().includes(q) ||
+    (p.nombre_cliente||'').toLowerCase().includes(q) ||
+    (p.nombre_destinatario||'').toLowerCase().includes(q) ||
+    (p.celular_cliente||'').toLowerCase().includes(q)
+  );
   document.getElementById('ped-count').textContent = `${peds.length} pedidos`;
   const tbody = document.getElementById('tbody-pedidos');
   if(!peds.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Sin resultados</td></tr>'; return; }
@@ -2683,15 +2768,28 @@ function renderRidersMini() {
   const el = document.getElementById('lista-riders-mini');
   const online = S.riders.filter(d => d.en_turno === true);
   document.getElementById('online-count').textContent = `● ${online.length} en línea`;
-  el.innerHTML = S.riders.slice(0,6).map(d => {
+  if(!online.length) {
+    el.innerHTML = '<div style="padding:16px 14px;text-align:center;font-size:12px;color:var(--td)">Sin repartidores en turno</div>';
+    return;
+  }
+  el.innerHTML = online.map(d => {
     const act = S.pedidos.filter(p => p.delivery_id === d.id && FILTROS_ACTIVOS.includes(p.estatus)).length;
-    const c = d.en_turno===true ? (act > 0 ? 'var(--or)' : 'var(--verde)') : 'var(--g5)';
-    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--g3);">
-      <div class="ch-av" style="border:2px solid ${c};width:28px;height:28px;font-size:10px;${d.en_turno?'':'opacity:.55'}">${inic(d.nombre)}</div>
-      <div style="flex:1"><div style="font-size:12px;font-weight:600">${d.nombre}</div>
-        <div style="font-size:10px;color:var(--td)">${d.en_turno?(act>0?`${act} pedidos activos`:'Disponible'):'Desconectado'}</div>
+    const pausado = d._ubi?.pausado === true;
+    const c   = pausado ? 'var(--am)' : act > 0 ? 'var(--or)' : 'var(--verde)';
+    const lbl = pausado ? '⏸ Pausado' : act > 0 ? `${act} pedido${act>1?'s':''} activo${act>1?'s':''}` : 'Disponible';
+    const max = parseFloat(S.config?.max_pedidos_delivery || 2);
+    return `<div style="display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--g3);cursor:pointer"
+      onclick="abrirDetalleRider(${d.id})"
+      onmouseover="this.style.background='var(--g3)'" onmouseout="this.style.background=''">
+      <div class="ch-av" style="border:2px solid ${c};width:30px;height:30px;font-size:11px">${inic(d.nombre)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.nombre}</div>
+        <div style="font-size:10px;color:${c};font-weight:600">${lbl}</div>
       </div>
-      <div class="mono" style="font-size:10px;color:${act>=2?'var(--or)':'var(--td)'}">${d.en_turno?`${act}/2`:'—'}</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+        <div class="mono" style="font-size:11px;font-weight:700;color:${act>=max?'var(--or)':'var(--td)'}">${act}/${max}</div>
+        <div style="font-size:9px;color:var(--td)">pedidos</div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -6984,7 +7082,12 @@ function nav(v, pushHistory=true) {
     if(!S.mapInit) { setTimeout(()=>{ initMap(); setModoMapa('live'); }, 80); }
     else { setTimeout(()=>{ S.map?.invalidateSize(); setModoMapa('live'); }, 80); }
   }
-  if(v === 'pedidos') renderTablaPedidos();
+  if(v === 'pedidos') {
+    // Prellenar "hasta" con hoy si está vacío
+    const hastaEl = document.getElementById('ped-hasta');
+    if(hastaEl && !hastaEl.value) hastaEl.value = fechaHN();
+    renderTablaPedidos();
+  }
   if(v === 'kanban') renderKanban();
   if(v === 'config') renderConfig();
   if(v === 'riders') {
