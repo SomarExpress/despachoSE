@@ -1,5 +1,5 @@
 // Somar Despacho — Service Worker
-const CACHE_VERSION = 'somar-despacho-v2.0.01';
+const CACHE_VERSION = 'somar-despacho-v2.0.02';
 const STATIC = ['./index.html', './manifest-despacho.json'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE_VERSION).then(c=>c.addAll(STATIC).catch(()=>{})).then(()=>self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_VERSION).map(k=>caches.delete(k)))).then(()=>self.clients.claim())); });
