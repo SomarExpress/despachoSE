@@ -2782,13 +2782,15 @@ async function abrirDetalleRider(riderId) {
           : `<span style="background:rgba(255,140,0,.15);color:var(--or);padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid rgba(255,140,0,.35)">✓ ACTIVO</span>`;
 
     // Documentos
+    const mapaUrlsPerfil = await resolverSignedUrlsRiders([sol?.foto_url, sol?.identidad_delantera_url, sol?.licencia_url, sol?.revision_vehiculo_url, sol?.moto_propia_url, sol?.mochila_url]);
+    const urlPerfil = v => v ? (mapaUrlsPerfil[v] || '') : '';
     const docs = [
-      { url: sol?.foto_url, label: 'Foto de perfil', icon: '👤' },
-      { url: sol?.identidad_delantera_url, label: 'Identidad (DNI)', icon: '🪪' },
-      { url: sol?.licencia_url, label: 'Licencia', icon: '📇' },
-      { url: sol?.revision_vehiculo_url, label: 'Revisión vehículo', icon: '🔧' },
-      { url: sol?.moto_propia_url, label: 'Moto propia', icon: '🏍' },
-      { url: sol?.mochila_url, label: 'Mochila', icon: '🎒' },
+      { url: urlPerfil(sol?.foto_url), label: 'Foto de perfil', icon: '👤' },
+      { url: urlPerfil(sol?.identidad_delantera_url), label: 'Identidad (DNI)', icon: '🪪' },
+      { url: urlPerfil(sol?.licencia_url), label: 'Licencia', icon: '📇' },
+      { url: urlPerfil(sol?.revision_vehiculo_url), label: 'Revisión vehículo', icon: '🔧' },
+      { url: urlPerfil(sol?.moto_propia_url), label: 'Moto propia', icon: '🏍' },
+      { url: urlPerfil(sol?.mochila_url), label: 'Mochila', icon: '🎒' },
     ];
     const docsHtml = docs.map(doc => doc.url
       ? `<div onclick="window.open('${doc.url}','_blank')" style="cursor:pointer;background-image:url(${doc.url});background-size:cover;background-position:center;aspect-ratio:1;border-radius:10px;border:1.5px solid var(--g4);position:relative;overflow:hidden;transition:transform .15s" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
@@ -2804,8 +2806,9 @@ async function abrirDetalleRider(riderId) {
     ).join('');
 
     // Foto perfil grande (header)
-    const avatarHtml = sol?.foto_url
-      ? `<div style="width:72px;height:72px;border-radius:50%;background:url(${sol.foto_url}) center/cover;border:3px solid var(--or);cursor:pointer;flex-shrink:0" onclick="window.open('${sol.foto_url}','_blank')"></div>`
+    const fotoPerfilGrande = urlPerfil(sol?.foto_url);
+    const avatarHtml = fotoPerfilGrande
+      ? `<div style="width:72px;height:72px;border-radius:50%;background:url(${fotoPerfilGrande}) center/cover;border:3px solid var(--or);cursor:pointer;flex-shrink:0" onclick="window.open('${fotoPerfilGrande}','_blank')"></div>`
       : `<div style="width:72px;height:72px;border-radius:50%;background:var(--or);color:#000;font-size:28px;font-weight:800;display:grid;place-items:center;border:3px solid var(--or);flex-shrink:0">${inic(d.nombre)}</div>`;
 
     cuerpo.innerHTML = `
@@ -3117,6 +3120,23 @@ async function guardarBono() {
 // ════════════════════════════════════════════════════════════
 // SOLICITUDES DE RIDERS
 // ════════════════════════════════════════════════════════════
+// Resuelve paths del bucket privado 'riders-docs' a signed URLs temporales.
+// Los valores ya guardados como URL completa (http...) se devuelven tal cual.
+async function resolverSignedUrlsRiders(valores) {
+  const unicos = [...new Set(valores.filter(Boolean))];
+  const mapa = {};
+  if(!unicos.length) return mapa;
+  const paths = [];
+  unicos.forEach(v => { if(v.startsWith('http')) mapa[v] = v; else paths.push(v); });
+  if(paths.length) {
+    try {
+      const { data, error } = await sb.storage.from('riders-docs').createSignedUrls(paths, 60*60*24*7);
+      if(!error && data) data.forEach(d => { if(d.signedUrl) mapa[d.path] = d.signedUrl; });
+    } catch(e) { console.error('[resolverSignedUrlsRiders]', e); }
+  }
+  return mapa;
+}
+
 async function cargarSolicitudes(estatus='PENDIENTE') {
   S.solFiltro = estatus;
   const { data } = await sb.from('aplicaciones_delivery').select('*').eq('estatus', estatus).order('created_at', { ascending: false });
@@ -3125,9 +3145,11 @@ async function cargarSolicitudes(estatus='PENDIENTE') {
   document.getElementById('badge-sol').textContent = estatus === 'PENDIENTE' ? data.length : parseInt(document.getElementById('badge-sol').textContent||0);
   // Cachear solicitudes para modal
   data.forEach(s => { if(!window._solCache) window._solCache = {}; window._solCache[s.id] = s; });
+  const mapaUrls = await resolverSignedUrlsRiders(data.map(s => s.identidad_delantera_url));
   el.innerHTML = data.map(s => {
     const telRaw = (s.celular||'').replace(/\D/g,'');
     const waLink = telRaw ? `https://wa.me/${telRaw}?text=${encodeURIComponent('Hola '+(s.nombre||'')+', te escribimos de Somar Express 🛵 sobre tu solicitud para ser rider.')}` : '#';
+    const duiUrl = mapaUrls[s.identidad_delantera_url] || '';
     return `
     <div class="dep-card">
       <div class="dep-hdr">
@@ -3139,7 +3161,7 @@ async function cargarSolicitudes(estatus='PENDIENTE') {
         </div>
         <span class="chip chip-${estatus}">${estatus}</span>
       </div>
-      ${s.identidad_delantera_url ? `<div class="dep-img" onclick="window.open('${s.identidad_delantera_url}','_blank')" style="background-image:url(${s.identidad_delantera_url})"><div class="dep-img-overlay">🪪 Ver DUI ↗</div></div>` : ''}
+      ${duiUrl ? `<div class="dep-img" onclick="window.open('${duiUrl}','_blank')" style="background-image:url(${duiUrl})"><div class="dep-img-overlay">🪪 Ver DUI ↗</div></div>` : ''}
       <div class="dep-footer">
         <button class="btn btn-ghost btn-sm" onclick="verDetalleSolicitud('${s.id}')">👁 Ver más</button>
         ${telRaw ? `<a href="${waLink}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;text-decoration:none">💬 WhatsApp</a>` : ''}
@@ -3151,9 +3173,16 @@ async function cargarSolicitudes(estatus='PENDIENTE') {
   }).join('');
 }
 
-function verDetalleSolicitud(id) {
+async function verDetalleSolicitud(id) {
   const s = window._solCache?.[id];
   if(!s) return;
+  document.getElementById('modal-sol-det').style.display = 'flex';
+  document.getElementById('sol-det-cuerpo').innerHTML = '<div style="padding:60px 0;text-align:center;color:var(--td)">Cargando documentos...</div>';
+
+  const camposDoc = ['foto_url','identidad_delantera_url','identidad_trasera_url','licencia_url','revision_vehiculo_url','moto_propia_url','mochila_url','antecedentes_url','rtn_url'];
+  const mapaUrls = await resolverSignedUrlsRiders(camposDoc.map(c => s[c]));
+  const urlR = campo => mapaUrls[s[campo]] || '';
+
   const telRawDet = (s.celular||'').replace(/\D/g,'');
   const waLinkDet = telRawDet ? `https://wa.me/${telRawDet}?text=${encodeURIComponent('Hola '+(s.nombre||'')+', te escribimos de Somar Express 🛵 sobre tu solicitud para ser rider.')}` : '#';
   const doc = (url, label, icon) => url
@@ -3183,11 +3212,12 @@ function verDetalleSolicitud(id) {
     ? `<span style="background:rgba(239,68,68,.15);color:var(--rojo);padding:4px 12px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid rgba(239,68,68,.3)">✗ RECHAZADO</span>`
     : `<span style="background:rgba(245,158,11,.15);color:var(--am);padding:4px 12px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid rgba(245,158,11,.3)">⏳ PENDIENTE</span>`;
 
+  const fotoPerfilUrl = urlR('foto_url');
   const cuerpo = `
     <!-- Cabecera -->
     <div style="display:flex;gap:14px;align-items:center;margin-bottom:20px">
-      ${s.foto_url
-        ? `<img src="${s.foto_url}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid var(--or);flex-shrink:0;cursor:pointer" onclick="window.open('${s.foto_url}','_blank')">`
+      ${fotoPerfilUrl
+        ? `<img src="${fotoPerfilUrl}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid var(--or);flex-shrink:0;cursor:pointer" onclick="window.open('${fotoPerfilUrl}','_blank')">`
         : `<div style="width:72px;height:72px;border-radius:50%;background:var(--or);color:#000;font-size:28px;font-weight:800;display:grid;place-items:center;flex-shrink:0">${inic(s.nombre)}</div>`}
       <div style="flex:1;min-width:0">
         <div style="font-size:20px;font-weight:800;line-height:1.2">${s.nombre}</div>
@@ -3219,14 +3249,14 @@ function verDetalleSolicitud(id) {
     <!-- Documentos -->
     <div style="font-size:10px;color:var(--or);font-weight:800;letter-spacing:1px;margin-bottom:8px">DOCUMENTOS Y FOTOS</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
-      ${doc(s.identidad_delantera_url, 'DUI Delantera', '🪪')}
-      ${doc(s.identidad_trasera_url,   'DUI Trasera',   '🪪')}
-      ${doc(s.licencia_url,            'Licencia',      '📇')}
-      ${doc(s.revision_vehiculo_url,   'Rev. Vehículo', '🔧')}
-      ${doc(s.moto_propia_url,         'Moto propia',   '🏍')}
-      ${doc(s.mochila_url,             'Mochila',       '🎒')}
-      ${doc(s.antecedentes_url,        'Antecedentes',  '📋')}
-      ${doc(s.rtn_url,                 'RTN',           '📄')}
+      ${doc(urlR('identidad_delantera_url'), 'DUI Delantera', '🪪')}
+      ${doc(urlR('identidad_trasera_url'),   'DUI Trasera',   '🪪')}
+      ${doc(urlR('licencia_url'),            'Licencia',      '📇')}
+      ${doc(urlR('revision_vehiculo_url'),   'Rev. Vehículo', '🔧')}
+      ${doc(urlR('moto_propia_url'),         'Moto propia',   '🏍')}
+      ${doc(urlR('mochila_url'),             'Mochila',       '🎒')}
+      ${doc(urlR('antecedentes_url'),        'Antecedentes',  '📋')}
+      ${doc(urlR('rtn_url'),                 'RTN',           '📄')}
     </div>
 
     <!-- Notas internas -->
@@ -3243,7 +3273,6 @@ function verDetalleSolicitud(id) {
   `;
 
   document.getElementById('sol-det-cuerpo').innerHTML = cuerpo;
-  document.getElementById('modal-sol-det').style.display = 'flex';
 }
 
 async function accionSolicitud(id, nombre, accion, nomDrv, correoDrv, celDrv) {
