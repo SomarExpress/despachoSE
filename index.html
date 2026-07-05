@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow:wght@300;400;500;600;700;800;900&family=Barlow+Condensed:wght@600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
 <style>
 :root{
   --or:#FF8C00;--or-dim:#cc7000;--or-glow:rgba(255,140,0,.12);
@@ -19,8 +19,8 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100%;background:var(--bg);color:var(--tx);font-family:'Barlow',sans-serif;font-size:14px;}
-body{overflow:hidden;}
-#app{display:flex;height:100vh;}
+body{overflow:hidden;overscroll-behavior:none;}
+#app{display:flex;height:100vh;height:100dvh;}
 a{color:inherit;text-decoration:none;}
 button{cursor:pointer;font-family:'Barlow',sans-serif;}
 input,select,textarea{font-family:'Barlow',sans-serif;}
@@ -61,7 +61,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 .tb-clock{font-family:'Space Mono',monospace;font-size:11px;color:var(--td);}
 .rt-dot{width:8px;height:8px;border-radius:50%;background:var(--verde);box-shadow:0 0 6px var(--verde);flex-shrink:0;}
 .rt-dot.off{background:var(--rojo);box-shadow:0 0 6px var(--rojo);}
-#content{flex:1;overflow-y:auto;padding:16px;}
+#content{flex:1;overflow-y:auto;padding:16px;-webkit-overflow-scrolling:touch;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));}
 
 /* ─── BUTTONS ──────────────────────────────────────────────── */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;border:none;font-size:13px;font-weight:600;transition:all .12s;white-space:nowrap;cursor:pointer;}
@@ -97,7 +97,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 #view-riders{overflow:hidden;}
 #view-mapa{overflow:hidden;padding:0 !important;}
 #map-riders{height:320px !important;width:100% !important;position:relative !important;z-index:1;}
-#map-live{height:calc(100vh - 84px) !important;}
+#map-live{height:calc(100vh - 84px) !important;height:calc(100dvh - 84px) !important;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 .pulse{animation:pulse 1.8s infinite;}
@@ -278,7 +278,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
   }
   /* El sidebar NO ocupa espacio en el flex flow en móvil */
   #app{display:block;}
-  #main{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+  #main{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;}
   #sidebar.open{transform:translateX(0);}
   .sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:299;}
   .sb-overlay.open{display:block;}
@@ -286,7 +286,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
   #main{width:100% !important;margin-left:0 !important;}
   /* Mostrar botón hamburguesa */
   .tb-menu{display:flex !important;align-items:center;justify-content:center;}
-  #content{padding:10px;}
+  #content{padding:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));}
 
   /* ── Dashboard ── */
   .metrics{grid-template-columns:1fr 1fr;}
@@ -356,12 +356,13 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
   /* App layout en móvil */
   #app{overflow:hidden;}
   #topbar{padding:0 12px;}
-  #content{padding:10px 8px;}
+  #content{padding:10px 8px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));}
 
   /* ── Chat móvil: estilo WhatsApp ── */
   /* El view-chat ocupa toda la pantalla disponible */
   #view-chat{
     height:calc(100vh - 52px);
+    height:calc(100dvh - 52px);
     padding:0 !important;
     overflow:hidden;
   }
@@ -518,7 +519,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 @media(max-width:400px){
   .tiempo-grid{grid-template-columns:1fr !important;}
   .metrics{grid-template-columns:1fr 1fr !important;}
-  #content{padding:8px !important;}
+  #content{padding:8px !important;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px)) !important;}
   .metric-val{font-size:24px !important;}
 }
 </style>
@@ -531,6 +532,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Somar Despacho">
   <link rel="apple-touch-icon" href="https://res.cloudinary.com/drkaxsziu/image/upload/v1767871213/Somar_Express_2048_x_2048_px_18_x_18_in__20250623_221102_0000_o0bv7a.png">
+  <link rel="icon" type="image/png" href="https://res.cloudinary.com/drkaxsziu/image/upload/v1767871213/Somar_Express_2048_x_2048_px_18_x_18_in__20250623_221102_0000_o0bv7a.png">
 </head>
 <body>
 
@@ -877,7 +879,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 
       <!-- ═══ PEDIDOS ══════════════════════════════════════════ -->
       <div class="view" id="view-pedidos">
-        <div class="filter-bar">
+        <div class="filter-bar" style="flex-wrap:wrap;gap:6px">
           <button class="fbtn active" onclick="filtPed(this,'todos')">Todos</button>
           <button class="fbtn" onclick="filtPed(this,'activos')">Activos</button>
           <button class="fbtn" onclick="filtPed(this,'sinAsignar')">Sin Asignar</button>
@@ -886,10 +888,34 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
           <button class="fbtn" onclick="filtPed(this,'FINALIZADO')">Finalizados</button>
           <button class="fbtn" onclick="filtPed(this,'CANCELADO')">Cancelados</button>
         </div>
+        <!-- Filtros avanzados -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;padding:10px 14px;background:var(--g2);border:1px solid var(--g4);border-radius:10px;">
+          <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px">
+            <label style="font-size:10px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em">Desde</label>
+            <input type="date" id="ped-desde" class="fi" style="padding:5px 8px;font-size:12px" onchange="buscarPedidosAvanzado()">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px">
+            <label style="font-size:10px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em">Hasta</label>
+            <input type="date" id="ped-hasta" class="fi" style="padding:5px 8px;font-size:12px" onchange="buscarPedidosAvanzado()">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;flex:2;min-width:160px">
+            <label style="font-size:10px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em">Cliente</label>
+            <input type="text" id="ped-fil-cliente" class="fi" style="padding:5px 8px;font-size:12px" placeholder="Nombre o teléfono" oninput="debounceBuscarPedidos()">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;flex:2;min-width:160px">
+            <label style="font-size:10px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em">Comercio</label>
+            <input type="text" id="ped-fil-comercio" class="fi" style="padding:5px 8px;font-size:12px" placeholder="Nombre del comercio" oninput="debounceBuscarPedidos()">
+          </div>
+          <div style="display:flex;gap:6px;align-items:flex-end">
+            <button class="btn btn-primary btn-sm" onclick="buscarPedidosAvanzado()">Buscar</button>
+            <button class="btn btn-ghost btn-sm" onclick="limpiarFiltrosPedidos()">✕ Limpiar</button>
+          </div>
+          <div style="font-size:10px;color:var(--td);align-self:flex-end;padding-bottom:6px" id="ped-modo-label"></div>
+        </div>
         <div class="card">
           <div class="card-hdr">
             <div class="card-title" id="ped-count">— pedidos</div>
-            <input type="text" id="ped-search" placeholder="Buscar..." class="fi" style="width:180px;padding:5px 10px;font-size:12px;" oninput="renderTablaPedidos()">
+            <input type="text" id="ped-search" placeholder="Buscar en resultados..." class="fi" style="width:180px;padding:5px 10px;font-size:12px;" oninput="renderTablaPedidos()">
           </div>
           <div class="tbl-wrap">
             <table class="tbl">
@@ -1506,13 +1532,17 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 
       <!-- ═══ CONFIGURACIÓN ════════════════════════════════════ -->
       <div class="view" id="view-config">
-        <div style="max-width:600px;">
-          <div class="card" style="margin-bottom:14px;">
-            <div class="card-hdr"><div class="card-title">⚙️ Configuración del Sistema</div></div>
-            <div id="config-content" style="padding:14px;">
-              <div class="empty">Cargando configuración...</div>
-            </div>
-          </div>
+        <!-- Tabs de sección -->
+        <div id="cfg-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+          <button class="cfg-tab active" data-tab="comisiones" onclick="cfgTab('comisiones')">💰 Comisiones</button>
+          <button class="cfg-tab" data-tab="tarifas" onclick="cfgTab('tarifas')">🗺️ Tarifas</button>
+          <button class="cfg-tab" data-tab="billetera" onclick="cfgTab('billetera')">👛 Billetera</button>
+          <button class="cfg-tab" data-tab="recargos" onclick="cfgTab('recargos')">⚡ Recargos</button>
+          <button class="cfg-tab" data-tab="puntos" onclick="cfgTab('puntos')">⭐ Puntos Clientes</button>
+          <button class="cfg-tab" data-tab="operacion" onclick="cfgTab('operacion')">⚙️ Operación</button>
+        </div>
+        <div id="config-content">
+          <div class="empty">Cargando configuración...</div>
         </div>
       </div>
 
@@ -1679,7 +1709,16 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 // ════════════════════════════════════════════════════════════
 const SUPA_URL  = 'https://jjrmzouigcmeztkybrvp.supabase.co';
 const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impqcm16b3VpZ2NtZXp0a3licnZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5MzExNDgsImV4cCI6MjA4ODUwNzE0OH0.tNUHxGWMWh7Q6v4mH3y5gOxpczpEJHwNqwH2TehL61I';
-const sb = supabase.createClient(SUPA_URL, SUPA_ANON);
+const sb = supabase.createClient(SUPA_URL, SUPA_ANON, {
+  realtime: {
+    params: { eventsPerSecond: 10 }
+  },
+  global: {
+    fetch: (...args) => fetch(...args)
+  }
+});
+// Desconectar Realtime hasta que haya sesión activa
+sb.realtime.disconnect();
 
 // ════════════════════════════════════════════════════════════
 // ESTADO
@@ -1687,6 +1726,7 @@ const sb = supabase.createClient(SUPA_URL, SUPA_ANON);
 const S = {
   pedidos: [], riders: [], depositos: [], solFiltro: 'PENDIENTE',
   pedFiltro: 'todos', selRiderId: null, selPedidoId: null,
+  _pedsFiltrados: null,
   mapInit: false, map: null, markers: {},
   mapRidersInit: false, mapRiders: null, markersRiders: {},
   chatRiderId: null, chatSub: null,
@@ -1914,6 +1954,8 @@ function tickPanelTimer(ahora) {
 // REALTIME
 // ════════════════════════════════════════════════════════════
 function initRealtime() {
+  // Conectar WebSocket solo después de tener sesión autenticada
+  sb.realtime.connect();
   sb.channel('despacho-main')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, p => {
       onPedidoChange(p);
@@ -1975,8 +2017,6 @@ function initRealtime() {
     .subscribe(status => {
       const ok = status === 'SUBSCRIBED';
       document.getElementById('rt-dot').classList.toggle('off', !ok);
-      // rt-txt reemplazado por fecha-hoy, solo actualizar el dot
-    document.getElementById('rt-dot').classList.toggle('off', !ok);
     });
 }
 
@@ -2196,6 +2236,59 @@ function renderListaActivos() {
 // ════════════════════════════════════════════════════════════
 const FILTROS_ACTIVOS = ['ASIGNADO','ACEPTADO','EN_ESTABLECIMIENTO','PEDIDO_EN_CAMINO','ENTREGANDO'];
 
+// Debounce para inputs de texto
+let _debPed = null;
+function debounceBuscarPedidos() {
+  clearTimeout(_debPed);
+  _debPed = setTimeout(buscarPedidosAvanzado, 450);
+}
+
+function limpiarFiltrosPedidos() {
+  document.getElementById('ped-desde').value = '';
+  document.getElementById('ped-hasta').value = '';
+  document.getElementById('ped-fil-cliente').value = '';
+  document.getElementById('ped-fil-comercio').value = '';
+  document.getElementById('ped-modo-label').textContent = '';
+  S._pedsFiltrados = null;
+  renderTablaPedidos();
+}
+
+async function buscarPedidosAvanzado() {
+  const desde    = document.getElementById('ped-desde')?.value;
+  const hasta    = document.getElementById('ped-hasta')?.value;
+  const cliente  = document.getElementById('ped-fil-cliente')?.value.trim();
+  const comercio = document.getElementById('ped-fil-comercio')?.value.trim();
+  const modoLabel = document.getElementById('ped-modo-label');
+
+  // Si no hay ningún filtro avanzado, volver a memoria local
+  if(!desde && !hasta && !cliente && !comercio) {
+    S._pedsFiltrados = null;
+    if(modoLabel) modoLabel.textContent = '';
+    renderTablaPedidos();
+    return;
+  }
+
+  if(modoLabel) modoLabel.textContent = '⏳ Buscando...';
+
+  let q = sb.from('pedidos').select('*').order('created_at', { ascending: false }).limit(500);
+
+  if(desde)    q = q.gte('created_at', desde + 'T00:00:00');
+  if(hasta)    q = q.lte('created_at', hasta + 'T23:59:59');
+  if(cliente)  q = q.or(`nombre_cliente.ilike.%${cliente}%,celular_cliente.ilike.%${cliente}%,nombre_destinatario.ilike.%${cliente}%`);
+  if(comercio) q = q.ilike('nombre_comercio', `%${comercio}%`);
+
+  const { data, error } = await q;
+  if(error) { toast('Error al buscar: ' + error.message, 'danger'); if(modoLabel) modoLabel.textContent = ''; return; }
+
+  S._pedsFiltrados = data || [];
+  const tags = [];
+  if(desde || hasta) tags.push(`📅 ${desde||'…'} → ${hasta||'…'}`);
+  if(cliente)        tags.push(`👤 "${cliente}"`);
+  if(comercio)       tags.push(`🏪 "${comercio}"`);
+  if(modoLabel) modoLabel.textContent = `${S._pedsFiltrados.length} resultados · ${tags.join(' · ')}`;
+  renderTablaPedidos();
+}
+
 function filtPed(btn, f) {
   document.querySelectorAll('.filter-bar .fbtn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
@@ -2205,11 +2298,18 @@ function filtPed(btn, f) {
 
 function renderTablaPedidos() {
   const q = (document.getElementById('ped-search')?.value || '').toLowerCase();
-  let peds = S.pedidos;
-  if(S.pedFiltro === 'activos')     peds = peds.filter(p => FILTROS_ACTIVOS.includes(p.estatus));
+  // Usar resultados filtrados de DB si hay búsqueda avanzada activa, si no la memoria local
+  let peds = S._pedsFiltrados ?? S.pedidos;
+  if(S.pedFiltro === 'activos')       peds = peds.filter(p => FILTROS_ACTIVOS.includes(p.estatus));
   else if(S.pedFiltro === 'sinAsignar') peds = peds.filter(p => p.estatus === 'PENDIENTE');
-  else if(S.pedFiltro !== 'todos')  peds = peds.filter(p => p.estatus === S.pedFiltro);
-  if(q) peds = peds.filter(p => JSON.stringify(p).toLowerCase().includes(q));
+  else if(S.pedFiltro !== 'todos')    peds = peds.filter(p => p.estatus === S.pedFiltro);
+  if(q) peds = peds.filter(p =>
+    (p.no_orden||'').toLowerCase().includes(q) ||
+    (p.nombre_comercio||'').toLowerCase().includes(q) ||
+    (p.nombre_cliente||'').toLowerCase().includes(q) ||
+    (p.nombre_destinatario||'').toLowerCase().includes(q) ||
+    (p.celular_cliente||'').toLowerCase().includes(q)
+  );
   document.getElementById('ped-count').textContent = `${peds.length} pedidos`;
   const tbody = document.getElementById('tbody-pedidos');
   if(!peds.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Sin resultados</td></tr>'; return; }
@@ -2480,8 +2580,8 @@ function renderPanel(p) {
     </div>
     <div style="background:var(--g2);border-radius:10px;overflow:hidden;margin-bottom:14px;">
       ${[
-        [`Ingreso Rider (${parseFloat(S.config?.pct_rider_envio||66).toFixed(0)}%)`, `<span style="color:var(--verde)">${fL(p.ingreso_delivery)}</span>`],
-        [`Ingreso Somar (${(100-parseFloat(S.config?.pct_rider_envio||66)).toFixed(0)}%)`, `<span style="color:var(--or)">${fL(p.ingreso_somar)}</span>`],
+        [`Ingreso Rider (${parseFloat(S.config?.delivery_pct||66).toFixed(0)}%)`, `<span style="color:var(--verde)">${fL(p.ingreso_delivery)}</span>`],
+        [`Ingreso Somar (${(100-parseFloat(S.config?.delivery_pct||66)).toFixed(0)}%)`, `<span style="color:var(--or)">${fL(p.ingreso_somar)}</span>`],
       ].map(([l,v]) =>
         `<div style="display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--g3);font-size:12px;">
           <span style="color:var(--td)">${l}</span><span>${v}</span>
@@ -2668,15 +2768,28 @@ function renderRidersMini() {
   const el = document.getElementById('lista-riders-mini');
   const online = S.riders.filter(d => d.en_turno === true);
   document.getElementById('online-count').textContent = `● ${online.length} en línea`;
-  el.innerHTML = S.riders.slice(0,6).map(d => {
+  if(!online.length) {
+    el.innerHTML = '<div style="padding:16px 14px;text-align:center;font-size:12px;color:var(--td)">Sin repartidores en turno</div>';
+    return;
+  }
+  el.innerHTML = online.map(d => {
     const act = S.pedidos.filter(p => p.delivery_id === d.id && FILTROS_ACTIVOS.includes(p.estatus)).length;
-    const c = d.en_turno===true ? (act > 0 ? 'var(--or)' : 'var(--verde)') : 'var(--g5)';
-    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--g3);">
-      <div class="ch-av" style="border:2px solid ${c};width:28px;height:28px;font-size:10px;${d.en_turno?'':'opacity:.55'}">${inic(d.nombre)}</div>
-      <div style="flex:1"><div style="font-size:12px;font-weight:600">${d.nombre}</div>
-        <div style="font-size:10px;color:var(--td)">${d.en_turno?(act>0?`${act} pedidos activos`:'Disponible'):'Desconectado'}</div>
+    const pausado = d._ubi?.pausado === true;
+    const c   = pausado ? 'var(--am)' : act > 0 ? 'var(--or)' : 'var(--verde)';
+    const lbl = pausado ? '⏸ Pausado' : act > 0 ? `${act} pedido${act>1?'s':''} activo${act>1?'s':''}` : 'Disponible';
+    const max = parseFloat(S.config?.max_pedidos_delivery || 2);
+    return `<div style="display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--g3);cursor:pointer"
+      onclick="abrirDetalleRider(${d.id})"
+      onmouseover="this.style.background='var(--g3)'" onmouseout="this.style.background=''">
+      <div class="ch-av" style="border:2px solid ${c};width:30px;height:30px;font-size:11px">${inic(d.nombre)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.nombre}</div>
+        <div style="font-size:10px;color:${c};font-weight:600">${lbl}</div>
       </div>
-      <div class="mono" style="font-size:10px;color:${act>=2?'var(--or)':'var(--td)'}">${d.en_turno?`${act}/2`:'—'}</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+        <div class="mono" style="font-size:11px;font-weight:700;color:${act>=max?'var(--or)':'var(--td)'}">${act}/${max}</div>
+        <div style="font-size:9px;color:var(--td)">pedidos</div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -2902,14 +3015,61 @@ async function abrirDetalleRider(riderId) {
         </div>
 
         <!-- BLOQUEAR / DESBLOQUEAR -->
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--g4)">
           <div>
             <div style="font-size:13px;font-weight:700">Bloqueo</div>
             <div style="font-size:10px;color:var(--td)">${bloqueado ? 'Rider bloqueado, no puede iniciar turno ni recibir pedidos' : 'Sin restricciones de seguridad'}</div>
           </div>
           ${bloqueado
             ? `<button class="btn btn-success btn-sm" onclick="desbloquearRider(${d.id})">🔓 Desbloquear</button>`
-            : `<button class="btn btn-danger btn-sm" onclick="bloquearRider(${d.id},'${(d.nombre||'').replace(/'/g,'\\\'')}')">🔒 Bloquear</button>`}
+            : `<button class="btn btn-danger btn-sm" onclick="bloquearRider(${d.id},'${(d.nombre||'').replace(/'/g,'\\\\\'')}')")>🔒 Bloquear</button>`}
+        </div>
+
+        <!-- NIVEL SOMAR PRO -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--g4)">
+          <div>
+            <div style="font-size:13px;font-weight:700">Nivel Somar Pro</div>
+            <div style="font-size:10px;color:var(--td)">Define la comisión por nivel cuando los tiers están activos en Configuración.</div>
+          </div>
+          <select id="mr-nivel-${d.id}"
+            style="background:var(--g3);border:1px solid var(--g5);border-radius:8px;padding:7px 10px;color:var(--tx);font-size:13px;font-weight:700;cursor:pointer;outline:none"
+            onchange="guardarNivelRider(${d.id},this.value,this)">
+            <option value="BRONCE" ${d.nivel==='BRONCE'?'selected':''}>🟤 Bronce</option>
+            <option value="PLATA"  ${d.nivel==='PLATA' ?'selected':''}>⚪ Plata</option>
+            <option value="ORO"    ${d.nivel==='ORO'   ?'selected':''}>🟡 Oro</option>
+          </select>
+        </div>
+
+        <!-- COMISIÓN PERSONALIZADA -->
+        <div style="padding:10px 0">
+          <div style="margin-bottom:8px">
+            <div style="font-size:13px;font-weight:700">Comisión personalizada (%)</div>
+            <div style="font-size:10px;color:var(--td)">Override individual. Tiene prioridad sobre nivel y general. Deja vacío para usar nivel/general.</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div style="position:relative;flex:1;max-width:200px">
+              <input type="number" id="mr-comision-${d.id}"
+                value="${d.comision_pct_custom !== null && d.comision_pct_custom !== undefined ? d.comision_pct_custom : ''}"
+                min="0" max="100" step="1" placeholder="Sin override"
+                style="width:100%;background:var(--g3);border:1px solid var(--g5);border-radius:8px;padding:7px 12px;color:var(--tx);font-size:14px;font-weight:700;outline:none;box-sizing:border-box"
+                onkeydown="if(event.key==='Enter')guardarComisionRider(${d.id},this.value,document.getElementById('mr-com-btn-${d.id}'))">
+              <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--td);font-size:12px;pointer-events:none">%</span>
+            </div>
+            <button id="mr-com-btn-${d.id}" class="btn btn-primary btn-sm"
+              onclick="guardarComisionRider(${d.id},document.getElementById('mr-comision-${d.id}').value,this)">
+              Guardar
+            </button>
+            <button class="btn btn-ghost btn-sm"
+              onclick="guardarComisionRider(${d.id},null,this)"
+              title="Quitar override">✕</button>
+          </div>
+          <div style="margin-top:8px;padding:7px 10px;background:var(--g2);border-radius:8px;font-size:11px;color:var(--td)">
+            Comisión efectiva: <strong style="color:var(--or)">${comisionRiderPct(d).toFixed(0)}%</strong>
+            <span style="color:var(--g6)">
+              ${d.comision_pct_custom !== null && d.comision_pct_custom !== undefined && d.comision_pct_custom !== '' ? '(override individual)' :
+                String(S.config?.tiers_activos) === 'true' ? '(nivel ' + (d.nivel || 'BRONCE') + ')' : '(comisión general)'}
+            </span>
+          </div>
         </div>
       </div>
     `;
@@ -3003,6 +3163,41 @@ async function desbloquearRider(riderId) {
   renderRidersGrid();
   renderRidersMini();
   abrirDetalleRider(riderId);
+}
+
+// ── COMISIÓN Y NIVEL POR RIDER ────────────────────────────────
+async function guardarNivelRider(riderId, nivel, sel) {
+  if(sel) sel.disabled = true;
+  const { error } = await sb.from('delivery').update({ nivel }).eq('id', riderId);
+  if(error) { toast('Error: '+error.message, 'danger'); }
+  else {
+    const r = S.riders.find(x => x.id === riderId);
+    if(r) r.nivel = nivel;
+    toast('✅ Nivel actualizado a '+nivel, 'success');
+    abrirDetalleRider(riderId);
+  }
+  if(sel) sel.disabled = false;
+}
+
+async function guardarComisionRider(riderId, valor, btn) {
+  if(btn) { btn.disabled = true; btn.textContent = '...'; }
+  const comision_pct_custom = (valor === null || valor === '' || valor === undefined)
+    ? null
+    : parseFloat(valor);
+  if(comision_pct_custom !== null && (isNaN(comision_pct_custom) || comision_pct_custom < 0 || comision_pct_custom > 100)) {
+    toast('Valor inválido (0–100)', 'danger');
+    if(btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+    return;
+  }
+  const { error } = await sb.from('delivery').update({ comision_pct_custom }).eq('id', riderId);
+  if(error) { toast('Error: '+error.message, 'danger'); }
+  else {
+    const r = S.riders.find(x => x.id === riderId);
+    if(r) r.comision_pct_custom = comision_pct_custom;
+    toast(comision_pct_custom === null ? '✅ Override eliminado' : `✅ Comisión personalizada: ${comision_pct_custom}%`, 'success');
+    abrirDetalleRider(riderId);
+  }
+  if(btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
 }
 
 // ── MODAL BONO / RECARGA DE SALDO ────────────────────────────
@@ -3099,11 +3294,11 @@ async function guardarBono() {
   });
   if(depErr){ toast('Error al registrar bono: '+depErr.message,'danger'); return; }
 
-  // 2. Actualizar saldo_billetera del rider
-  const {data:drv, error:drvErr} = await sb.from('delivery').select('saldo_billetera').eq('id', _bonoRiderId).single();
-  if(drvErr){ toast('Bono registrado pero error al actualizar saldo: '+drvErr.message,'danger'); return; }
-  const nuevoSaldo = parseFloat(drv?.saldo_billetera||0) + monto;
-  const {error:updErr} = await sb.from('delivery').update({saldo_billetera: nuevoSaldo}).eq('id', _bonoRiderId);
+  // 2. Actualizar saldo_billetera del rider — atómico vía RPC
+  const { data: nuevoSaldo, error: updErr } = await sb.rpc('incrementar_saldo_billetera', {
+    p_delivery_id: parseInt(_bonoRiderId),
+    p_delta: monto
+  });
   if(updErr){ toast('Error actualizando saldo: '+updErr.message,'danger'); return; }
 
   // 3. Actualizar estado local inmediatamente
@@ -3117,15 +3312,64 @@ async function guardarBono() {
 // ════════════════════════════════════════════════════════════
 // SOLICITUDES DE RIDERS
 // ════════════════════════════════════════════════════════════
+// Convierte ruta relativa de Supabase Storage → URL pública del bucket delivery-docs
+// Si ya es una URL absoluta (http/https), la devuelve sin cambio.
+function storageUrl(path) {
+  if(!path) return null;
+  if(path.startsWith('http://') || path.startsWith('https://')) return path;
+  // URL pública directa (bucket delivery-docs es privado, usamos signed URL cacheada)
+  return null; // será resuelta por resolverSignedUrls
+}
+
+// Genera signed URLs para todos los campos de imagen de una solicitud
+async function resolverSignedUrls(sol) {
+  const campos = [
+    'foto_url','identidad_delantera_url','identidad_trasera_url',
+    'licencia_url','revision_vehiculo_url','moto_propia_url',
+    'mochila_url','antecedentes_url','rtn_url'
+  ];
+  const necesitan = campos.filter(c => sol[c] && !sol[c].startsWith('http'));
+  if(!necesitan.length) return sol; // ya tiene URLs absolutas
+
+  const signed = await Promise.all(necesitan.map(async c => {
+    // Intentar riders-docs primero (bucket de la landing de aplicaciones)
+    let result = await sb.storage.from('riders-docs').createSignedUrl(sol[c], 60 * 60 * 6);
+    if(!result.data?.signedUrl) {
+      // Fallback a delivery-docs (bucket de documentos internos)
+      result = await sb.storage.from('delivery-docs').createSignedUrl(sol[c], 60 * 60 * 6);
+    }
+    return { campo: c, url: result.data?.signedUrl || null };
+  }));
+
+  const result = { ...sol };
+  signed.forEach(({ campo, url }) => { if(url) result[campo] = url; });
+  return result;
+}
+
 async function cargarSolicitudes(estatus='PENDIENTE') {
   S.solFiltro = estatus;
-  const { data } = await sb.from('aplicaciones_delivery').select('*').eq('estatus', estatus).order('created_at', { ascending: false });
   const el = document.getElementById('sol-lista');
+  el.innerHTML = '<div class="empty" style="padding:20px">Cargando solicitudes...</div>';
+
+  const { data } = await sb.from('aplicaciones_delivery').select('*').eq('estatus', estatus).order('created_at', { ascending: false });
   if(!data?.length) { el.innerHTML = '<div class="empty">Sin solicitudes ' + estatus.toLowerCase() + 's</div>'; return; }
-  document.getElementById('badge-sol').textContent = estatus === 'PENDIENTE' ? data.length : parseInt(document.getElementById('badge-sol').textContent||0);
-  // Cachear solicitudes para modal
-  data.forEach(s => { if(!window._solCache) window._solCache = {}; window._solCache[s.id] = s; });
-  el.innerHTML = data.map(s => `
+
+  // Resolver signed URLs en paralelo para todas las solicitudes
+  const solicitudes = await Promise.all(data.map(resolverSignedUrls));
+
+  if(estatus === 'PENDIENTE') {
+    const b = document.getElementById('badge-sol');
+    if(b) { b.textContent = solicitudes.length; b.style.display = 'inline'; }
+  }
+
+  // Cachear con URLs ya resueltas para el modal de detalle
+  if(!window._solCache) window._solCache = {};
+  solicitudes.forEach(s => { window._solCache[s.id] = s; });
+
+  el.innerHTML = solicitudes.map(s => {
+    const telRaw = (s.celular||'').replace(/\D/g,'');
+    const waLink = telRaw ? `https://wa.me/${telRaw}?text=${encodeURIComponent('Hola '+(s.nombre||'')+', te escribimos de Somar Express 🛵 sobre tu solicitud para ser rider.')}` : '#';
+    return `
     <div class="dep-card">
       <div class="dep-hdr">
         <div class="ch-av" style="width:40px;height:40px;font-size:14px;border:2px solid var(--or);flex-shrink:0">${inic(s.nombre)}</div>
@@ -3136,19 +3380,27 @@ async function cargarSolicitudes(estatus='PENDIENTE') {
         </div>
         <span class="chip chip-${estatus}">${estatus}</span>
       </div>
-      ${s.identidad_delantera_url ? `<div class="dep-img" onclick="window.open('${s.identidad_delantera_url}','_blank')" style="background-image:url(${s.identidad_delantera_url})"><div class="dep-img-overlay">🪪 Ver DUI ↗</div></div>` : ''}
+      ${s.identidad_delantera_url
+        ? `<div class="dep-img" onclick="window.open('${s.identidad_delantera_url}','_blank')"
+             style="background-image:url('${s.identidad_delantera_url}')">
+             <div class="dep-img-overlay">🪪 Ver DUI ↗</div></div>`
+        : ''}
       <div class="dep-footer">
         <button class="btn btn-ghost btn-sm" onclick="verDetalleSolicitud('${s.id}')">👁 Ver más</button>
+        ${telRaw ? `<a href="${waLink}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;text-decoration:none">💬 WhatsApp</a>` : ''}
         ${estatus === 'PENDIENTE' ? `
         <button class="btn btn-danger btn-sm" onclick="accionSolicitud('${s.id}','${s.nombre}','RECHAZADO')">✗ Rechazar</button>
         <button class="btn btn-success btn-sm" onclick="accionSolicitud('${s.id}','${s.nombre}','APROBADO',\`${s.nombre}\`,\`${s.correo}\`,\`${s.celular||''}\`)">✓ Aprobar y Activar</button>` : ''}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function verDetalleSolicitud(id) {
   const s = window._solCache?.[id];
   if(!s) return;
+  const telRawDet = (s.celular||'').replace(/\D/g,'');
+  const waLinkDet = telRawDet ? `https://wa.me/${telRawDet}?text=${encodeURIComponent('Hola '+(s.nombre||'')+', te escribimos de Somar Express 🛵 sobre tu solicitud para ser rider.')}` : '#';
   const doc = (url, label, icon) => url
     ? `<div onclick="window.open('${url}','_blank')" style="cursor:pointer;background-image:url(${url});background-size:cover;background-position:center;aspect-ratio:4/3;border-radius:8px;border:1.5px solid var(--g4);position:relative;overflow:hidden;transition:transform .15s" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
         <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.8),transparent 50%);display:flex;align-items:flex-end;padding:6px 8px">
@@ -3186,7 +3438,7 @@ function verDetalleSolicitud(id) {
         <div style="font-size:20px;font-weight:800;line-height:1.2">${s.nombre}</div>
         <div style="font-size:12px;color:var(--td);margin-top:3px">${s.correo}</div>
         <div style="font-size:12px;color:var(--td)">${s.celular||'—'} · ${fmtFecha(s.created_at)}</div>
-        <div style="margin-top:8px">${chip}</div>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">${chip}${telRawDet ? `<a href="${waLinkDet}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;text-decoration:none">💬 WhatsApp</a>` : ''}</div>
       </div>
     </div>
 
@@ -3443,13 +3695,6 @@ async function cargarDepositos(estatus='PENDIENTE') {
   if(depErr) { console.error('depositos error:', depErr.message); el.innerHTML = '<div class="empty">Error al cargar</div>'; return; }
   if(!data?.length) { el.innerHTML = '<div class="empty">Sin depósitos ' + estatus.toLowerCase() + 's</div>'; return; }
   if(estatus === 'PENDIENTE') document.getElementById('badge-dep').textContent = data.length;
-  // Obtener info de riders por separado
-  const riderIds = [...new Set(data.map(d => d.delivery_id).filter(Boolean))];
-  let ridersMap = {};
-  if(riderIds.length) {
-    const { data: rds } = await sb.from('delivery').select('id,nombre,saldo_billetera').in('id', riderIds);
-    rds?.forEach(r => ridersMap[r.id] = r);
-  }
   // Cuentas financieras activas para selector de cuenta destino (contabilidad)
   if(!S._cuentasFin) {
     const { data: ctas } = await sb.from('cuentas_financieras').select('id,nombre,icono').eq('activa',true).order('orden');
@@ -3457,6 +3702,13 @@ async function cargarDepositos(estatus='PENDIENTE') {
   }
   const ctaDefault = parseInt(S.config?.cuenta_default_depositos || 1);
   const ctaOpts = S._cuentasFin.map(c => `<option value="${c.id}" ${c.id===ctaDefault?'selected':''}>${c.icono||''} ${c.nombre}</option>`).join('');
+  // Obtener info de riders por separado
+  const riderIds = [...new Set(data.map(d => d.delivery_id).filter(Boolean))];
+  let ridersMap = {};
+  if(riderIds.length) {
+    const { data: rds } = await sb.from('delivery').select('id,nombre,saldo_billetera').in('id', riderIds);
+    rds?.forEach(r => ridersMap[r.id] = r);
+  }
   el.innerHTML = data.map(d => {
     const rider = ridersMap[d.delivery_id] || {};
     const nombre = rider.nombre || '—';
@@ -3499,16 +3751,16 @@ async function accionDep(id, accion, deliveryId, monto) {
   }
   await sb.from('depositos_delivery').update(updates).eq('id', id);
   if(accion === 'APROBADO' && deliveryId && monto) {
-    // Leer saldo actual y sumar el depósito
-    const { data: drv, error: drvErr } = await sb.from('delivery').select('saldo_billetera').eq('id', deliveryId).single();
-    if(drvErr) { toast('Error leyendo saldo: ' + drvErr.message, 'danger'); return; }
-    const nuevoSaldo = parseFloat(drv?.saldo_billetera || 0) + parseFloat(monto);
-    const { error: updErr } = await sb.from('delivery').update({ saldo_billetera: nuevoSaldo }).eq('id', deliveryId);
+    // Actualizar saldo del rider — atómico vía RPC para evitar race condition
+    const { data: nuevoSaldo, error: updErr } = await sb.rpc('incrementar_saldo_billetera', {
+      p_delivery_id: parseInt(deliveryId),
+      p_delta: parseFloat(monto)
+    });
     if(updErr) { toast('Error actualizando saldo: ' + updErr.message, 'danger'); return; }
-    // Actualizar también en S.riders local para que se vea inmediatamente
+    // Actualizar en S.riders local para reflejo inmediato
     const rIdx = S.riders.findIndex(r => r.id === parseInt(deliveryId));
     if(rIdx >= 0) { S.riders[rIdx].saldo_billetera = nuevoSaldo; renderRidersMini(); renderRidersGrid(); }
-    console.log('[deposito] saldo anterior:', drv?.saldo_billetera, '→ nuevo:', nuevoSaldo);
+    console.log('[deposito] nuevo saldo:', nuevoSaldo);
   }
   await cargarDepositos(S.solFiltro || 'PENDIENTE');
   await cargarRiders(); // Recargar riders para reflejar nuevo saldo
@@ -4168,7 +4420,7 @@ async function guardarPedido() {
   const prop  = parseFloat(document.getElementById('sv-propina-inp')?.value||0)||S.stepVals['sv-propina']||0;
   const total = prod + envio + prop;
   // Porcentaje rider sobre tarifa de envío — viene de config o default 66.66%
-  const pctRiderEnvio = parseFloat(S.config?.pct_rider_envio || 66.66) / 100;
+  const pctRiderEnvio = parseFloat(S.config?.delivery_pct || 66) / 100;
   const ingDelivery = parseFloat((envio * pctRiderEnvio).toFixed(2));
   // Calcular multiplicador de tarifa dinámica
   const tarifaModos = { NORMAL:1, LLUVIA:1.2, HORA_PICO:1.3, NOCTURNO:1.15 };
@@ -4852,7 +5104,7 @@ function actualizarResumen() {
   const total = parseFloat((prodConCom + envio + prop - desc).toFixed(2));
 
   // Ingresos
-  const pctRiderEnvio = parseFloat(S.config?.pct_rider_envio||66.66)/100;
+  const pctRiderEnvio = parseFloat(S.config?.delivery_pct||66.66)/100;
   const ingDel = parseFloat((envio*pctRiderEnvio).toFixed(2));
   const ingSom = parseFloat((envio*(1-pctRiderEnvio)+baseApp).toFixed(2));
 
@@ -6531,6 +6783,34 @@ async function limpiarNotifs() {
   renderBadgeNotifs(); renderNotifsPanel();
 }
 
+// ── Comisión jerárquica del rider ───────────────────────────
+// Resuelve el % que recibe el rider con esta precedencia:
+//   1) comision_pct_custom del rider (override individual)
+//   2) comisión por nivel (Bronce/Plata/Oro) si tiers_activos
+//   3) comisión general (config.comision_general_rider / delivery_pct)
+function comisionRiderPct(rider) {
+  const general = parseFloat(S.config?.comision_general_rider ?? S.config?.delivery_pct ?? 66);
+  if (!rider) return general;
+  // 1) Override individual
+  if (rider.comision_pct_custom !== null && rider.comision_pct_custom !== undefined && rider.comision_pct_custom !== '') {
+    const c = parseFloat(rider.comision_pct_custom);
+    if (!isNaN(c)) return c;
+  }
+  // 2) Por nivel (solo si los tiers están activos)
+  const tiersOn = String(S.config?.tiers_activos) === 'true';
+  if (tiersOn && rider.nivel) {
+    const porNivel = {
+      BRONCE: parseFloat(S.config?.comision_general_rider ?? 66),
+      PLATA:  parseFloat(S.config?.comision_plata_rider  ?? S.config?.comision_general_rider ?? 66),
+      ORO:    parseFloat(S.config?.comision_oro_rider    ?? S.config?.comision_general_rider ?? 66),
+    };
+    const c = porNivel[rider.nivel];
+    if (!isNaN(c)) return c;
+  }
+  // 3) General
+  return general;
+}
+
 async function cargarConfig() {
   const {data,error}=await sb.from('configuracion').select('*').order('clave');
   if(error){console.error('[config]',error.message);return;}
@@ -6545,35 +6825,216 @@ async function guardarConfigClave(clave,valor,btn) {
   else{S.config[clave]=String(valor);toast('✅ Configuración guardada','success');}
   if(btn){btn.disabled=false;btn.textContent='Guardar';}
 }
-function renderConfig() {
-  const el=document.getElementById('config-content');
-  if(!el) return;
-  const cfg=S.config;
-  const fila=(clave,label,desc,tipo='number',min=0,max=9999,step=0.5)=>`
-    <div style="padding:14px 0;border-bottom:1px solid var(--g4);">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:180px;">
-          <div style="font-size:13px;font-weight:700;margin-bottom:3px;">${label}</div>
-          <div style="font-size:11px;color:var(--td);">${desc}</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
-          <input type="${tipo}" id="cfg-${clave}" value="${cfg[clave]||''}" min="${min}" max="${max}" step="${step}"
-            style="width:100px;background:var(--g3);border:1px solid var(--g5);border-radius:6px;padding:7px 10px;color:var(--tx);font-size:14px;font-weight:700;text-align:center;">
-          <button class="btn btn-primary btn-sm" onclick="guardarConfigClave('${clave}',document.getElementById('cfg-${clave}').value,this)">Guardar</button>
-        </div>
-      </div>
-    </div>`;
-  el.innerHTML=`
-    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">🗺️ Zonas</div>
-    ${fila('zona_radio_km','Radio de zona (km)','Distancia máxima del rider al centro de la zona','number',0.5,20,0.5)}
-    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-top:16px;margin-bottom:2px;">💰 Comisiones</div>
-    ${fila('comision_bronce','Comisión Bronce (%)','','number',0,100,1)}
-    ${fila('comision_plata','Comisión Plata (%)','75+ pedidos/mes','number',0,100,1)}
-    ${fila('comision_oro','Comisión Oro (%)','150+ pedidos/mes','number',0,100,1)}
-    <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-top:16px;margin-bottom:2px;">👛 Billetera</div>
-    ${fila('saldo_minimo','Saldo mínimo (L.)','Para operar','number',0,9999,10)}`;
+function cfgTab(tab) {
+  document.querySelectorAll('.cfg-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  S._cfgTab = tab;
+  renderConfig();
 }
 
+function renderConfig() {
+  const el = document.getElementById('config-content');
+  if (!el) return;
+  const cfg  = S.config || {};
+  const tab  = S._cfgTab || 'comisiones';
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+  const v = k => cfg[k] ?? '';
+
+  const inp = (clave, min, max, step, extra='') =>
+    `<input type="number" id="cfg-${clave}" value="${v(clave)}" min="${min}" max="${max}" step="${step}"
+      ${extra}
+      style="width:90px;background:var(--g3);border:1px solid var(--g5);border-radius:8px;padding:7px 10px;
+             color:var(--tx);font-size:14px;font-weight:700;text-align:center;outline:none;"
+      onkeydown="if(event.key==='Enter')guardarConfigClave('${clave}',this.value)">`;
+
+  const btnGuardar = (clave) =>
+    `<button class="btn btn-primary btn-sm"
+      onclick="guardarConfigClave('${clave}',document.getElementById('cfg-${clave}').value,this)"
+      style="white-space:nowrap">Guardar</button>`;
+
+  const toggle = (clave, labelOn='Activo', labelOff='Inactivo') => {
+    const on = String(v(clave)) === 'true';
+    return `<button id="cfg-toggle-${clave}" onclick="cfgToggle('${clave}',this)"
+      style="display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:20px;border:none;cursor:pointer;font-size:13px;font-weight:700;
+             background:${on?'rgba(255,140,0,.18)':'var(--g4)'};color:${on?'var(--or)':'var(--td)'};transition:all .2s">
+      <span style="width:14px;height:14px;border-radius:50%;background:${on?'var(--or)':'var(--g6)'};display:inline-block;flex-shrink:0"></span>
+      ${on?labelOn:labelOff}
+    </button>`;
+  };
+
+  const fila = (clave, label, desc, min=0, max=9999, step=1) => `
+    <div class="cfg-fila">
+      <div class="cfg-fila-txt">
+        <div class="cfg-lbl">${label}</div>
+        ${desc ? `<div class="cfg-desc">${desc}</div>` : ''}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        ${inp(clave,min,max,step)}
+        ${btnGuardar(clave)}
+      </div>
+    </div>`;
+
+  const filaBool = (clave, label, desc) => `
+    <div class="cfg-fila">
+      <div class="cfg-fila-txt">
+        <div class="cfg-lbl">${label}</div>
+        ${desc ? `<div class="cfg-desc">${desc}</div>` : ''}
+      </div>
+      ${toggle(clave)}
+    </div>`;
+
+  const filaTexto = (clave, label, desc, placeholder='') => `
+    <div class="cfg-fila">
+      <div class="cfg-fila-txt">
+        <div class="cfg-lbl">${label}</div>
+        ${desc ? `<div class="cfg-desc">${desc}</div>` : ''}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        <input type="text" id="cfg-${clave}" value="${v(clave)}" placeholder="${placeholder}"
+          style="width:130px;background:var(--g3);border:1px solid var(--g5);border-radius:8px;padding:7px 10px;
+                 color:var(--tx);font-size:13px;font-weight:600;outline:none;"
+          onkeydown="if(event.key==='Enter')guardarConfigClave('${clave}',this.value)">
+        ${btnGuardar(clave)}
+      </div>
+    </div>`;
+
+  const seccion = (emoji, titulo, contenido) => `
+    <div class="card" style="margin-bottom:12px;">
+      <div class="card-hdr" style="padding:12px 16px;">
+        <div class="card-title">${emoji} ${titulo}</div>
+      </div>
+      <div style="padding:0 16px 6px">${contenido}</div>
+    </div>`;
+
+  const tiersOn = String(v('tiers_activos')) === 'true';
+
+  // ── TABS ─────────────────────────────────────────────────────────────────
+  const tabs = {
+
+    comisiones: `
+      ${seccion('💰','Comisión General',`
+        ${fila('comision_general_rider','Comisión general del rider (%)','% de la tarifa de envío que recibe el rider. Aplica cuando los niveles están desactivados.',0,100,1)}
+      `)}
+      ${seccion('🏆','Sistema de Niveles (Somar Pro)',`
+        ${filaBool('tiers_activos','Activar niveles','Cuando está activo, la comisión varía según el nivel del rider: Bronce → Plata → Oro.')}
+        <div style="margin-top:10px;padding:10px 12px;background:${tiersOn?'rgba(255,140,0,.07)':'var(--g2)'};
+                    border-radius:8px;border:1px solid ${tiersOn?'rgba(255,140,0,.25)':'var(--g4)'};">
+          <div style="font-size:11px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">
+            Comisiones por nivel — % que recibe el rider
+          </div>
+          ${fila('comision_general_rider','🟤 Bronce','Nivel de entrada.',0,100,1)}
+          ${fila('comision_plata_rider','⚪ Plata','Riders con historial sólido.',0,100,1)}
+          ${fila('comision_oro_rider','🟡 Oro','Riders con alto desempeño.',0,100,1)}
+        </div>
+        <div style="margin-top:8px;padding:8px 12px;background:rgba(59,130,246,.07);border-radius:8px;border:1px solid rgba(59,130,246,.2);font-size:11px;color:#7ba4e8;">
+          ℹ️ El nivel de cada rider se asigna individualmente desde su perfil. El override personalizado tiene prioridad sobre el nivel.
+        </div>
+      `)}
+      ${seccion('🎯','Override Individual',`
+        <div style="padding:10px 0 6px;font-size:13px;color:var(--td);line-height:1.6;">
+          Para asignar una comisión personalizada a un rider específico, ve a
+          <strong style="color:var(--or)">Riders → perfil del rider → Comisión personalizada</strong>.
+          El override individual siempre tiene la mayor prioridad, sobre el nivel y la general.
+        </div>
+      `)}
+      ${seccion('🏪','Comisión de Comercios',`
+        ${fila('comision_comercio_pct','Comisión a comercios (%)','% del subtotal de productos que cobra Somar al comercio. 0 = sin comisión de producto.',0,100,1)}
+      `)}
+    `,
+
+    tarifas: `
+      ${seccion('📐','Tarifa Base',`
+        ${fila('tarifa_base','Tarifa base (L.)','Monto fijo inicial por cualquier envío antes de aplicar km adicionales.',0,500,5)}
+        ${fila('costo_por_km','Costo por km adicional (L.)','Se multiplica por la distancia en km.',0,100,0.5)}
+        ${fila('tarifa_minima','Tarifa mínima (L.)','Ningún envío puede cobrarse por menos de este valor.',0,500,5)}
+        ${fila('redondear_a_multiplo','Redondear al múltiplo de (L.)','Ej: 5 redondea L.53 → L.55. Usa 0 para no redondear.',0,50,5)}
+      `)}
+      ${seccion('🚀','Tarifa Dinámica',`
+        ${filaBool('tarifa_dinamica_activa','Activar tarifa dinámica','Aplica multiplicador en momentos de alta demanda.')}
+        ${fila('multiplicador_dinamico','Multiplicador','Ej: 1.5 significa tarifa × 1.5. Aplica sobre la tarifa calculada.',1,5,0.1)}
+      `)}
+      ${seccion('🗺️','Cobertura y Zonas',`
+        ${fila('zona_radio_km','Radio de zona del rider (km)','Distancia máxima que un rider puede estar del centro de su zona para recibir pedidos.',0.5,20,0.5)}
+      `)}
+    `,
+
+    billetera: `
+      ${seccion('👛','Saldo Operativo',`
+        ${fila('saldo_minimo','Saldo mínimo para operar (L.)','Si el saldo supera este monto positivo, el rider queda bloqueado hasta depositar.',0,9999,10)}
+      `)}
+    `,
+
+    recargos: `
+      ${seccion('🌧️','Recargo por Lluvia',`
+        ${filaBool('lluvia_activa','Lluvia activa ahora','Activa el recargo de lluvia manualmente desde despacho. Se desactiva al cambiar el turno.')}
+        ${fila('recargo_lluvia','Monto del recargo lluvia (L.)','Va 100% al rider.',0,200,5)}
+      `)}
+      ${seccion('🌙','Recargo Nocturno',`
+        ${filaTexto('hora_inicio_noche','Inicio horario nocturno','Formato 24h, ej: 19:00','19:00')}
+        ${filaTexto('hora_fin_noche','Fin horario nocturno','Formato 24h, ej: 06:00','06:00')}
+        ${fila('recargo_noche','Monto recargo nocturno (L.)','Se suma a la tarifa en horario nocturno.',0,200,5)}
+      `)}
+    `,
+
+    puntos: `
+      ${seccion('⭐','Programa de Puntos',`
+        ${filaBool('puntos_activos','Programa de puntos activo','Desactivar congela la acumulación y canje de puntos para todos los clientes.')}
+        ${fila('puntos_gasto_cada_lps','Acumula 1 punto cada (L.)','El cliente gana 1 punto por cada X lempiras gastados en productos (excluye envío).',1,1000,5)}
+        ${fila('puntos_por_lempira','Puntos por L.1 de ganancia Somar','Puntos al cliente calculados sobre el ingreso de Somar en el pedido.',1,1000,1)}
+        ${fila('puntos_por_resena','Puntos por evaluación completada','Se otorgan al cliente que califica su pedido.',0,500,5)}
+      `)}
+      ${seccion('🎁','Referidos',`
+        ${fila('puntos_por_referido_dar','Puntos para quien comparte código','Quien refiere gana estos puntos cuando su referido hace su 1er pedido.',0,5000,50)}
+        ${fila('puntos_por_referido_rec','Puntos de bienvenida al referido','El nuevo cliente recibe estos puntos al registrarse con un código.',0,5000,50)}
+      `)}
+      ${seccion('🔄','Canje',`
+        ${fila('puntos_a_lempiras','Puntos para equivaler L.1','Ej: 100 significa que 100 pts = L.1 de descuento.',1,10000,10)}
+        ${fila('canje_minimo_puntos','Mínimo de puntos para canjear','El cliente necesita al menos este saldo antes de poder canjear.',0,10000,50)}
+        ${fila('puntos_vencimiento_dias','Días de inactividad para expirar puntos','0 = nunca expiran.',0,3650,30)}
+      `)}
+    `,
+
+    operacion: `
+      ${seccion('⚙️','Control de Capacidad',`
+        ${fila('max_pedidos_delivery','Pedidos simultáneos por rider','Máximo de pedidos activos que puede tener un rider al mismo tiempo.',1,10,1)}
+        ${fila('max_riders_turno','Riders máximos por turno','Límite de riders en turno activo simultáneamente.',1,20,1)}
+        ${fila('tiempo_aceptacion_min','Minutos para aceptar pedido','Si el rider no acepta en este tiempo, se reasigna automáticamente.',1,30,1)}
+      `)}
+      ${seccion('📱','Notificaciones',`
+        ${filaTexto('whatsapp_notificaciones','WhatsApp alertas internas','Número con código de país, sin espacios ni guiones.','50498765432')}
+      `)}
+    `,
+  };
+
+  el.innerHTML = `
+    <style>
+      .cfg-tab {
+        padding:7px 14px;border-radius:20px;border:1px solid var(--g5);
+        background:var(--g3);color:var(--td);cursor:pointer;font-size:12px;font-weight:700;
+        transition:all .15s;white-space:nowrap;
+      }
+      .cfg-tab.active { background:var(--or);border-color:var(--or);color:#fff; }
+      .cfg-fila {
+        display:flex;justify-content:space-between;align-items:center;
+        gap:12px;padding:12px 0;border-bottom:1px solid var(--g4);flex-wrap:wrap;
+      }
+      .cfg-fila:last-child { border-bottom:none; }
+      .cfg-fila-txt { flex:1;min-width:180px; }
+      .cfg-lbl { font-size:13px;font-weight:700;margin-bottom:2px; }
+      .cfg-desc { font-size:11px;color:var(--td);line-height:1.5; }
+    </style>
+    ${tabs[tab] || ''}
+  `;
+}
+
+async function cfgToggle(clave, btn) {
+  const actual = String(S.config?.[clave]) === 'true';
+  const nuevo  = !actual;
+  btn.style.opacity = '0.5';
+  await guardarConfigClave(clave, String(nuevo));
+  btn.style.opacity = '1';
+  renderConfig();  // re-render para reflejar el nuevo estado
+}
 
 // ─── Haversine + tarifa local ────────────────────────────────
 function haversineKm(lat1,lon1,lat2,lon2) {
@@ -6640,7 +7101,12 @@ function nav(v, pushHistory=true) {
     if(!S.mapInit) { setTimeout(()=>{ initMap(); setModoMapa('live'); }, 80); }
     else { setTimeout(()=>{ S.map?.invalidateSize(); setModoMapa('live'); }, 80); }
   }
-  if(v === 'pedidos') renderTablaPedidos();
+  if(v === 'pedidos') {
+    // Prellenar "hasta" con hoy si está vacío
+    const hastaEl = document.getElementById('ped-hasta');
+    if(hastaEl && !hastaEl.value) hastaEl.value = fechaHN();
+    renderTablaPedidos();
+  }
   if(v === 'kanban') renderKanban();
   if(v === 'config') renderConfig();
   if(v === 'riders') {
