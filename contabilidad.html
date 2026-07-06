@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contabilidad — Somar Express</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --orange:#FF8C00; --orange-2:#ff6b1a; --orange-3:#e85a00;
+  --black:#1A1A1A; --bg:#0f0f11; --panel:#17171a; --panel-2:#1e1e22;
+  --line:#2a2a30; --line-soft:#232329;
+  --txt:#f2f2f4; --txt-dim:#9a9aa4; --txt-mute:#6b6b74;
+  --green:#22c55e; --green-d:#16a34a; --red:#ef4444; --red-d:#dc2626;
+  --blue:#3b82f6; --purple:#8b5cf6;
+  --ing:#22c55e; --egr:#ef4444;
+  --radius:14px; --radius-sm:9px;
+  --shadow:0 8px 30px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bg); color:var(--txt);
+  font-size:14px; line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+.num{font-family:'Space Mono',monospace;font-variant-numeric:tabular-nums}
+.mono{font-family:'Space Mono',monospace}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px}
+::-webkit-scrollbar-thumb:hover{background:#3a3a42}
+
+/* ── HEADER ── */
+.topbar{
+  position:sticky; top:0; z-index:40;
+  background:linear-gradient(135deg,var(--black) 0%,#232326 100%);
+  border-bottom:1px solid var(--line);
+  padding:16px 24px;
+  display:flex; align-items:center; gap:20px; flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:13px}
+.brand .logo{
+  width:42px;height:42px;border-radius:11px;
+  background:linear-gradient(135deg,var(--orange),var(--orange-3));
+  display:grid;place-items:center;
+  font-family:'Bebas Neue';font-size:24px;color:#fff;
+  box-shadow:0 4px 14px rgba(255,140,0,.4);
+}
+.brand h1{font-family:'Bebas Neue';font-size:28px;letter-spacing:.5px;line-height:1;font-weight:400}
+.brand .sub{color:var(--txt-dim);font-size:11px;letter-spacing:.3px;margin-top:2px}
+.topbar .spacer{flex:1}
+
+.tb-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.date-range{
+  display:flex;align-items:center;gap:8px;
+  background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius-sm);padding:7px 12px;
+}
+.date-range label{font-size:11px;color:var(--txt-mute);text-transform:uppercase;letter-spacing:.5px}
+.date-range input[type=date]{
+  background:transparent;border:none;color:var(--txt);
+  font-family:'Space Mono';font-size:12px;color-scheme:dark;cursor:pointer;
+}
+.date-range input[type=date]:focus{outline:none}
+
+.btn{
+  font-family:'Inter';font-weight:600;font-size:13px;
+  border:none;border-radius:var(--radius-sm);padding:10px 16px;
+  cursor:pointer;display:inline-flex;align-items:center;gap:7px;
+  transition:transform .08s,filter .15s,background .15s;white-space:nowrap;
+}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:linear-gradient(135deg,var(--orange),var(--orange-3));color:#fff;box-shadow:0 4px 14px rgba(255,140,0,.3)}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-ghost{background:var(--panel);color:var(--txt);border:1px solid var(--line)}
+.btn-ghost:hover{background:var(--panel-2);border-color:#3a3a42}
+.btn-sm{padding:7px 12px;font-size:12px}
+
+/* ── KPI STRIP ── */
+.kpi-strip{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:12px;padding:18px 24px 6px;
+}
+.kpi{
+  background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius);padding:14px 16px;position:relative;overflow:hidden;
+}
+.kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--orange)}
+.kpi.ing::before{background:var(--green)}
+.kpi.egr::before{background:var(--red)}
+.kpi.util::before{background:var(--blue)}
+.kpi .k-label{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--txt-mute);font-weight:600}
+.kpi .k-value{font-family:'Space Mono';font-size:22px;font-weight:700;margin-top:5px;letter-spacing:-.5px}
+.kpi .k-sub{font-size:11px;color:var(--txt-dim);margin-top:2px}
+.k-value.pos{color:var(--green)} .k-value.neg{color:var(--red)}
+
+/* ── DAY COLUMNS ── */
+.days-scroll{padding:14px 24px 40px;overflow-x:auto}
+.days-row{display:flex;gap:18px;align-items:flex-start;min-height:200px}
+.day-col{
+  flex:0 0 480px;max-width:480px;
+  background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden;
+}
+.day-head{
+  padding:14px 18px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,var(--panel-2),var(--panel));
+  display:flex;align-items:baseline;justify-content:space-between;
+}
+.day-head .d-title{font-family:'Bebas Neue';font-size:20px;letter-spacing:.5px;text-transform:capitalize}
+.day-head .d-net{font-family:'Space Mono';font-size:13px;font-weight:700}
+
+/* cuenta block */
+.acct{border-bottom:1px solid var(--line-soft)}
+.acct:last-child{border-bottom:none}
+.acct-head{
+  display:flex;align-items:center;gap:8px;
+  padding:9px 18px;background:var(--panel-2);
+  cursor:pointer;user-select:none;
+}
+.acct-head:hover{background:#24242a}
+.acct-head .a-icon{font-size:14px}
+.acct-head .a-name{font-weight:700;font-size:13px;flex:1}
+.acct-head .a-bal{font-family:'Space Mono';font-size:12.5px;font-weight:700}
+.acct-head .a-chevron{color:var(--txt-mute);font-size:10px;transition:transform .2s}
+.acct.collapsed .a-chevron{transform:rotate(-90deg)}
+.acct.collapsed .mov-table,.acct.collapsed .acct-foot{display:none}
+
+.mov-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.mov-table th{
+  text-align:left;padding:7px 10px;font-size:9.5px;text-transform:uppercase;
+  letter-spacing:.5px;color:var(--txt-mute);font-weight:600;
+  border-bottom:1px solid var(--line-soft);
+}
+.mov-table th.r,.mov-table td.r{text-align:right}
+.mov-table td{padding:8px 10px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+.mov-table tr:last-child td{border-bottom:none}
+.mov-row{cursor:pointer;transition:background .12s}
+.mov-row:hover{background:rgba(255,140,0,.06)}
+.mov-row.anulado{opacity:.4;text-decoration:line-through}
+.mov-row.auto .desc{color:var(--txt-dim)}
+
+.sigla{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:38px;padding:3px 7px;border-radius:6px;
+  font-family:'Space Mono';font-weight:700;font-size:10px;letter-spacing:.3px;
+  color:#fff;
+}
+.desc{color:var(--txt)}
+.desc .desc-meta{display:block;color:var(--txt-mute);font-size:10.5px;margin-top:1px}
+.mv-ing{color:var(--green);font-weight:700}
+.mv-egr{color:var(--red);font-weight:700}
+.mv-bal{color:var(--txt-dim)}
+.mv-bal.neg{color:var(--red)}
+
+.acct-foot{background:var(--panel-2)}
+.acct-foot td{padding:7px 10px;font-weight:700;font-size:11.5px;border-top:1px solid var(--line)}
+.foot-label{color:var(--txt-dim);text-transform:uppercase;letter-spacing:.5px;font-size:10px}
+.cierre-row td{
+  background:rgba(59,130,246,.1);color:#93c5fd;
+  text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:.8px;
+  padding:6px;font-weight:700;
+}
+
+/* empty */
+.empty{padding:50px 20px;text-align:center;color:var(--txt-mute)}
+.empty .e-icon{font-size:40px;opacity:.4;margin-bottom:10px}
+.day-empty{padding:24px 18px;text-align:center;color:var(--txt-mute);font-size:12px}
+
+/* loading */
+.loading{padding:60px;text-align:center;color:var(--txt-dim)}
+.spin{
+  width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--orange);
+  border-radius:50%;margin:0 auto 14px;animation:spin 0.8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* toast */
+.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:100;display:flex;flex-direction:column;gap:8px}
+.toast{
+  background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--orange);
+  padding:12px 18px;border-radius:var(--radius-sm);box-shadow:var(--shadow);
+  font-size:13px;min-width:220px;animation:slideIn .25s ease;
+}
+.toast.ok{border-left-color:var(--green)} .toast.err{border-left-color:var(--red)}
+@keyframes slideIn{from{transform:translateX(30px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* ── MODALES ── */
+.modal-bg{
+  position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.65);
+  backdrop-filter:blur(3px);display:none;align-items:flex-start;justify-content:center;
+  padding:40px 16px;overflow-y:auto;
+}
+.modal-bg.open{display:flex;animation:fadeIn .2s}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  width:100%;max-width:480px;box-shadow:var(--shadow);animation:popIn .25s ease;
+}
+@keyframes popIn{from{transform:translateY(-12px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+.modal-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 22px;border-bottom:1px solid var(--line);
+}
+.modal-head h3{font-family:'Bebas Neue';font-size:22px;letter-spacing:.5px;font-weight:400}
+.modal-x{background:none;border:none;color:var(--txt-mute);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:6px}
+.modal-x:hover{background:var(--panel-2);color:var(--txt)}
+.modal-body{padding:20px 22px;display:flex;flex-direction:column;gap:15px}
+.modal-foot{
+  display:flex;justify-content:flex-end;gap:10px;
+  padding:16px 22px;border-top:1px solid var(--line);
+}
+.field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--txt-mute);font-weight:600;margin-bottom:6px}
+.inp{
+  width:100%;background:var(--panel-2);border:1px solid var(--line);
+  border-radius:var(--radius-sm);padding:10px 12px;color:var(--txt);
+  font-family:'Inter';font-size:13.5px;color-scheme:dark;
+}
+.inp:focus{outline:none;border-color:var(--orange)}
+textarea.inp{resize:vertical;font-family:'Inter'}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* combo buscable */
+.combo{position:relative}
+.combo input{
+  width:100%;background:var(--panel-2);border:1px solid var(--line);
+  border-radius:var(--radius-sm);padding:10px 12px;color:var(--txt);font-size:13.5px;
+}
+.combo input:focus{outline:none;border-color:var(--orange)}
+.combo-list{
+  position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:5;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:var(--radius-sm);
+  max-height:240px;overflow-y:auto;box-shadow:var(--shadow);display:none;
+}
+.combo-list.open{display:block}
+.combo-opt{padding:9px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line-soft)}
+.combo-opt:last-child{border-bottom:none}
+.combo-opt:hover,.combo-opt.active{background:rgba(255,140,0,.12)}
+.combo-opt .sigla{min-width:42px}
+.combo-opt .co-nom{font-size:13px}
+.combo-opt .co-nat{margin-left:auto;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--txt-mute)}
+.combo-group{padding:6px 12px;font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--txt-mute);background:var(--panel);font-weight:700}
+
+.file-drop{
+  border:1.5px dashed var(--line);border-radius:var(--radius-sm);
+  padding:14px;text-align:center;cursor:pointer;color:var(--txt-dim);font-size:13px;
+  transition:border-color .15s,background .15s;
+}
+.file-drop:hover{border-color:var(--orange);background:rgba(255,140,0,.05)}
+.foto-preview{max-width:100%;max-height:180px;border-radius:var(--radius-sm);margin-top:10px;border:1px solid var(--line)}
+
+.cierre-card{background:var(--panel-2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:14px;margin-top:12px}
+.cierre-card .cc-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;border-bottom:1px solid var(--line-soft)}
+.cierre-card .cc-row:last-child{border-bottom:none;font-weight:700;margin-top:4px;padding-top:8px}
+.cierre-card .cc-row .num{font-family:'Space Mono'}
+
+@media(max-width:640px){
+  .day-col{flex-basis:88vw}
+  .topbar{padding:12px 16px}
+  .kpi-strip,.days-scroll{padding-left:14px;padding-right:14px}
+  .modal-bg{padding:16px 10px}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="logo">S</div>
+    <div>
+      <h1>Contabilidad</h1>
+      <div class="sub">Somar Express · Movimientos financieros</div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <div class="tb-controls">
+    <div class="date-range">
+      <label>Desde</label>
+      <input type="date" id="fDesde">
+    </div>
+    <div class="date-range">
+      <label>Hasta</label>
+      <input type="date" id="fHasta">
+    </div>
+    <button class="btn btn-ghost btn-sm" id="btnHoy">Hoy</button>
+    <button class="btn btn-ghost btn-sm" id="btnCierre">📊 Cierre diario</button>
+    <button class="btn btn-primary" id="btnNuevo">+ Nuevo movimiento</button>
+  </div>
+</div>
+
+<div class="kpi-strip" id="kpiStrip"></div>
+
+<div class="days-scroll">
+  <div class="days-row" id="daysRow">
+    <div class="loading"><div class="spin"></div>Cargando movimientos…</div>
+  </div>
+</div>
+
+<!-- ── MODAL MOVIMIENTO ── -->
+<div class="modal-bg" id="movModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="movTitle">Nuevo movimiento</h3>
+      <button class="modal-x" onclick="cerrarModal('movModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Tipo de documento</label>
+        <div class="combo" id="tipoCombo">
+          <input type="text" id="tipoInput" placeholder="Buscar sigla o concepto…" autocomplete="off">
+          <div class="combo-list" id="tipoList"></div>
+        </div>
+        <input type="hidden" id="tipoSigla">
+      </div>
+
+      <div class="field" id="fCuentaWrap">
+        <label id="lblCuenta">Cuenta</label>
+        <select id="fCuenta" class="inp"></select>
+      </div>
+      <div class="field" id="fCuentaDestWrap" style="display:none">
+        <label>Cuenta destino</label>
+        <select id="fCuentaDest" class="inp"></select>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label>Fecha</label>
+          <input type="date" id="fFecha" class="inp">
+        </div>
+        <div class="field">
+          <label>Valor (L.)</label>
+          <input type="number" id="fValor" class="inp num" step="0.01" min="0" placeholder="0.00">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Descripción</label>
+        <textarea id="fDesc" class="inp" rows="2" placeholder="Detalle del movimiento…"></textarea>
+      </div>
+
+      <div class="field">
+        <label>Comprobante (opcional)</label>
+        <div class="file-drop" id="fileDrop">
+          <input type="file" id="fFoto" accept="image/*" hidden>
+          <span id="fileLabel">📎 Seleccionar imagen</span>
+        </div>
+        <img id="fotoPreview" class="foto-preview" style="display:none">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="cerrarModal('movModal')">Cancelar</button>
+      <button class="btn btn-primary" id="btnGuardarMov">Guardar movimiento</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL CIERRE ── -->
+<div class="modal-bg" id="cierreModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Cierre diario</h3>
+      <button class="modal-x" onclick="cerrarModal('cierreModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Fecha a cerrar</label>
+        <input type="date" id="cierreFecha" class="inp">
+      </div>
+      <p style="color:var(--txt-dim);font-size:12.5px;line-height:1.5">
+        Genera o actualiza el cierre contable del día: consolida pedidos, comisión devengada,
+        depósitos por cuenta, egresos e ingresos, y guarda una foto de los saldos de todas las cuentas.
+      </p>
+      <div id="cierreResult"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="cerrarModal('cierreModal')">Cerrar</button>
+      <button class="btn btn-primary" id="btnGenerarCierre">Generar cierre</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════════════════
+const SUPA_URL  = 'https://jjrmzouigcmeztkybrvp.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impqcm16b3VpZ2NtZXp0a3licnZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5MzExNDgsImV4cCI6MjA4ODUwNzE0OH0.tNUHxGWMWh7Q6v4mH3y5gOxpczpEJHwNqwH2TehL61I';
+const sb = supabase.createClient(SUPA_URL, SUPA_ANON, {
+  realtime:{ params:{ eventsPerSecond:10 } }
+});
+
+// Estado global
+const S = {
+  cuentas: [],       // cuentas_financieras
+  tipos: [],         // tipos_documento_contable
+  movimientos: [],   // vw_movimientos_contables (rango)
+  desde: null, hasta: null,
+  colapsadas: {},    // cuenta_id -> bool (persistir colapso en memoria)
+};
+
+const HN_TZ = 'America/Tegucigalpa';
+const fmtL = n => 'L. ' + (Number(n)||0).toLocaleString('es-HN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function toast(msg,type=''){
+  const w=document.getElementById('toastWrap');
+  const t=document.createElement('div');
+  t.className='toast '+type; t.textContent=msg;
+  w.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),300)},3200);
+}
+
+// fecha HN de hoy en formato YYYY-MM-DD
+function hoyHN(){
+  const f=new Intl.DateTimeFormat('en-CA',{timeZone:HN_TZ,year:'numeric',month:'2-digit',day:'2-digit'});
+  return f.format(new Date());
+}
+// nombre legible del día: "martes, 9 de junio de 2026"
+function fechaLegible(iso){
+  const [y,m,d]=iso.split('-').map(Number);
+  const dt=new Date(Date.UTC(y,m-1,d,12));
+  return new Intl.DateTimeFormat('es-HN',{timeZone:'UTC',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(dt);
+}
+
+// ════════════════════════════════════════════════════════════
+// CARGA DE CATÁLOGOS
+// ════════════════════════════════════════════════════════════
+async function cargarCatalogos(){
+  const [{data:ctas},{data:tps}] = await Promise.all([
+    sb.from('cuentas_financieras').select('*').eq('activa',true).order('orden'),
+    sb.from('tipos_documento_contable').select('*').eq('activo',true).order('orden'),
+  ]);
+  S.cuentas = ctas||[];
+  S.tipos = tps||[];
+}
+
+// tipo por sigla (para color/nombre en la vista)
+function tipoPorSigla(sigla){
+  return S.tipos.find(t=>t.sigla===sigla) || {sigla,nombre:sigla,color:'#71717a'};
+}
+function cuentaPorId(id){
+  return S.cuentas.find(c=>c.id===id);
+}
+
+// ════════════════════════════════════════════════════════════
+// CARGA DE MOVIMIENTOS (rango de fechas)
+// ════════════════════════════════════════════════════════════
+async function cargarMovimientos(){
+  const {data,error} = await sb.from('vw_movimientos_contables')
+    .select('*')
+    .gte('fecha', S.desde)
+    .lte('fecha', S.hasta)
+    .order('created_at',{ascending:true});
+  if(error){ console.error('[mov]',error); toast('Error cargando movimientos','err'); S.movimientos=[]; return; }
+  S.movimientos = data||[];
+}
+
+function render(){ renderKPIs(); renderDias(); }
+
+// ── KPIs del rango ──
+function renderKPIs(){
+  const activos = S.movimientos.filter(m=>!m.anulado);
+  const ingBanco = activos.filter(m=>m.cuenta_id!=null).reduce((s,m)=>s+Number(m.ingreso||0),0);
+  const egrBanco = activos.filter(m=>m.cuenta_id!=null).reduce((s,m)=>s+Number(m.egreso||0),0);
+  const devengo  = activos.filter(m=>m.fuente==='ingreso_operativo').reduce((s,m)=>s+Number(m.ingreso||0),0);
+  const saldoTotal = S.cuentas.reduce((s,c)=>s+Number(c.saldo_actual||0),0);
+
+  const kpis = [
+    {cls:'', label:'Saldo total en cuentas', val:fmtL(saldoTotal), sub:`${S.cuentas.length} cuentas activas`},
+    {cls:'ing', label:'Ingresos a caja (rango)', val:fmtL(ingBanco), sub:'Depósitos + ingresos'},
+    {cls:'egr', label:'Egresos (rango)', val:fmtL(egrBanco), sub:'Gastos y pagos'},
+    {cls:'util', label:'Comisión devengada', val:fmtL(devengo), sub:'Ganancia por pedidos'},
+  ];
+  document.getElementById('kpiStrip').innerHTML = kpis.map(k=>`
+    <div class="kpi ${k.cls}">
+      <div class="k-label">${k.label}</div>
+      <div class="k-value">${k.val}</div>
+      <div class="k-sub">${k.sub}</div>
+    </div>`).join('');
+}
+
+// ── Agrupa movimientos por fecha → cuenta ──
+function agruparPorDia(){
+  const dias = {};
+  for(const m of S.movimientos){
+    (dias[m.fecha] ||= {}).__f = m.fecha;
+    const grp = dias[m.fecha];
+    // cuenta_id NULL = devengo (no banco): lo agrupamos en pseudo-cuenta "DEVENGO"
+    const key = m.cuenta_id==null ? 'devengo' : String(m.cuenta_id);
+    (grp[key] ||= []).push(m);
+  }
+  return dias;
+}
+
+// ── Render columnas por día ──
+function renderDias(){
+  const cont = document.getElementById('daysRow');
+  if(!S.movimientos.length){
+    cont.innerHTML = `<div class="empty" style="flex:1">
+      <div class="e-icon">📭</div>
+      <div>Sin movimientos en el rango seleccionado.</div>
+    </div>`;
+    return;
+  }
+  const dias = agruparPorDia();
+  // fechas ordenadas ascendente (más antiguo → más reciente, como el sistema de referencia)
+  const fechas = Object.keys(dias).sort();
+
+  cont.innerHTML = fechas.map(fecha=>renderColumnaDia(fecha, dias[fecha])).join('');
+  // wire colapsar
+  cont.querySelectorAll('.acct-head').forEach(h=>{
+    h.addEventListener('click',()=>{
+      const cid=h.dataset.cuenta;
+      S.colapsadas[cid]=!S.colapsadas[cid];
+      h.closest('.acct').classList.toggle('collapsed');
+    });
+  });
+  // wire click en movimiento (modal — parte 3)
+  cont.querySelectorAll('.mov-row').forEach(r=>{
+    r.addEventListener('click',()=>{ if(window.abrirDetalleMov) abrirDetalleMov(r.dataset.fuente, r.dataset.id); });
+  });
+}
+
+function renderColumnaDia(fecha, grupos){
+  // neto del día (todas las cuentas banco)
+  let netoDia = 0;
+  const cuentasIds = Object.keys(grupos).filter(k=>k!=='__f'&&k!=='devengo');
+  // ordenar cuentas por su 'orden'
+  cuentasIds.sort((a,b)=>{
+    const ca=cuentaPorId(+a), cb=cuentaPorId(+b);
+    return (ca?.orden||99)-(cb?.orden||99);
+  });
+
+  let bloques = '';
+  for(const cid of cuentasIds){
+    const movs = grupos[cid].filter(m=>!m.anulado || true); // mostrar anulados tachados
+    const {html, neto} = renderBloqueCuenta(+cid, grupos[cid], fecha);
+    netoDia += neto;
+    bloques += html;
+  }
+  // bloque devengo (sin cuenta)
+  if(grupos.devengo){
+    bloques += renderBloqueDevengo(grupos.devengo);
+  }
+
+  if(!bloques) bloques = `<div class="day-empty">Sin movimientos</div>`;
+
+  const netoCls = netoDia<0?'neg':'';
+  return `<div class="day-col">
+    <div class="day-head">
+      <div class="d-title">${esc(fechaLegible(fecha))}</div>
+      <div class="d-net ${netoCls?'mv-egr':'mv-ing'}">${netoDia>=0?'+':''}${fmtL(netoDia)}</div>
+    </div>
+    ${bloques}
+  </div>`;
+}
+
+// Render de una cuenta dentro de un día, con balance corriente
+function renderBloqueCuenta(cid, movs, fecha){
+  const cta = cuentaPorId(cid);
+  const nombre = cta?.nombre || ('Cuenta '+cid);
+  const icono = cta?.icono || '🏦';
+  const collapsed = S.colapsadas[cid] ? 'collapsed':'';
+
+  // Balance corriente: partimos del saldo actual de la cuenta y reconstruimos
+  // hacia atrás no es trivial; aquí mostramos el balance del día acumulando
+  // desde 0 los movimientos del día (útil visualmente por día).
+  // El "Cierre diario" muestra el saldo_actual de la cuenta como referencia.
+  let totIng=0, totEgr=0, run=0;
+  const rows = movs.map(m=>{
+    const anul = m.anulado;
+    const tipo = tipoPorSigla(m.sigla);
+    const ing=Number(m.ingreso||0), egr=Number(m.egreso||0);
+    if(!anul){ totIng+=ing; totEgr+=egr; run += ing-egr; }
+    const runCls = run<0?'neg':'';
+    return `<tr class="mov-row ${anul?'anulado':''} ${m.es_automatico?'auto':''}"
+              data-id="${esc(m.mov_id)}" data-fuente="${esc(m.fuente)}">
+      <td><span class="sigla" style="background:${tipo.color}">${esc(m.sigla)}</span></td>
+      <td><span class="desc">${esc(m.descripcion||tipo.nombre)}
+          ${m.foto_comprobante_url?'<span class="desc-meta">📎 comprobante</span>':''}</span></td>
+      <td class="r">${ing?`<span class="mv-ing num">${ing.toLocaleString('es-HN',{minimumFractionDigits:2})}</span>`:''}</td>
+      <td class="r">${egr?`<span class="mv-egr num">${egr.toLocaleString('es-HN',{minimumFractionDigits:2})}</span>`:''}</td>
+      <td class="r"><span class="mv-bal num ${runCls}">${run.toLocaleString('es-HN',{minimumFractionDigits:2})}</span></td>
+    </tr>`;
+  }).join('');
+
+  const neto = totIng-totEgr;
+  const balActual = Number(cta?.saldo_actual||0);
+  const balCls = balActual<0?'neg':'';
+
+  const html = `<div class="acct ${collapsed}">
+    <div class="acct-head" data-cuenta="${cid}">
+      <span class="a-icon">${icono}</span>
+      <span class="a-name">${esc(nombre)}</span>
+      <span class="a-bal num ${balCls}">${fmtL(balActual)}</span>
+      <span class="a-chevron">▼</span>
+    </div>
+    <table class="mov-table">
+      <thead><tr><th>Tipo</th><th>Descripción</th><th class="r">Ingreso</th><th class="r">Egreso</th><th class="r">Balance</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <table class="mov-table acct-foot"><tbody>
+      <tr>
+        <td colspan="2"><span class="foot-label">Total del día</span></td>
+        <td class="r"><span class="mv-ing num">${totIng.toLocaleString('es-HN',{minimumFractionDigits:2})}</span></td>
+        <td class="r"><span class="mv-egr num">${totEgr.toLocaleString('es-HN',{minimumFractionDigits:2})}</span></td>
+        <td class="r"><span class="num ${neto<0?'mv-egr':''}">${neto.toLocaleString('es-HN',{minimumFractionDigits:2})}</span></td>
+      </tr>
+      <tr class="cierre-row"><td colspan="5">Cierre diario · ${fmtL(balActual)}</td></tr>
+    </tbody></table>
+  </div>`;
+
+  return {html, neto};
+}
+
+// Bloque de comisión devengada (no toca banco)
+function renderBloqueDevengo(movs){
+  const activos = movs.filter(m=>!m.anulado);
+  const tot = activos.reduce((s,m)=>s+Number(m.ingreso||0),0);
+  const rows = movs.map(m=>{
+    const tipo=tipoPorSigla('COM');
+    return `<tr class="mov-row auto ${m.anulado?'anulado':''}" data-id="${esc(m.mov_id)}" data-fuente="${esc(m.fuente)}">
+      <td><span class="sigla" style="background:${tipo.color}">COM</span></td>
+      <td><span class="desc">${esc(m.descripcion)}</span></td>
+      <td class="r"><span class="mv-ing num">${Number(m.ingreso).toLocaleString('es-HN',{minimumFractionDigits:2})}</span></td>
+      <td class="r"></td><td class="r"></td>
+    </tr>`;
+  }).join('');
+  return `<div class="acct">
+    <div class="acct-head" style="cursor:default">
+      <span class="a-icon">💰</span>
+      <span class="a-name">Comisión devengada <span style="color:var(--txt-mute);font-weight:400">(no bancario)</span></span>
+      <span class="a-bal num mv-ing">${fmtL(tot)}</span>
+    </div>
+    <table class="mov-table"><tbody>${rows}</tbody></table>
+  </div>`;
+}
+
+// ════════════════════════════════════════════════════════════
+// MODAL DE MOVIMIENTO
+// ════════════════════════════════════════════════════════════
+let _fotoFile = null;
+
+function abrirModal(id){ document.getElementById(id).classList.add('open'); }
+function cerrarModal(id){ document.getElementById(id).classList.remove('open'); }
+
+function poblarSelectCuentas(sel){
+  sel.innerHTML = S.cuentas.map(c=>`<option value="${c.id}">${c.icono||'🏦'} ${esc(c.nombre)}</option>`).join('');
+}
+
+function abrirNuevoMov(){
+  document.getElementById('movTitle').textContent='Nuevo movimiento';
+  document.getElementById('tipoInput').value='';
+  document.getElementById('tipoSigla').value='';
+  document.getElementById('fValor').value='';
+  document.getElementById('fDesc').value='';
+  document.getElementById('fFecha').value=hoyHN();
+  document.getElementById('fotoPreview').style.display='none';
+  document.getElementById('fileLabel').textContent='📎 Seleccionar imagen';
+  _fotoFile=null;
+  poblarSelectCuentas(document.getElementById('fCuenta'));
+  poblarSelectCuentas(document.getElementById('fCuentaDest'));
+  document.getElementById('fCuentaDestWrap').style.display='none';
+  document.getElementById('lblCuenta').textContent='Cuenta';
+  renderTipoList('');
+  abrirModal('movModal');
+}
+
+// combo de tipos de documento (agrupado por naturaleza, buscable)
+function renderTipoList(filtro){
+  const list=document.getElementById('tipoList');
+  const f=(filtro||'').toLowerCase();
+  const manuales=S.tipos.filter(t=>!t.es_automatico &&
+    (t.sigla.toLowerCase().includes(f)||t.nombre.toLowerCase().includes(f)));
+  const grupos={INGRESO:'Ingresos',EGRESO:'Egresos',TRASLADO:'Traslados'};
+  let html='';
+  for(const nat of Object.keys(grupos)){
+    const items=manuales.filter(t=>t.naturaleza===nat);
+    if(!items.length) continue;
+    html+=`<div class="combo-group">${grupos[nat]}</div>`;
+    html+=items.map(t=>`<div class="combo-opt" data-sigla="${t.sigla}" data-nat="${t.naturaleza}">
+      <span class="sigla" style="background:${t.color}">${esc(t.sigla)}</span>
+      <span class="co-nom">${esc(t.nombre)}</span>
+      <span class="co-nat">${nat}</span>
+    </div>`).join('');
+  }
+  list.innerHTML=html||`<div class="combo-opt" style="color:var(--txt-mute)">Sin coincidencias</div>`;
+  list.querySelectorAll('.combo-opt[data-sigla]').forEach(o=>{
+    o.addEventListener('click',()=>seleccionarTipo(o.dataset.sigla,o.dataset.nat));
+  });
+}
+
+function seleccionarTipo(sigla,nat){
+  const t=tipoPorSigla(sigla);
+  document.getElementById('tipoInput').value=`${sigla} · ${t.nombre}`;
+  document.getElementById('tipoSigla').value=sigla;
+  document.getElementById('tipoList').classList.remove('open');
+  // traslado → mostrar cuenta destino
+  const esTraslado = nat==='TRASLADO';
+  document.getElementById('fCuentaDestWrap').style.display = esTraslado?'block':'none';
+  document.getElementById('lblCuenta').textContent = esTraslado?'Cuenta origen':'Cuenta';
+}
+
+async function subirComprobante(){
+  if(!_fotoFile) return null;
+  const ext=(_fotoFile.name.split('.').pop()||'jpg').toLowerCase();
+  const path=`comprobantes/${new Date().getFullYear()}/${crypto.randomUUID()}.${ext}`;
+  const {error}=await sb.storage.from('delivery-docs').upload(path,_fotoFile,{upsert:false});
+  if(error){ console.error('[upload]',error); toast('No se pudo subir comprobante','err'); return null; }
+  return path; // se guarda el path; se resuelve con signed URL al visualizar
+}
+
+async function guardarMovimiento(){
+  const sigla=document.getElementById('tipoSigla').value;
+  if(!sigla){ toast('Seleccioná un tipo de documento','err'); return; }
+  const tipo=tipoPorSigla(sigla);
+  const fecha=document.getElementById('fFecha').value;
+  const monto=parseFloat(document.getElementById('fValor').value);
+  const desc=document.getElementById('fDesc').value.trim();
+  const ctaId=parseInt(document.getElementById('fCuenta').value);
+  if(!fecha||!monto||monto<=0){ toast('Completá fecha y valor válido','err'); return; }
+
+  const btn=document.getElementById('btnGuardarMov');
+  btn.disabled=true; btn.textContent='Guardando…';
+  try{
+    const fotoPath = await subirComprobante();
+    let res;
+    if(tipo.naturaleza==='EGRESO'){
+      res=await sb.rpc('fn_registrar_egreso',{
+        p_fecha:fecha, p_categoria_id:tipo.categoria_egreso_id, p_cuenta_id:ctaId,
+        p_monto:monto, p_descripcion:desc||tipo.nombre, p_foto_url:fotoPath
+      });
+    } else if(tipo.naturaleza==='INGRESO'){
+      res=await sb.rpc('fn_registrar_ingreso_extra',{
+        p_fecha:fecha, p_concepto:tipo.concepto_ingreso||'OTRO', p_cuenta_id:ctaId,
+        p_monto:monto, p_descripcion:desc||tipo.nombre, p_foto_url:fotoPath
+      });
+    } else { // TRASLADO
+      const destId=parseInt(document.getElementById('fCuentaDest').value);
+      if(destId===ctaId){ toast('Origen y destino no pueden ser iguales','err'); btn.disabled=false; btn.textContent='Guardar movimiento'; return; }
+      res=await sb.rpc('fn_transferir_entre_cuentas',{
+        p_fecha:fecha, p_cuenta_origen_id:ctaId, p_cuenta_destino_id:destId,
+        p_monto:monto, p_concepto:desc||'Traslado', p_foto_url:fotoPath
+      });
+    }
+    if(res.error) throw res.error;
+    toast('Movimiento registrado','ok');
+    cerrarModal('movModal');
+    await cargarCatalogos(); await cargarMovimientos(); render();
+  }catch(e){
+    console.error(e); toast('Error: '+(e.message||'no se pudo guardar'),'err');
+  }finally{
+    btn.disabled=false; btn.textContent='Guardar movimiento';
+  }
+}
+
+// ── CIERRE DIARIO ──
+function abrirCierre(){
+  document.getElementById('cierreFecha').value=hoyHN();
+  document.getElementById('cierreResult').innerHTML='';
+  abrirModal('cierreModal');
+}
+async function generarCierre(){
+  const fecha=document.getElementById('cierreFecha').value;
+  if(!fecha){ toast('Elegí una fecha','err'); return; }
+  const btn=document.getElementById('btnGenerarCierre');
+  btn.disabled=true; btn.textContent='Generando…';
+  try{
+    const {data,error}=await sb.rpc('fn_generar_cierre_diario',{
+      p_fecha:fecha, p_generado_por:'Contabilidad (manual)', p_manual:true
+    });
+    if(error) throw error;
+    const c=Array.isArray(data)?data[0]:data;
+    document.getElementById('cierreResult').innerHTML=`
+      <div class="cierre-card">
+        <div class="cc-row"><span>Pedidos finalizados</span><span class="num">${c.pedidos_finalizados||0}</span></div>
+        <div class="cc-row"><span>Comisión devengada</span><span class="num mv-ing">${fmtL(c.ingreso_somar)}</span></div>
+        <div class="cc-row"><span>Depósitos recibidos</span><span class="num">${fmtL(c.depositos_total)}</span></div>
+        <div class="cc-row"><span>Egresos</span><span class="num mv-egr">${fmtL(c.egresos_total)}</span></div>
+        <div class="cc-row"><span>Ingresos extras</span><span class="num">${fmtL(c.ingresos_extras_total)}</span></div>
+        <div class="cc-row"><span>Utilidad neta</span><span class="num ${Number(c.utilidad_neta)<0?'mv-egr':'mv-ing'}">${fmtL(c.utilidad_neta)}</span></div>
+      </div>`;
+    toast('Cierre generado','ok');
+  }catch(e){
+    console.error(e); toast('Error al generar cierre','err');
+  }finally{
+    btn.disabled=false; btn.textContent='Generar cierre';
+  }
+}
+
+// stub para clicks en movimientos (detalle/anular — futuro)
+window.abrirDetalleMov=function(fuente,id){
+  // Los movimientos automáticos (depósitos, devengo) no se editan aquí
+  console.log('detalle',fuente,id);
+};
+
+// ════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════
+async function init(){
+  const hoy = hoyHN();
+  // rango por defecto: últimos 7 días
+  const d = new Date(hoy+'T12:00:00Z'); d.setUTCDate(d.getUTCDate()-6);
+  S.hasta = hoy;
+  S.desde = new Intl.DateTimeFormat('en-CA',{timeZone:'UTC',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
+  document.getElementById('fDesde').value = S.desde;
+  document.getElementById('fHasta').value = S.hasta;
+
+  await cargarCatalogos();
+  await cargarMovimientos();
+  render();
+  wireEvents();
+  suscribirRealtime();
+}
+
+function wireEvents(){
+  document.getElementById('fDesde').addEventListener('change',async e=>{
+    S.desde=e.target.value; await cargarMovimientos(); render();
+  });
+  document.getElementById('fHasta').addEventListener('change',async e=>{
+    S.hasta=e.target.value; await cargarMovimientos(); render();
+  });
+  document.getElementById('btnHoy').addEventListener('click',async()=>{
+    const h=hoyHN(); S.desde=h; S.hasta=h;
+    document.getElementById('fDesde').value=h; document.getElementById('fHasta').value=h;
+    await cargarMovimientos(); render();
+  });
+
+  // Modales
+  document.getElementById('btnNuevo').addEventListener('click',abrirNuevoMov);
+  document.getElementById('btnGuardarMov').addEventListener('click',guardarMovimiento);
+  document.getElementById('btnCierre').addEventListener('click',abrirCierre);
+  document.getElementById('btnGenerarCierre').addEventListener('click',generarCierre);
+
+  // Combo tipos
+  const tipoInput=document.getElementById('tipoInput');
+  tipoInput.addEventListener('focus',()=>{ renderTipoList(tipoInput.value); document.getElementById('tipoList').classList.add('open'); });
+  tipoInput.addEventListener('input',()=>{ document.getElementById('tipoSigla').value=''; renderTipoList(tipoInput.value); document.getElementById('tipoList').classList.add('open'); });
+  document.addEventListener('click',e=>{
+    if(!document.getElementById('tipoCombo').contains(e.target))
+      document.getElementById('tipoList').classList.remove('open');
+  });
+
+  // Comprobante
+  const fileDrop=document.getElementById('fileDrop');
+  const fFoto=document.getElementById('fFoto');
+  fileDrop.addEventListener('click',()=>fFoto.click());
+  fFoto.addEventListener('change',e=>{
+    const f=e.target.files[0]; if(!f) return;
+    _fotoFile=f;
+    document.getElementById('fileLabel').textContent='📎 '+f.name;
+    const pv=document.getElementById('fotoPreview');
+    pv.src=URL.createObjectURL(f); pv.style.display='block';
+  });
+
+  // cerrar modal con fondo o Escape
+  document.querySelectorAll('.modal-bg').forEach(bg=>{
+    bg.addEventListener('click',e=>{ if(e.target===bg) bg.classList.remove('open'); });
+  });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySelectorAll('.modal-bg.open').forEach(m=>m.classList.remove('open')); });
+}
+
+function suscribirRealtime(){
+  const recargar = async ()=>{ await cargarMovimientos(); render(); };
+  sb.channel('contab')
+    .on('postgres_changes',{event:'*',schema:'public',table:'movimientos_caja'},recargar)
+    .on('postgres_changes',{event:'*',schema:'public',table:'egresos'},recargar)
+    .on('postgres_changes',{event:'*',schema:'public',table:'ingresos_extras'},recargar)
+    .on('postgres_changes',{event:'*',schema:'public',table:'ingresos_operativos'},recargar)
+    .subscribe();
+}
+
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
