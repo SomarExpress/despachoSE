@@ -124,6 +124,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-s
 .spin{width:36px;height:36px;border:3px solid var(--line);border-top-color:var(--orange);border-radius:50%;margin:0 auto 14px;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* TABS */
+.tabs{display:flex;gap:2px;background:var(--panel);border-bottom:1px solid var(--line);padding:0 26px}
+.tab{background:none;border:none;padding:14px 22px;font-size:15px;font-weight:600;color:var(--txt-dim);cursor:pointer;border-bottom:3px solid transparent;transition:color .15s,border-color .15s}
+.tab:hover{color:var(--txt)}
+.tab.active{color:var(--orange-3);border-bottom-color:var(--orange)}
+
 /* MÓDULO BALANCES */
 .bal-modulo{padding:6px 26px 8px}
 .bal-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
@@ -210,26 +216,35 @@ textarea.inp{resize:vertical}
 
 <div class="topbar">
   <div class="brand">
-    <div class="logo">S</div>
     <div><h1>Contabilidad</h1><div class="sub">Somar Express · Movimientos financieros</div></div>
   </div>
   <div class="spacer"></div>
   <div class="tb-controls">
-    <div class="date-range"><label>Desde</label><input type="date" id="fDesde"></div>
-    <div class="date-range"><label>Hasta</label><input type="date" id="fHasta"></div>
-    <button class="btn btn-white btn-sm" id="btnHoy">Hoy</button>
-    <input type="text" id="buscador" placeholder="🔍 Buscar…" style="background:rgba(255,255,255,.92);border:none;border-radius:var(--radius-sm);padding:9px 13px;font-size:14px;width:170px;color:var(--txt)">
+    <div class="date-range" id="mesWrap"><label>Mes</label><input type="month" id="fMes"></div>
+    <div class="date-range" id="desdeWrap" style="display:none"><label>Desde</label><input type="date" id="fDesde"></div>
+    <div class="date-range" id="hastaWrap" style="display:none"><label>Hasta</label><input type="date" id="fHasta"></div>
+    <button class="btn btn-white btn-sm" id="btnModo">📅 Usar rango</button>
+    <input type="text" id="buscador" placeholder="🔍 Buscar…" style="background:rgba(255,255,255,.92);border:none;border-radius:var(--radius-sm);padding:9px 13px;font-size:14px;width:160px;color:var(--txt)">
     <select id="filtroTipo" class="inp" style="width:auto;background:rgba(255,255,255,.92);border:none;padding:9px 12px;font-size:14px"><option value="">Todos los tipos</option></select>
-    <label class="chk-elim" style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.9);border-radius:var(--radius-sm);padding:9px 13px;font-size:14px;cursor:pointer;color:var(--txt)"><input type="checkbox" id="chkEliminados" style="cursor:pointer">Mostrar eliminados</label>
-    <button class="btn btn-white btn-sm" id="btnExcel">📊 Exportar Excel</button>
-    <button class="btn btn-white btn-sm" id="btnCierre">📊 Cierre diario</button>
-    <button class="btn btn-primary" id="btnNuevo">+ Nuevo movimiento</button>
+    <label class="chk-elim" style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.9);border-radius:var(--radius-sm);padding:9px 13px;font-size:14px;cursor:pointer;color:var(--txt)"><input type="checkbox" id="chkEliminados" style="cursor:pointer">Eliminados</label>
+    <button class="btn btn-white btn-sm" id="btnExcel">📊 Excel</button>
+    <button class="btn btn-white btn-sm" id="btnCierre">📊 Cierre</button>
+    <button class="btn btn-primary" id="btnNuevo">+ Nuevo</button>
   </div>
 </div>
 
-<div class="kpi-strip" id="kpiStrip"></div>
-<div id="balancesModulo"></div>
-<div class="days-scroll"><div class="days-row" id="daysRow"><div class="loading"><div class="spin"></div>Cargando movimientos…</div></div></div>
+<div class="tabs">
+  <button class="tab active" data-tab="movimientos">Movimientos</button>
+  <button class="tab" data-tab="balance">Balance y rendimiento</button>
+</div>
+
+<div id="vistaMovimientos">
+  <div class="kpi-strip" id="kpiStrip"></div>
+  <div class="days-scroll"><div class="days-row" id="daysRow"><div class="loading"><div class="spin"></div>Cargando movimientos…</div></div></div>
+</div>
+<div id="vistaBalance" style="display:none">
+  <div id="balancesModulo"></div>
+</div>
 
 <!-- MODAL MOVIMIENTO -->
 <div class="modal-bg" id="movModal"><div class="modal">
@@ -277,7 +292,7 @@ const SUPA_URL='https://jjrmzouigcmeztkybrvp.supabase.co';
 const SUPA_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impqcm16b3VpZ2NtZXp0a3licnZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5MzExNDgsImV4cCI6MjA4ODUwNzE0OH0.tNUHxGWMWh7Q6v4mH3y5gOxpczpEJHwNqwH2TehL61I';
 const sb=supabase.createClient(SUPA_URL,SUPA_ANON,{realtime:{params:{eventsPerSecond:10}}});
 
-const S={cuentas:[],tipos:[],movimientos:[],saldosDia:{},desde:null,hasta:null,colapsadas:{},mostrarEliminados:false,busqueda:'',filtroTipo:'',balColapsado:false};
+const S={cuentas:[],tipos:[],movimientos:[],saldosDia:{},desde:null,hasta:null,colapsadas:{},mostrarEliminados:false,busqueda:'',filtroTipo:'',modo:'mes',tab:'movimientos'};
 const HN_TZ='America/Tegucigalpa';
 const fmtL=n=>'L. '+(Number(n)||0).toLocaleString('es-HN',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtN=n=>(Number(n)||0).toLocaleString('es-HN',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -302,13 +317,11 @@ async function cargarMovimientos(){
   const{data,error}=await sb.from('vw_movimientos_contables').select('*').gte('fecha',S.desde).lte('fecha',S.hasta).order('created_at',{ascending:true});
   if(error){console.error('[mov]',error);toast('Error cargando movimientos','err');S.movimientos=[];return;}
   S.movimientos=data||[];
-  // saldos apertura/cierre por día
+  // saldos apertura/cierre por día para TODO el rango, una sola llamada
   S.saldosDia={};
-  const fechas=[...new Set(S.movimientos.filter(m=>m.cuenta_id!=null).map(m=>m.fecha))];
-  await Promise.all(fechas.map(async f=>{
-    const{data:sd}=await sb.rpc('fn_saldos_dia',{p_fecha:f});
-    S.saldosDia[f]={};(sd||[]).forEach(r=>{S.saldosDia[f][r.cuenta_id]=r;});
-  }));
+  const{data:sd,error:e2}=await sb.rpc('fn_saldos_rango',{p_desde:S.desde,p_hasta:S.hasta});
+  if(e2){console.error('[saldos]',e2);}
+  (sd||[]).forEach(r=>{(S.saldosDia[r.o_fecha]||={})[r.o_cuenta_id]={apertura:r.o_apertura,movimiento:r.o_movimiento,cierre:r.o_cierre};});
 }
 function saldoDiaCuenta(fecha,cid){return S.saldosDia[fecha]?.[cid]||{apertura:0,cierre:Number(cuentaPorId(cid)?.saldo_actual||0)};}
 
@@ -378,8 +391,7 @@ function renderBalances(){
   const barPct=Math.max(0,Math.min(100,margen));
 
   document.getElementById('balancesModulo').innerHTML=`
-  <div class="bal-modulo"><div class="bal-card ${S.balColapsado?'collapsed':''}" id="balCard">
-    <div class="bal-header" id="balHeader"><h2>📈 Balance y rendimiento</h2><span class="chev">▼</span></div>
+  <div class="bal-modulo"><div class="bal-card">
     <div class="bal-body"><div class="bal-cols">
       <div>
         <div class="bal-sub">Balance por tipo de documento</div>
@@ -407,15 +419,28 @@ function renderBalances(){
       </div>
     </div></div>
   </div></div>`;
-  const hd=document.getElementById('balHeader');
-  if(hd)hd.addEventListener('click',()=>{S.balColapsado=!S.balColapsado;document.getElementById('balCard').classList.toggle('collapsed');});
 }
 
+function fechasDelRango(){
+  const out=[];
+  const [y1,m1,d1]=S.desde.split('-').map(Number);
+  const [y2,m2,d2]=S.hasta.split('-').map(Number);
+  let cur=new Date(Date.UTC(y1,m1-1,d1,12));
+  const fin=new Date(Date.UTC(y2,m2-1,d2,12));
+  let guard=0;
+  while(cur<=fin && guard<400){
+    out.push(new Intl.DateTimeFormat('en-CA',{timeZone:'UTC',year:'numeric',month:'2-digit',day:'2-digit'}).format(cur));
+    cur.setUTCDate(cur.getUTCDate()+1);guard++;
+  }
+  return out;
+}
 function agruparPorDia(){
   const dias={};
+  // inicializar TODAS las fechas del rango (aunque estén vacías)
+  for(const f of fechasDelRango()){dias[f]={__f:f};}
   const visibles=movimientosVisibles();
   for(const m of visibles){
-    (dias[m.fecha]||={}).__f=m.fecha;
+    if(!dias[m.fecha])dias[m.fecha]={__f:m.fecha};
     const key=m.cuenta_id==null?'devengo':String(m.cuenta_id);
     (dias[m.fecha][key]||=[]).push(m);
   }
@@ -423,26 +448,27 @@ function agruparPorDia(){
 }
 function renderDias(){
   const cont=document.getElementById('daysRow');
-  if(!S.movimientos.length){cont.innerHTML=`<div class="empty" style="flex:1"><div class="e-icon">📭</div><div>Sin movimientos en el rango seleccionado.</div></div>`;return;}
   const dias=agruparPorDia();
   const fechas=Object.keys(dias).sort();
+  if(!fechas.length){cont.innerHTML=`<div class="empty" style="flex:1"><div class="e-icon">📭</div><div>Seleccioná un mes o rango.</div></div>`;return;}
   cont.innerHTML=fechas.map(f=>renderColumnaDia(f,dias[f])).join('');
-  cont.querySelectorAll('.acct-head[data-cuenta]').forEach(h=>h.addEventListener('click',()=>{const c=h.dataset.cuenta;S.colapsadas[c]=!S.colapsadas[c];h.closest('.acct').classList.toggle('collapsed');}));
+  cont.querySelectorAll('.acct-head[data-cuenta]').forEach(h=>h.addEventListener('click',()=>{const c=h.dataset.cuenta;const el=h.closest('.acct');const nowCollapsed=el.classList.toggle('collapsed');S.colapsadas[c]=nowCollapsed;}));
   cont.querySelectorAll('.mov-row').forEach(r=>r.addEventListener('click',()=>abrirDetalleMov(r.dataset.id)));
 }
 
 function renderColumnaDia(fecha,grupos){
-  const cuentasIds=Object.keys(grupos).filter(k=>k!=='__f'&&k!=='devengo').sort((a,b)=>(cuentaPorId(+a)?.orden||99)-(cuentaPorId(+b)?.orden||99));
+  // TODAS las cuentas activas, en orden, tengan o no movimiento ese día
+  const cuentasIds=S.cuentas.map(c=>String(c.id));
   let netoDia=0,aperturaDia=0,cierreDia=0;
   let bloques='';
   for(const cid of cuentasIds){
-    const{html,neto}=renderBloqueCuenta(+cid,grupos[cid],fecha);
+    const movs=grupos[cid]||[];
+    const{html,neto}=renderBloqueCuenta(+cid,movs,fecha);
     netoDia+=neto;bloques+=html;
     const sd=saldoDiaCuenta(fecha,+cid);
     aperturaDia+=Number(sd.apertura);cierreDia+=Number(sd.cierre);
   }
   if(grupos.devengo)bloques+=renderBloqueDevengo(grupos.devengo);
-  if(!bloques)bloques=`<div class="day-empty">Sin movimientos</div>`;
   const netoCls=netoDia<0?'mv-egr':'mv-ing';
   return `<div class="day-col">
     <div class="day-head">
@@ -457,7 +483,10 @@ function renderColumnaDia(fecha,grupos){
 function renderBloqueCuenta(cid,movs,fecha){
   const cta=cuentaPorId(cid);
   const nombre=cta?.nombre||('Cuenta '+cid),icono=cta?.icono||'🏦';
-  const collapsed=S.colapsadas[cid]?'collapsed':'';
+  const vacia=movs.length===0;
+  // Colapso: respeta preferencia manual; si no hay preferencia, colapsa las vacías
+  const key=cid+'@'+fecha;
+  const collapsed=(key in S.colapsadas ? S.colapsadas[key] : vacia)?'collapsed':'';
   const sd=saldoDiaCuenta(fecha,cid);
   let totIng=0,totEgr=0,run=Number(sd.apertura);
   const rows=movs.map(m=>{
@@ -473,10 +502,11 @@ function renderBloqueCuenta(cid,movs,fecha){
   }).join('');
   const neto=totIng-totEgr;
   const balCls=Number(sd.cierre)<0?'neg':'';
+  const bodyRows=rows||`<tr><td colspan="5" style="text-align:center;color:var(--txt-mute);padding:10px;font-size:13px">Sin movimientos</td></tr>`;
   const html=`<div class="acct ${collapsed}">
-    <div class="acct-head" data-cuenta="${cid}"><span class="a-icon">${icono}</span><span class="a-name">${esc(nombre)}</span><span class="a-bal num ${balCls}">${fmtL(sd.cierre)}</span><span class="a-chevron">▼</span></div>
+    <div class="acct-head" data-cuenta="${cid}@${fecha}"><span class="a-icon">${icono}</span><span class="a-name">${esc(nombre)}</span><span class="a-bal num ${balCls}">${fmtL(sd.cierre)}</span><span class="a-chevron">▼</span></div>
     <div class="acct-open"><span>Saldo inicial del día</span><span class="num">${fmtL(sd.apertura)}</span></div>
-    <table class="mov-table"><thead><tr><th>Tipo</th><th>Descripción</th><th class="r">Ingreso</th><th class="r">Egreso</th><th class="r">Balance</th></tr></thead><tbody>${rows}</tbody></table>
+    <table class="mov-table"><thead><tr><th>Tipo</th><th>Descripción</th><th class="r">Ingreso</th><th class="r">Egreso</th><th class="r">Balance</th></tr></thead><tbody>${bodyRows}</tbody></table>
     <table class="mov-table acct-foot"><tbody>
       <tr><td colspan="2"><span class="foot-label">Total del día</span></td><td class="r"><span class="mv-ing num">${fmtN(totIng)}</span></td><td class="r"><span class="mv-egr num">${fmtN(totEgr)}</span></td><td class="r"><span class="num ${neto<0?'mv-egr':''}">${fmtN(neto)}</span></td></tr>
       <tr class="cierre-row"><td colspan="5">Cierre del día · ${fmtL(sd.cierre)}</td></tr>
@@ -755,22 +785,55 @@ function exportarExcel(){
   toast('Excel generado','ok');
 }
 
+function mesActualHN(){const h=hoyHN();return h.slice(0,7);}
+function rangoDeMes(mes){
+  const [y,m]=mes.split('-').map(Number);
+  const primer=`${y}-${String(m).padStart(2,'0')}-01`;
+  const ultimoDia=new Date(Date.UTC(y,m,0)).getUTCDate();
+  const ultimo=`${y}-${String(m).padStart(2,'0')}-${String(ultimoDia).padStart(2,'0')}`;
+  return[primer,ultimo];
+}
+
 async function init(){
-  const hoy=hoyHN();
-  const d=new Date(hoy+'T12:00:00Z');d.setUTCDate(d.getUTCDate()-6);
-  S.hasta=hoy;S.desde=new Intl.DateTimeFormat('en-CA',{timeZone:'UTC',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
-  document.getElementById('fDesde').value=S.desde;document.getElementById('fHasta').value=S.hasta;
+  const mes=mesActualHN();
+  document.getElementById('fMes').value=mes;
+  [S.desde,S.hasta]=rangoDeMes(mes);
   await cargarCatalogos();
-  // poblar filtro por tipo de documento
   const ft=document.getElementById('filtroTipo');
   ft.innerHTML='<option value="">Todos los tipos</option>'+
     S.tipos.map(t=>`<option value="${t.sigla}">${esc(t.sigla)} · ${esc(t.nombre)}</option>`).join('');
   await cargarMovimientos();render();wireEvents();suscribirRealtime();
 }
 function wireEvents(){
+  document.getElementById('fMes').addEventListener('change',async e=>{[S.desde,S.hasta]=rangoDeMes(e.target.value);await cargarMovimientos();render();});
   document.getElementById('fDesde').addEventListener('change',async e=>{S.desde=e.target.value;await cargarMovimientos();render();});
   document.getElementById('fHasta').addEventListener('change',async e=>{S.hasta=e.target.value;await cargarMovimientos();render();});
-  document.getElementById('btnHoy').addEventListener('click',async()=>{const h=hoyHN();S.desde=h;S.hasta=h;document.getElementById('fDesde').value=h;document.getElementById('fHasta').value=h;await cargarMovimientos();render();});
+  document.getElementById('btnModo').addEventListener('click',async()=>{
+    if(S.modo==='mes'){
+      S.modo='rango';
+      document.getElementById('mesWrap').style.display='none';
+      document.getElementById('desdeWrap').style.display='';
+      document.getElementById('hastaWrap').style.display='';
+      document.getElementById('fDesde').value=S.desde;document.getElementById('fHasta').value=S.hasta;
+      document.getElementById('btnModo').textContent='📅 Usar mes';
+    }else{
+      S.modo='mes';
+      document.getElementById('mesWrap').style.display='';
+      document.getElementById('desdeWrap').style.display='none';
+      document.getElementById('hastaWrap').style.display='none';
+      const mes=document.getElementById('fMes').value||mesActualHN();
+      [S.desde,S.hasta]=rangoDeMes(mes);
+      document.getElementById('btnModo').textContent='📅 Usar rango';
+      await cargarMovimientos();render();
+    }
+  });
+  // pestañas
+  document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');S.tab=t.dataset.tab;
+    document.getElementById('vistaMovimientos').style.display=S.tab==='movimientos'?'':'none';
+    document.getElementById('vistaBalance').style.display=S.tab==='balance'?'':'none';
+  }));
   document.getElementById('chkEliminados').addEventListener('change',e=>{S.mostrarEliminados=e.target.checked;render();});
   let _bt;document.getElementById('buscador').addEventListener('input',e=>{clearTimeout(_bt);_bt=setTimeout(()=>{S.busqueda=e.target.value;render();},250);});
   document.getElementById('filtroTipo').addEventListener('change',e=>{S.filtroTipo=e.target.value;render();});
