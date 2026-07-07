@@ -2889,6 +2889,8 @@ async function abrirDetalleRider(riderId) {
         .order('created_at', { ascending: false })
         .limit(1);
       sol = sols?.[0] || null;
+      // Firmar los paths de Storage → signed URLs (evita los 400 al cargar imágenes)
+      if(sol) sol = await resolverSignedUrls(sol);
     }
 
     // 3) Stats del rider
@@ -5208,6 +5210,24 @@ async function eliminar(tabla, id, callback){
 // Solo los usuarios con rol ADMIN pueden eliminar/modificar cualquier registro
 function esAdmin(){ return S.miRol === 'ADMIN'; }
 
+// Convierte un foto_url de perfil (path relativo o URL pública de un bucket privado)
+// en una signed URL válida. Devuelve null si no puede resolverla.
+async function firmarFotoPerfil(fotoUrl){
+  if(!fotoUrl) return null;
+  let bucket = 'riders-docs', path = fotoUrl;
+  // Si es una URL completa de Supabase Storage, extraer bucket + path
+  const m = fotoUrl.match(/\/object\/(?:public|sign)\/([^/]+)\/(.+?)(?:\?|$)/);
+  if(m){ bucket = m[1]; path = decodeURIComponent(m[2]); }
+  else if(fotoUrl.startsWith('http')){ return fotoUrl; } // URL externa no-Supabase: usar tal cual
+  // Firmar en el bucket detectado, con fallback al otro bucket de docs
+  let r = await sb.storage.from(bucket).createSignedUrl(path, 60*60*6);
+  if(!r.data?.signedUrl){
+    const alt = bucket === 'riders-docs' ? 'delivery-docs' : 'riders-docs';
+    r = await sb.storage.from(alt).createSignedUrl(path, 60*60*6);
+  }
+  return r.data?.signedUrl || null;
+}
+
 
 
 
@@ -6704,6 +6724,10 @@ async function cargarUsuarios(){
   } else {
     MD.usuarios=data||[];
   }
+  // Firmar las fotos de perfil (buckets privados) para que se muestren sin error 400
+  await Promise.all(MD.usuarios.map(async u=>{
+    if(u.foto_url) u.foto_url = await firmarFotoPerfil(u.foto_url);
+  }));
   renderUsuarios();
 }
 function filtUsr(btn,f){document.querySelectorAll('#view-usuarios .fbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');MD.usrFiltro=f;renderUsuarios();}
