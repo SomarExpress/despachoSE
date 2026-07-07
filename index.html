@@ -48,6 +48,12 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 .u-av{width:30px;height:30px;border-radius:50%;background:var(--or);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#000;flex-shrink:0;}
 .u-name{font-size:12px;font-weight:600;}
 .u-role{font-size:10px;color:var(--td);}
+.usr-switch{position:relative;display:inline-block;width:38px;height:22px;flex-shrink:0;cursor:pointer;}
+.usr-switch input{opacity:0;width:0;height:0;}
+.usr-slider{position:absolute;inset:0;background:var(--g4);border-radius:22px;transition:.2s;}
+.usr-slider:before{content:"";position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;}
+.usr-switch input:checked + .usr-slider{background:var(--verde);}
+.usr-switch input:checked + .usr-slider:before{transform:translateX(16px);}
 
 /* ─── MAIN ─────────────────────────────────────────────────── */
 #main{flex:1;overflow:hidden;display:flex;flex-direction:column;min-width:0;}
@@ -1846,6 +1852,8 @@ async function doLogin() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('u-name').textContent = perfil.nombre || email.split('@')[0];
   document.getElementById('u-av').textContent = (perfil.nombre || 'D').charAt(0).toUpperCase();
+  S.miRol = perfil.rol;
+  document.querySelector('.u-role').textContent = perfil.rol === 'ADMIN' ? 'Administrador' : 'Operador';
   init();
 }
 
@@ -1862,6 +1870,8 @@ sb.auth.getSession().then(({ data: { session } }) => {
       document.getElementById('auth-screen').style.display = 'none';
       document.getElementById('u-name').textContent = p.nombre || 'Despacho';
       document.getElementById('u-av').textContent = (p.nombre || 'D').charAt(0).toUpperCase();
+      S.miRol = p.rol;
+      document.querySelector('.u-role').textContent = p.rol === 'ADMIN' ? 'Administrador' : 'Operador';
       init();
     }
   });
@@ -5186,12 +5196,17 @@ function setTipo(v) {
 
 // ─── UTIL: eliminar registro ──────────────────────────────────
 async function eliminar(tabla, id, callback){
+  // Solo ADMIN puede eliminar registros en cualquier sección
+  if(!esAdmin()){ toast('Solo un administrador puede eliminar registros','danger'); return; }
   if(!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
   const {error}=await sb.from(tabla).delete().eq('id',id);
   if(error){toast('Error: '+error.message,'danger');return;}
   toast('✅ Eliminado');
   if(callback) callback();
 }
+
+// Solo los usuarios con rol ADMIN pueden eliminar/modificar cualquier registro
+function esAdmin(){ return S.miRol === 'ADMIN'; }
 
 
 
@@ -6679,8 +6694,17 @@ guardarDatos.cupon = async()=>{
 
 // ─── USUARIOS ────────────────────────────────────────────────
 async function cargarUsuarios(){
-  const {data}=await sb.from('perfiles').select('*').order('nombre');
-  MD.usuarios=data||[];renderUsuarios();
+  // Trae perfiles con su correo (auth.users) vía RPC restringido a STAFF/ADMIN
+  const {data,error}=await sb.rpc('listar_usuarios_con_correo');
+  if(error){
+    // Fallback: si el RPC falla, cargar sólo perfiles (sin correo)
+    console.warn('[usuarios] RPC falló, usando perfiles:', error.message);
+    const {data:perf}=await sb.from('perfiles').select('*').order('nombre');
+    MD.usuarios=perf||[];
+  } else {
+    MD.usuarios=data||[];
+  }
+  renderUsuarios();
 }
 function filtUsr(btn,f){document.querySelectorAll('#view-usuarios .fbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');MD.usrFiltro=f;renderUsuarios();}
 function renderUsuarios(){
@@ -6690,20 +6714,57 @@ function renderUsuarios(){
   const rolColor={STAFF:'var(--or)',DELIVERY:'var(--az)',CLIENTE:'var(--verde)',COMERCIO:'#a855f7',ADMIN:'var(--rojo)'};
   if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin usuarios</div>';return;}
   lista.forEach(u=>cacheObj('usuario',u));
-  el.innerHTML=lista.map(u=>`
-    <div class="item-card">
+  const admin = esAdmin();
+  el.innerHTML=lista.map(u=>{
+    const col = rolColor[u.rol]||'var(--g4)';
+    const activo = u.estatus !== 'INACTIVA' && u.estatus !== 'BLOQUEADO' && u.estatus !== 'SUSPENDIDA';
+    const avatar = u.foto_url
+      ? `<div style="width:38px;height:38px;border-radius:50%;background:url('${u.foto_url}') center/cover;border:2px solid ${col};cursor:pointer;flex-shrink:0" onclick="window.open('${u.foto_url}','_blank')"></div>`
+      : `<div style="width:38px;height:38px;border-radius:50%;background:${col};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#000;flex-shrink:0">${inic(u.nombre||'?')}</div>`;
+    return `
+    <div class="item-card" style="${!activo?'opacity:.6':''}">
       <div class="item-card-hdr">
-        <div style="width:36px;height:36px;border-radius:50%;background:${rolColor[u.rol]||'var(--g4)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#000;flex-shrink:0">${inic(u.nombre||'?')}</div>
+        ${avatar}
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700">${u.nombre||'Sin nombre'}</div>
-          <div style="font-size:11px;color:var(--td)">${u.celular||'—'}</div>
+          <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.nombre||'Sin nombre'}</div>
+          <div class="mono" style="font-size:11px;color:var(--td);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.correo||u.celular||'—'}</div>
+          ${u.correo&&u.celular?`<div class="mono" style="font-size:10px;color:var(--td)">${u.celular}</div>`:''}
         </div>
-        <span style="font-size:10px;font-weight:700;color:${rolColor[u.rol]||'var(--td)'};background:${rolColor[u.rol]||'var(--g4)'}22;padding:3px 8px;border-radius:20px">${u.rol||'—'}</span>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <span style="font-size:10px;font-weight:700;color:${col};background:${col}22;padding:3px 8px;border-radius:20px">${u.rol||'—'}</span>
+          <span style="font-size:9px;font-weight:700;color:${activo?'var(--verde)':'var(--td)'}">${activo?'● Activo':'○ Inactivo'}</span>
+        </div>
       </div>
-      <div class="item-card-footer">
+      <div class="item-card-footer" style="gap:6px">
+        <label class="usr-switch" title="${activo?'Desactivar':'Activar'} usuario">
+          <input type="checkbox" ${activo?'checked':''} onchange="toggleUsuario('${u.id}',this.checked)">
+          <span class="usr-slider"></span>
+        </label>
         <button class="btn btn-ghost btn-sm" onclick="editarDesdeCache('usuario','${u.id}')">✏️ Editar</button>
+        ${admin?`<button class="btn btn-ghost btn-sm" style="color:var(--rojo)" onclick="eliminarUsuario('${u.id}')">🗑</button>`:''}
       </div>
-    </div>`).join('');
+    </div>`;}).join('');
+}
+
+async function toggleUsuario(id, activar){
+  const {error}=await sb.rpc('set_estatus_usuario',{p_id:id,p_activar:activar});
+  if(error){toast('Error: '+error.message,'danger');cargarUsuarios();return;}
+  toast(activar?'✅ Usuario activado':'⏸ Usuario desactivado');
+  // Actualizar estado local sin recargar todo
+  const u=MD.usuarios.find(x=>x.id===id);
+  if(u) u.estatus=activar?'ACTIVA':'INACTIVA';
+  renderUsuarios();
+}
+
+async function eliminarUsuario(id){
+  if(!esAdmin()){toast('Solo un administrador puede eliminar usuarios','danger');return;}
+  const u = MD.usuarios.find(x=>x.id===id);
+  const nombre = u?.nombre || 'este usuario';
+  if(!confirm(`¿Eliminar a "${nombre}"?\n\nSe borrará su perfil y su cuenta de acceso. Esta acción no se puede deshacer.`)) return;
+  const {error}=await sb.rpc('eliminar_usuario_admin',{p_id:id});
+  if(error){toast('Error: '+error.message,'danger');return;}
+  toast('✅ Usuario eliminado');
+  cargarUsuarios();
 }
 function htmlFormUsuario(d=null){
   const esNuevo = !d;
