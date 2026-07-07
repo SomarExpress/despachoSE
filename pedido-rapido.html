@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pedido Rápido · Somar Express</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --or:#FF8C00; --or2:#ff6b1a; --or3:#e85a00;
+  --g0:#0F0F0F; --g1:#161616; --g2:#1E1E1E; --g3:#262626; --g4:#333;
+  --tx:#EFEFEF; --td:#9A9A9A;
+  --verde:#22c55e; --rojo:#EF4444; --az:#3B82F6;
+  --or-glow:rgba(255,140,0,.08);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--g0);color:var(--tx);min-height:100vh}
+.bebas{font-family:'Bebas Neue',sans-serif;letter-spacing:1px}
+.mono{font-family:'Space Mono',monospace}
+
+/* ── Header ── */
+header{position:sticky;top:0;z-index:100;background:var(--g1);border-bottom:1px solid var(--g3);padding:10px 16px;display:flex;align-items:center;gap:12px}
+header .logo{font-family:'Bebas Neue';font-size:22px;color:var(--or);white-space:nowrap}
+header .sub{font-size:10px;color:var(--td);font-weight:700;letter-spacing:2px;text-transform:uppercase}
+.btn-back{background:var(--g2);border:1px solid var(--g4);color:var(--tx);border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;font-weight:600}
+.btn-back:hover{border-color:var(--or);color:var(--or)}
+header .spacer{flex:1}
+a.link-despacho{color:var(--td);font-size:11px;text-decoration:none;font-weight:600}
+a.link-despacho:hover{color:var(--or)}
+
+/* ── Layout ── */
+.wrap{max-width:1080px;margin:0 auto;padding:18px 16px 120px}
+h2.titulo{font-family:'Bebas Neue';font-size:26px;color:var(--tx);margin-bottom:2px}
+.subtitulo{font-size:12px;color:var(--td);margin-bottom:16px}
+
+/* ── Inputs ── */
+.fi{width:100%;background:var(--g2);border:1px solid var(--g4);color:var(--tx);border-radius:10px;padding:11px 13px;font-size:14px;font-family:'Inter';outline:none;transition:border-color .12s}
+.fi:focus{border-color:var(--or)}
+.fl{display:block;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--td);margin-bottom:5px}
+.fl .r{color:var(--or)}
+.fg{margin-bottom:14px}
+select.fi{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239A9A9A' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'/%3e%3c/svg%3e");background-repeat:no-repeat;background-position:right 12px center;background-size:14px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.form-grid .full{grid-column:1/-1}
+@media(max-width:640px){.form-grid{grid-template-columns:1fr}}
+
+/* ── Botones ── */
+.btn{border:none;border-radius:10px;padding:12px 18px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter';transition:all .12s}
+.btn-primary{background:linear-gradient(135deg,var(--or),var(--or2));color:#000}
+.btn-primary:hover{filter:brightness(1.1)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-ghost{background:var(--g2);border:1px solid var(--g4);color:var(--tx)}
+.btn-ghost:hover{border-color:var(--or)}
+.tog-grp{display:flex;gap:8px;flex-wrap:wrap}
+.tog-btn{flex:1;min-width:90px;text-align:center;padding:10px 8px;border-radius:10px;background:var(--g2);border:1px solid var(--g4);font-size:12px;font-weight:700;cursor:pointer;color:var(--td);transition:all .12s}
+.tog-btn.on{background:var(--or-glow);border-color:var(--or);color:var(--or)}
+
+/* ── Grid comercios ── */
+.grid-com{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+.card-com{background:var(--g1);border:1px solid var(--g3);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .15s}
+.card-com:hover{border-color:var(--or);transform:translateY(-2px)}
+.card-com .img{height:110px;background:var(--g2) center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:34px}
+.card-com .body{padding:10px 12px}
+.card-com .nom{font-weight:700;font-size:14px;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-com .meta{font-size:11px;color:var(--td);display:flex;justify-content:space-between;align-items:center}
+.badge{font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 7px;border-radius:20px}
+.badge.abierto{background:rgba(34,197,94,.12);color:var(--verde)}
+.badge.cerrado{background:rgba(239,68,68,.12);color:var(--rojo)}
+
+/* ── Productos ── */
+.cat-titulo{font-family:'Bebas Neue';font-size:19px;color:var(--or);margin:20px 0 10px;border-bottom:1px solid var(--g3);padding-bottom:5px}
+.card-prod{background:var(--g1);border:1px solid var(--g3);border-radius:12px;padding:10px;display:flex;gap:12px;align-items:center;margin-bottom:10px}
+.card-prod .img{width:64px;height:64px;border-radius:10px;background:var(--g2) center/cover no-repeat;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:24px}
+.card-prod .info{flex:1;min-width:0}
+.card-prod .nom{font-weight:700;font-size:13px}
+.card-prod .desc{font-size:11px;color:var(--td);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.card-prod .precio{font-family:'Space Mono';font-size:13px;font-weight:700;color:var(--or);margin-top:3px}
+.card-prod .precio .tachado{color:var(--td);text-decoration:line-through;font-size:11px;font-weight:400;margin-right:6px}
+.qty-ctl{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.qty-ctl button{width:32px;height:32px;border-radius:8px;border:1px solid var(--g4);background:var(--g2);color:var(--tx);font-size:17px;font-weight:700;cursor:pointer;line-height:1}
+.qty-ctl button.mas{border-color:var(--or);color:var(--or)}
+.qty-ctl .n{font-family:'Space Mono';font-weight:700;min-width:20px;text-align:center;font-size:14px}
+
+/* ── Barra carrito ── */
+.cart-bar{position:fixed;bottom:0;left:0;right:0;z-index:200;background:var(--g1);border-top:1px solid var(--g3);padding:12px 16px;display:none}
+.cart-bar .inner{max-width:1080px;margin:0 auto;display:flex;align-items:center;gap:14px}
+.cart-bar .resumen{flex:1;font-size:13px}
+.cart-bar .resumen b{font-family:'Space Mono';color:var(--or)}
+
+/* ── Checkout ── */
+.panel{background:var(--g1);border:1px solid var(--g3);border-radius:14px;padding:16px;margin-bottom:16px}
+.panel h3{font-family:'Bebas Neue';font-size:18px;color:var(--or);margin-bottom:12px;letter-spacing:1px}
+.linea-cart{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--g3);font-size:13px}
+.linea-cart:last-child{border-bottom:none}
+.linea-cart .nom{flex:1}
+.linea-cart .sub{font-family:'Space Mono';font-weight:700}
+.linea-cart .del{background:none;border:none;color:var(--td);cursor:pointer;font-size:15px;padding:2px 6px}
+.linea-cart .del:hover{color:var(--rojo)}
+.dropdown{display:none;position:absolute;top:100%;left:0;right:0;background:var(--g2);border:1px solid var(--g4);border-radius:0 0 10px 10px;z-index:300;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.dropdown .item{padding:10px 13px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--g3)}
+.dropdown .item:hover{background:var(--or-glow)}
+.dropdown .item .sec{font-size:11px;color:var(--td)}
+.chip-sel{margin-top:6px;padding:10px 12px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:10px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+.chip-sel button{background:none;border:none;color:var(--td);cursor:pointer;font-size:17px}
+.resumen-tabla{font-size:13px}
+.resumen-tabla .fila{display:flex;justify-content:space-between;padding:5px 0;color:var(--td)}
+.resumen-tabla .fila .v{font-family:'Space Mono';color:var(--tx)}
+.resumen-tabla .fila.total{border-top:1px solid var(--g4);margin-top:6px;padding-top:10px;font-weight:800;color:var(--tx);font-size:15px}
+.resumen-tabla .fila.total .v{color:var(--or);font-size:17px}
+.nota-tarifa{font-size:11px;color:var(--td);margin-top:5px}
+.nota-tarifa b{color:var(--or)}
+
+/* ── Toast / éxito / login ── */
+#toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:999;background:var(--g2);border:1px solid var(--g4);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:600;display:none;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+#toast.danger{border-color:var(--rojo);color:var(--rojo)}
+#toast.success{border-color:var(--verde);color:var(--verde)}
+.exito{max-width:420px;margin:60px auto;text-align:center;padding:0 16px}
+.exito .icono{font-size:56px;margin-bottom:12px}
+.exito h2{font-family:'Bebas Neue';font-size:30px;color:var(--verde);margin-bottom:6px}
+.exito .orden{font-family:'Space Mono';font-size:20px;color:var(--or);margin-bottom:20px}
+.login-box{max-width:360px;margin:80px auto;background:var(--g1);border:1px solid var(--g3);border-radius:16px;padding:26px}
+.login-box h1{font-family:'Bebas Neue';font-size:28px;color:var(--or);text-align:center;margin-bottom:4px}
+.login-box p{font-size:11px;color:var(--td);text-align:center;margin-bottom:18px;letter-spacing:1px;text-transform:uppercase;font-weight:700}
+.skeleton{color:var(--td);font-size:13px;text-align:center;padding:40px 0}
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<!-- ══ LOGIN (fallback si no hay sesión compartida) ══ -->
+<div id="vista-login" style="display:none">
+  <div class="login-box">
+    <h1>SOMAR EXPRESS</h1>
+    <p>Pedido Rápido · Acceso Staff</p>
+    <div class="fg"><label class="fl">Correo</label><input class="fi" id="lg-correo" type="email" autocomplete="username"></div>
+    <div class="fg"><label class="fl">Contraseña</label><input class="fi" id="lg-pwd" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="login()">Entrar</button>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app" style="display:none">
+<header>
+  <button class="btn-back" id="btn-atras" style="display:none" onclick="atras()">←</button>
+  <div>
+    <div class="logo">SOMAR EXPRESS</div>
+    <div class="sub" id="hdr-sub">Pedido Rápido</div>
+  </div>
+  <div class="spacer"></div>
+  <a class="link-despacho" href="./index.html">← Panel Despacho</a>
+</header>
+
+<!-- ── VISTA 1: COMERCIOS ── -->
+<div class="wrap" id="vista-comercios">
+  <h2 class="titulo">🍔 PEDIR COMIDA</h2>
+  <div class="subtitulo">Selecciona el restaurante o comercio</div>
+  <div class="fg">
+    <input class="fi" id="buscar-com" placeholder="Buscar comercio..." oninput="filtrarComercios(this.value)">
+  </div>
+  <div class="grid-com" id="grid-comercios">
+    <div class="skeleton">Cargando comercios con catálogo...</div>
+  </div>
+</div>
+
+<!-- ── VISTA 2: PRODUCTOS ── -->
+<div class="wrap" id="vista-productos" style="display:none">
+  <h2 class="titulo" id="prod-com-nombre"></h2>
+  <div class="subtitulo" id="prod-com-meta"></div>
+  <div class="fg">
+    <input class="fi" id="buscar-prod" placeholder="Buscar producto..." oninput="renderProductos(this.value)">
+  </div>
+  <div id="lista-productos"></div>
+</div>
+
+<!-- ── VISTA 3: CHECKOUT ── -->
+<div class="wrap" id="vista-checkout" style="display:none">
+  <h2 class="titulo">CONFIRMAR PEDIDO</h2>
+  <div class="subtitulo" id="chk-com-nombre"></div>
+
+  <div class="panel">
+    <h3>🛒 Carrito</h3>
+    <div id="chk-carrito"></div>
+  </div>
+
+  <div class="panel">
+    <h3>👤 Cliente</h3>
+    <div class="form-grid">
+      <div class="fg full" style="position:relative">
+        <label class="fl">Cliente <span class="r">*</span></label>
+        <input class="fi" id="f-cli-nom" placeholder="Buscar por nombre o teléfono..." oninput="buscarCliente(this.value)" autocomplete="off">
+        <div class="dropdown" id="cli-dd"></div>
+        <div class="chip-sel" id="cli-chip" style="display:none">
+          <div><b id="cli-chip-nom"></b> <span style="color:var(--td)" id="cli-chip-tel"></span></div>
+          <button onclick="limpiarCliente()">✕</button>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Teléfono de contacto</label>
+        <input class="fi" id="f-cli-tel" type="tel" placeholder="9999-9999">
+      </div>
+      <div class="fg">
+        <label class="fl">Ciudad de entrega</label>
+        <select class="fi" id="f-ciudad" onchange="calcularTarifa()">
+          <option>CHOLOMA</option><option>SAN PEDRO SULA</option>
+          <option>LA LIMA</option><option>VILLANUEVA</option>
+        </select>
+      </div>
+      <div class="fg full" id="grp-ubics" style="display:none">
+        <label class="fl">Dirección guardada del cliente</label>
+        <select class="fi" id="f-cli-ubic" onchange="usarUbicGuardada()"><option value="">Ingresar manual...</option></select>
+      </div>
+      <div class="fg full">
+        <label class="fl">Dirección de entrega <span class="r">*</span></label>
+        <input class="fi" id="f-dir-ent" placeholder="Col. / calle / referencia">
+      </div>
+      <div class="fg full">
+        <label class="fl">GPS entrega (lat,lng)</label>
+        <input class="fi mono" id="f-gps-ent" placeholder="15.6200,-87.9350" oninput="calcularTarifa()">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>📍 Recolecta</h3>
+    <div class="fg">
+      <label class="fl">Sucursal</label>
+      <select class="fi" id="f-sucursal" onchange="calcularTarifa()"></select>
+    </div>
+    <div class="nota-tarifa" id="tarifa-detalle">Ingresa el GPS de entrega para calcular la tarifa.</div>
+  </div>
+
+  <div class="panel">
+    <h3>💳 Pago</h3>
+    <div class="fg">
+      <label class="fl">Método de pago</label>
+      <div class="tog-grp">
+        <div class="tog-btn on" id="mp-EFECTIVO" onclick="setMP('EFECTIVO')">💵 Efectivo</div>
+        <div class="tog-btn" id="mp-TRANSFERENCIA" onclick="setMP('TRANSFERENCIA')">🏦 Transferencia</div>
+        <div class="tog-btn" id="mp-TARJETA" onclick="setMP('TARJETA')">💳 Tarjeta</div>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="fg">
+        <label class="fl">¿Quién paga?</label>
+        <select class="fi" id="f-quien-paga">
+          <option value="DESTINATARIO">Destinatario (quien recibe)</option>
+          <option value="REMITENTE">Remitente (quien pide)</option>
+        </select>
+      </div>
+      <div class="fg" id="grp-paga-con">
+        <label class="fl">Cliente pagará con (L.)</label>
+        <input class="fi mono" id="f-paga-con" type="number" min="0" placeholder="0" oninput="renderResumen()">
+      </div>
+      <div class="fg">
+        <label class="fl">Tarifa dinámica</label>
+        <select class="fi" id="f-tarifa-din" onchange="calcularTarifa()">
+          <option value="NORMAL">Normal</option>
+          <option value="LLUVIA">Lluvia (+20%)</option>
+          <option value="HORA_PICO">Hora pico (+30%)</option>
+          <option value="NOCTURNO">Nocturno (+15%)</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Propina (L.)</label>
+        <input class="fi mono" id="f-propina" type="number" min="0" value="0" oninput="renderResumen()">
+      </div>
+      <div class="fg">
+        <label class="fl">Envío (L.) — editable</label>
+        <input class="fi mono" id="f-envio" type="number" min="0" oninput="ST.envioManual=true;renderResumen()">
+      </div>
+      <div class="fg">
+        <label class="fl">% Comisión Somar (producto)</label>
+        <input class="fi mono" id="f-pct-com" type="number" min="0" step="0.5" value="0" oninput="renderResumen()">
+      </div>
+      <div class="fg full">
+        <label class="fl">Cupón</label>
+        <div style="display:flex;gap:8px">
+          <input class="fi mono" id="f-cupon" placeholder="CÓDIGO" style="flex:1;text-transform:uppercase">
+          <button class="btn btn-ghost" onclick="validarCupon()">Validar</button>
+        </div>
+        <div class="nota-tarifa" id="cupon-status" style="display:none"></div>
+      </div>
+      <div class="fg full">
+        <label class="fl">Observaciones</label>
+        <input class="fi" id="f-obs" placeholder="Notas para el rider...">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>📋 Resumen</h3>
+    <div class="resumen-tabla" id="chk-resumen"></div>
+  </div>
+
+  <button class="btn btn-primary" id="btn-guardar" style="width:100%;padding:15px;font-size:15px" onclick="guardarPedido()">💾 Crear Pedido</button>
+</div>
+
+<!-- ── VISTA 4: ÉXITO ── -->
+<div id="vista-exito" style="display:none">
+  <div class="exito">
+    <div class="icono">✅</div>
+    <h2>PEDIDO CREADO</h2>
+    <div class="orden" id="exito-orden"></div>
+    <div style="font-size:12px;color:var(--td);margin-bottom:24px">Buscando repartidor cercano...</div>
+    <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="reiniciar()">➕ Crear otro pedido</button>
+    <a href="./index.html"><button class="btn btn-ghost" style="width:100%">Ir al Panel Despacho</button></a>
+  </div>
+</div>
+
+<!-- ── Barra carrito flotante ── -->
+<div class="cart-bar" id="cart-bar">
+  <div class="inner">
+    <div class="resumen" id="cart-bar-txt"></div>
+    <button class="btn btn-primary" onclick="irCheckout()">Continuar →</button>
+  </div>
+</div>
+</div><!-- /app -->
+
+<script>
+// ════════════════════════════════════════════════════════════
+// SOMAR EXPRESS · PEDIDO RÁPIDO v1
+// Flujo: Comercios → Productos (carrito) → Checkout → pedidos
+// Comparte sesión Supabase con el Panel Despacho (mismo origen)
+// ════════════════════════════════════════════════════════════
+const SUPA_URL  = 'https://jjrmzouigcmeztkybrvp.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impqcm16b3VpZ2NtZXp0a3licnZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5MzExNDgsImV4cCI6MjA4ODUwNzE0OH0.tNUHxGWMWh7Q6v4mH3y5gOxpczpEJHwNqwH2TehL61I';
+const sb = supabase.createClient(SUPA_URL, SUPA_ANON);
+
+const ST = {
+  usuario: null, nombreAgente: 'Despacho',
+  config: {},                 // configuracion clave/valor
+  comercios: [],              // comercios con catálogo
+  comercio: null,             // comercio seleccionado
+  sucursales: [],
+  productos: [],              // productos del comercio
+  carrito: [],                // {id,nombre,precio,qty}
+  cliente: null,              // cliente seleccionado (tabla clientes)
+  ubics: [],                  // ubicaciones_cliente
+  cupon: null,
+  metodoPago: 'EFECTIVO',
+  km: null, tarifaBase: null, envioManual: false,
+  vista: 'comercios',
+};
+
+const $  = id => document.getElementById(id);
+const fL = n => 'L. ' + (parseFloat(n)||0).toFixed(2);
+function toast(msg, tipo){ const t=$('toast'); t.textContent=msg; t.className=tipo||''; t.style.display='block'; clearTimeout(t._tm); t._tm=setTimeout(()=>t.style.display='none', 3200); }
+
+// ── Sesión ──────────────────────────────────────────────────
+async function init(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session){ $('vista-login').style.display='block'; return; }
+  ST.usuario = session.user;
+  const { data: perfil } = await sb.from('perfiles').select('nombre,rol').eq('id', session.user.id).maybeSingle();
+  ST.nombreAgente = perfil?.nombre || 'Despacho';
+  $('vista-login').style.display='none';
+  $('app').style.display='block';
+  cargarConfig();
+  cargarComercios();
+}
+async function login(){
+  const correo=$('lg-correo').value.trim(), pwd=$('lg-pwd').value;
+  if(!correo||!pwd) return toast('Correo y contraseña requeridos','danger');
+  const { error } = await sb.auth.signInWithPassword({ email:correo, password:pwd });
+  if(error) return toast('Error: '+error.message,'danger');
+  init();
+}
+async function cargarConfig(){
+  const { data } = await sb.from('configuracion').select('clave,valor');
+  (data||[]).forEach(c => ST.config[c.clave]=c.valor);
+}
+
+// ── Navegación ──────────────────────────────────────────────
+function mostrar(v){
+  ['comercios','productos','checkout','exito'].forEach(x=>{ const el=$('vista-'+x); if(el) el.style.display = x===v?'block':'none'; });
+  ST.vista = v;
+  $('btn-atras').style.display = v==='comercios' ? 'none' : 'flex';
+  $('hdr-sub').textContent = { comercios:'Pedido Rápido', productos:ST.comercio?.nombre||'', checkout:'Confirmar pedido', exito:'Listo' }[v];
+  $('cart-bar').style.display = (v==='productos' && ST.carrito.length) ? 'block' : 'none';
+  window.scrollTo(0,0);
+}
+function atras(){
+  if(ST.vista==='checkout') mostrar('productos');
+  else if(ST.vista==='productos'){ ST.carrito=[]; renderCartBar(); mostrar('comercios'); }
+  else mostrar('comercios');
+}
+function reiniciar(){
+  ST.carrito=[]; ST.cliente=null; ST.ubics=[]; ST.cupon=null; ST.km=null; ST.tarifaBase=null; ST.envioManual=false;
+  ['f-cli-nom','f-cli-tel','f-dir-ent','f-gps-ent','f-paga-con','f-obs','f-cupon'].forEach(id=>{const el=$(id);if(el)el.value='';});
+  $('f-propina').value='0'; $('f-pct-com').value='0'; $('f-tarifa-din').value='NORMAL';
+  $('cli-chip').style.display='none'; $('grp-ubics').style.display='none';
+  $('cupon-status').style.display='none';
+  setMP('EFECTIVO');
+  mostrar('comercios');
+}
+
+// ── VISTA 1: Comercios con catálogo ─────────────────────────
+async function cargarComercios(){
+  // Solo comercios que tienen productos activos
+  const { data: prods, error: e1 } = await sb.from('productos').select('comercio_id').eq('estatus','activo');
+  if(e1){ $('grid-comercios').innerHTML = `<div class="skeleton">Error: ${e1.message}</div>`; return; }
+  const ids = [...new Set((prods||[]).map(p=>p.comercio_id).filter(Boolean))];
+  if(!ids.length){ $('grid-comercios').innerHTML = '<div class="skeleton">Ningún comercio tiene catálogo cargado todavía.<br>Agrega productos desde el Panel Despacho → Productos.</div>'; return; }
+  const { data: coms, error: e2 } = await sb.from('comercios')
+    .select('id,nombre,imagen_url,ciudad,sector,abierto,cierre_manual,comision_pct,comision_tipo,ubicacion_gps,direccion')
+    .in('id', ids).eq('activo', true).order('nombre');
+  if(e2){ $('grid-comercios').innerHTML = `<div class="skeleton">Error: ${e2.message}</div>`; return; }
+  ST.comercios = coms||[];
+  renderComercios(ST.comercios);
+}
+function renderComercios(lista){
+  if(!lista.length){ $('grid-comercios').innerHTML='<div class="skeleton">Sin resultados.</div>'; return; }
+  $('grid-comercios').innerHTML = lista.map(c=>{
+    const abierto = c.abierto !== false && c.cierre_manual !== true;
+    return `<div class="card-com" onclick="abrirComercio(${c.id})">
+      <div class="img" style="${c.imagen_url?`background-image:url('${c.imagen_url}')`:''}">${c.imagen_url?'':'🍽️'}</div>
+      <div class="body">
+        <div class="nom">${c.nombre}</div>
+        <div class="meta"><span>${c.ciudad||''}</span>
+          <span class="badge ${abierto?'abierto':'cerrado'}">${abierto?'ABIERTO':'CERRADO'}</span></div>
+      </div></div>`;
+  }).join('');
+}
+function filtrarComercios(q){
+  q=(q||'').toLowerCase();
+  renderComercios(ST.comercios.filter(c => (c.nombre||'').toLowerCase().includes(q) || (c.ciudad||'').toLowerCase().includes(q)));
+}
+
+// ── VISTA 2: Productos ──────────────────────────────────────
+async function abrirComercio(id){
+  ST.comercio = ST.comercios.find(c=>c.id===id);
+  if(!ST.comercio) return;
+  ST.carrito = [];
+  $('prod-com-nombre').textContent = ST.comercio.nombre;
+  $('prod-com-meta').textContent = [ST.comercio.ciudad, ST.comercio.sector].filter(Boolean).join(' · ');
+  $('buscar-prod').value='';
+  $('lista-productos').innerHTML='<div class="skeleton">Cargando productos...</div>';
+  mostrar('productos');
+
+  const [{ data: prods }, { data: sucs }] = await Promise.all([
+    sb.from('productos').select('id,nombre,descripcion,precio,precio_promo,en_promocion,imagen_url,sub_categoria')
+      .eq('comercio_id', id).eq('estatus','activo').order('sub_categoria').order('nombre'),
+    sb.from('sucursales_comercio').select('id,nombre,direccion,ciudad,ubicacion_gps,es_principal')
+      .eq('comercio_id', id).eq('activo', true).order('es_principal', {ascending:false})
+  ]);
+  ST.productos = prods||[];
+  ST.sucursales = sucs||[];
+  renderProductos('');
+  renderCartBar();
+}
+function precioDe(p){ return (p.en_promocion && p.precio_promo!=null) ? parseFloat(p.precio_promo) : parseFloat(p.precio); }
+function renderProductos(q){
+  q=(q||'').toLowerCase();
+  const lista = ST.productos.filter(p => !q || (p.nombre||'').toLowerCase().includes(q) || (p.descripcion||'').toLowerCase().includes(q));
+  if(!lista.length){ $('lista-productos').innerHTML='<div class="skeleton">Sin productos.</div>'; return; }
+  // Agrupar por sub_categoria
+  const grupos = {};
+  lista.forEach(p => { const k=p.sub_categoria||'GENERAL'; (grupos[k]=grupos[k]||[]).push(p); });
+  $('lista-productos').innerHTML = Object.keys(grupos).map(cat => `
+    <div class="cat-titulo">${cat}</div>
+    ${grupos[cat].map(p => {
+      const item = ST.carrito.find(x=>x.id===p.id);
+      const qty = item?item.qty:0;
+      const pr = precioDe(p);
+      return `<div class="card-prod">
+        <div class="img" style="${p.imagen_url?`background-image:url('${p.imagen_url}')`:''}">${p.imagen_url?'':'🍽️'}</div>
+        <div class="info">
+          <div class="nom">${p.nombre}</div>
+          ${p.descripcion?`<div class="desc">${p.descripcion}</div>`:''}
+          <div class="precio">${p.en_promocion&&p.precio_promo!=null?`<span class="tachado">L.${parseFloat(p.precio).toFixed(2)}</span>`:''}L. ${pr.toFixed(2)}</div>
+        </div>
+        <div class="qty-ctl">
+          ${qty>0?`<button onclick="modQty('${p.id}',-1)">−</button><span class="n">${qty}</span>`:''}
+          <button class="mas" onclick="modQty('${p.id}',1)">+</button>
+        </div></div>`;
+    }).join('')}`).join('');
+}
+function modQty(id, d){
+  const p = ST.productos.find(x=>x.id===id); if(!p) return;
+  let item = ST.carrito.find(x=>x.id===id);
+  if(!item && d>0){ item={ id:p.id, nombre:p.nombre, precio:precioDe(p), qty:0 }; ST.carrito.push(item); }
+  if(!item) return;
+  item.qty += d;
+  if(item.qty<=0) ST.carrito = ST.carrito.filter(x=>x.id!==id);
+  renderProductos($('buscar-prod').value);
+  renderCartBar();
+  if(ST.vista==='checkout') { renderCartCheckout(); renderResumen(); }
+}
+function cartSubtotal(){ return parseFloat(ST.carrito.reduce((a,i)=>a+i.precio*i.qty,0).toFixed(2)); }
+function renderCartBar(){
+  const n = ST.carrito.reduce((a,i)=>a+i.qty,0);
+  $('cart-bar').style.display = (ST.vista==='productos' && n>0) ? 'block' : 'none';
+  $('cart-bar-txt').innerHTML = `${n} producto${n!==1?'s':''} · <b>${fL(cartSubtotal())}</b>`;
+}
+
+// ── VISTA 3: Checkout ───────────────────────────────────────
+function irCheckout(){
+  if(!ST.carrito.length) return toast('El carrito está vacío','danger');
+  $('chk-com-nombre').textContent = 'Recolecta en: ' + ST.comercio.nombre;
+  // Sucursales
+  const sel = $('f-sucursal');
+  if(ST.sucursales.length){
+    sel.innerHTML = ST.sucursales.map(s=>`<option value="${s.id}">${s.nombre||'Sucursal'} · ${s.ciudad||''}${s.es_principal?' ★':''}</option>`).join('');
+  } else {
+    sel.innerHTML = `<option value="">${ST.comercio.direccion||'Dirección del comercio'} · ${ST.comercio.ciudad||''}</option>`;
+  }
+  // Comisión del comercio precargada
+  $('f-pct-com').value = parseFloat(ST.comercio.comision_pct||0);
+  ST.envioManual = false;
+  renderCartCheckout();
+  mostrar('checkout');
+  calcularTarifa();
+}
+function renderCartCheckout(){
+  if(!ST.carrito.length){ $('chk-carrito').innerHTML='<div class="skeleton">Carrito vacío</div>'; return; }
+  $('chk-carrito').innerHTML = ST.carrito.map(i=>`
+    <div class="linea-cart">
+      <div class="qty-ctl">
+        <button onclick="modQty('${i.id}',-1)">−</button><span class="n">${i.qty}</span><button class="mas" onclick="modQty('${i.id}',1)">+</button>
+      </div>
+      <div class="nom">${i.nombre}</div>
+      <div class="sub">${fL(i.precio*i.qty)}</div>
+      <button class="del" onclick="modQty('${i.id}',-${i.qty})">🗑</button>
+    </div>`).join('');
+}
+
+// Cliente
+let _cliTimer=null;
+function buscarCliente(q){
+  clearTimeout(_cliTimer);
+  if(!q || q.length<2){ $('cli-dd').style.display='none'; return; }
+  _cliTimer = setTimeout(async ()=>{
+    const { data } = await sb.from('clientes')
+      .select('id,nombre,celular,direccion,ciudad,ubicacion_gps')
+      .or(`nombre.ilike.%${q}%,celular.ilike.%${q}%`).eq('activo',true).limit(8);
+    const dd=$('cli-dd');
+    if(!data?.length){ dd.style.display='none'; return; }
+    dd.innerHTML = data.map((c,i)=>`<div class="item" onclick="selCliente(${i})"><b>${c.nombre}</b><div class="sec">${c.celular||''} · ${c.ciudad||''}</div></div>`).join('');
+    dd.style.display='block';
+    dd._data = data;
+  }, 280);
+}
+async function selCliente(i){
+  const c = $('cli-dd')._data?.[i]; if(!c) return;
+  ST.cliente = c;
+  $('cli-dd').style.display='none';
+  $('f-cli-nom').value = c.nombre;
+  $('f-cli-tel').value = c.celular||'';
+  if(c.ciudad) $('f-ciudad').value = c.ciudad;
+  $('cli-chip-nom').textContent = c.nombre;
+  $('cli-chip-tel').textContent = c.celular||'';
+  $('cli-chip').style.display='flex';
+  // Ubicaciones guardadas
+  const { data: ubics } = await sb.from('ubicaciones_cliente')
+    .select('id,nombre,direccion,ciudad,ubicacion_gps,referencia,es_principal')
+    .eq('cliente_id', c.id).order('es_principal',{ascending:false});
+  ST.ubics = ubics||[];
+  if(ST.ubics.length){
+    $('f-cli-ubic').innerHTML = '<option value="">Ingresar manual...</option>' +
+      ST.ubics.map((u,ix)=>`<option value="${ix}">${u.nombre||'Ubicación'} · ${u.direccion||''}${u.es_principal?' ★':''}</option>`).join('');
+    $('grp-ubics').style.display='block';
+    // Auto-seleccionar la principal
+    const ip = ST.ubics.findIndex(u=>u.es_principal);
+    if(ip>=0){ $('f-cli-ubic').value=String(ip); usarUbicGuardada(); }
+  } else {
+    $('grp-ubics').style.display='none';
+    if(c.direccion) $('f-dir-ent').value = c.direccion;
+    if(c.ubicacion_gps){ $('f-gps-ent').value = c.ubicacion_gps; calcularTarifa(); }
+  }
+}
+function usarUbicGuardada(){
+  const ix = $('f-cli-ubic').value;
+  if(ix===''){ return; }
+  const u = ST.ubics[parseInt(ix)]; if(!u) return;
+  $('f-dir-ent').value = [u.direccion,u.referencia].filter(Boolean).join(' · ');
+  if(u.ciudad) $('f-ciudad').value = u.ciudad;
+  $('f-gps-ent').value = u.ubicacion_gps||'';
+  calcularTarifa();
+}
+function limpiarCliente(){
+  ST.cliente=null; ST.ubics=[];
+  $('cli-chip').style.display='none';
+  $('grp-ubics').style.display='none';
+  $('f-cli-nom').value='';
+}
+
+// Tarifa
+function gpsRecolecta(){
+  if(ST.sucursales.length){
+    const s = ST.sucursales.find(x=>String(x.id)===$('f-sucursal').value) || ST.sucursales[0];
+    return { gps: s?.ubicacion_gps||null, ciudad: s?.ciudad||ST.comercio?.ciudad||'CHOLOMA', dir: s?.direccion||ST.comercio?.direccion||null };
+  }
+  return { gps: ST.comercio?.ubicacion_gps||null, ciudad: ST.comercio?.ciudad||'CHOLOMA', dir: ST.comercio?.direccion||null };
+}
+async function calcularTarifa(){
+  const rec = gpsRecolecta();
+  const gpsEnt = $('f-gps-ent').value.trim();
+  const ciudadEnt = $('f-ciudad').value;
+  let tarifa=null, km=null;
+  if(rec.gps && gpsEnt){
+    const [lat1,lng1]=rec.gps.split(',').map(parseFloat);
+    const [lat2,lng2]=gpsEnt.split(',').map(parseFloat);
+    if(![lat1,lng1,lat2,lng2].some(isNaN)){
+      try{
+        const { data, error } = await sb.rpc('calcular_tarifa_envio', {
+          p_lat1:lat1, p_lng1:lng1, p_lat2:lat2, p_lng2:lng2,
+          p_ciudad_origen:rec.ciudad, p_ciudad_destino:ciudadEnt
+        });
+        if(!error && data){ tarifa=parseFloat(data.tarifa); km=parseFloat(data.km); }
+      }catch(e){ console.warn('[tarifa]',e); }
+    }
+  }
+  ST.km = km; ST.tarifaBase = tarifa;
+  const modos={NORMAL:1,LLUVIA:1.2,HORA_PICO:1.3,NOCTURNO:1.15};
+  const mod = modos[$('f-tarifa-din').value]||1;
+  const envioFinal = tarifa!=null ? parseFloat((tarifa*mod).toFixed(2)) : parseFloat(((parseFloat(ST.config?.tarifa_minima)||50)*mod).toFixed(2));
+  if(!ST.envioManual) $('f-envio').value = envioFinal.toFixed(2);
+  $('tarifa-detalle').innerHTML = tarifa!=null
+    ? `📏 <b>${km.toFixed(1)} km</b> · <b>${fL(envioFinal)}</b>${mod!==1?` (mod. ×${mod})`:''}`
+    : `Sin GPS — tarifa mínima aplicada: <b>${fL(envioFinal)}</b>`;
+  renderResumen();
+}
+
+// Cupón
+async function validarCupon(){
+  const codigo = $('f-cupon').value.trim().toUpperCase();
+  const st = $('cupon-status');
+  if(!codigo){ st.style.display='none'; ST.cupon=null; renderResumen(); return; }
+  st.style.display='block'; st.style.color='var(--td)'; st.textContent='⏳ Validando...';
+  const { data, error } = await sb.rpc('validar_cupon', {
+    p_codigo:codigo, p_subtotal:cartSubtotal(), p_tarifa_envio:parseFloat($('f-envio').value)||0
+  });
+  if(error || !data?.valido){
+    st.style.color='var(--rojo)'; st.textContent='❌ '+(data?.error||error?.message||'Cupón inválido'); ST.cupon=null;
+  } else {
+    st.style.color='var(--verde)'; st.textContent=`✅ ${data.descripcion} · Ahorras ${fL(data.descuento)}`; ST.cupon=data;
+  }
+  renderResumen();
+}
+
+// Pago / resumen — misma lógica de montos que el wizard del despacho
+function setMP(v){
+  ST.metodoPago=v;
+  ['EFECTIVO','TRANSFERENCIA','TARJETA'].forEach(t=>$('mp-'+t).classList.toggle('on',t===v));
+  $('grp-paga-con').style.display = v==='EFECTIVO' ? 'block' : 'none';
+  renderResumen();
+}
+function calcularMontos(){
+  const prod   = cartSubtotal();
+  const envio  = parseFloat($('f-envio').value)||0;
+  const prop   = parseFloat($('f-propina').value)||0;
+  const pctCom = parseFloat($('f-pct-com').value)||0;
+  // comercios.comision_tipo 'SUMA' = se suma al precio (equivale a ADICIONAL del wizard)
+  const comTipo = (ST.comercio?.comision_tipo||'SUMA')==='INCLUIDA' ? 'INCLUIDA' : 'ADICIONAL';
+  const baseApp = parseFloat((prod*pctCom/100).toFixed(2));
+  const montoPagado = pctCom>0
+    ? (comTipo==='INCLUIDA' ? parseFloat((prod-baseApp).toFixed(2)) : prod)
+    : prod;
+  const prodConCom = (pctCom>0 && comTipo==='ADICIONAL') ? prod+baseApp : prod;
+  const desc  = ST.cupon ? parseFloat(ST.cupon.descuento) : 0;
+  const total = parseFloat((prodConCom+envio+prop-desc).toFixed(2));
+  const pctRiderEnvio = parseFloat(ST.config?.delivery_pct||66)/100;
+  const ingDel = parseFloat((envio*pctRiderEnvio).toFixed(2));
+  const ingSom = parseFloat((envio*(1-pctRiderEnvio)+baseApp).toFixed(2));
+  return { prod, envio, prop, pctCom, comTipo, baseApp, montoPagado, prodConCom, desc, total, ingDel, ingSom, pctRiderEnvio };
+}
+function renderResumen(){
+  const m = calcularMontos();
+  const pagaCon = parseFloat($('f-paga-con').value)||0;
+  const cambio  = pagaCon>0 ? Math.max(0, pagaCon-m.total) : 0;
+  let html = `
+    <div class="fila"><span>Productos (${ST.carrito.reduce((a,i)=>a+i.qty,0)})</span><span class="v">${fL(m.prod)}</span></div>`;
+  if(m.pctCom>0) html += `
+    <div class="fila"><span>Comisión Somar ${m.pctCom}% (${m.comTipo==='ADICIONAL'?'se suma':'incluida'})</span><span class="v">${fL(m.baseApp)}</span></div>
+    <div class="fila"><span>Rider paga en recolecta</span><span class="v" style="color:var(--az)">${fL(m.montoPagado)}</span></div>`;
+  html += `
+    <div class="fila"><span>Envío${ST.km!=null?` (${ST.km.toFixed(1)} km)`:''}</span><span class="v">${fL(m.envio)}</span></div>`;
+  if(m.prop>0) html += `<div class="fila"><span>Propina</span><span class="v">${fL(m.prop)}</span></div>`;
+  if(m.desc>0) html += `<div class="fila"><span>Descuento cupón</span><span class="v" style="color:var(--verde)">− ${fL(m.desc)}</span></div>`;
+  html += `<div class="fila total"><span>TOTAL A COBRAR</span><span class="v">${fL(m.total)}</span></div>`;
+  if(ST.metodoPago==='EFECTIVO' && pagaCon>0) html += `
+    <div class="fila"><span>Paga con</span><span class="v">${fL(pagaCon)}</span></div>
+    <div class="fila"><span>Cambio</span><span class="v" style="color:var(--verde)">${fL(cambio)}</span></div>`;
+  html += `
+    <div class="fila" style="margin-top:8px;font-size:11px"><span>Ingreso Rider (${(m.pctRiderEnvio*100).toFixed(0)}% envío)</span><span class="v" style="color:var(--verde)">${fL(m.ingDel)}</span></div>
+    <div class="fila" style="font-size:11px"><span>Ingreso Somar</span><span class="v" style="color:var(--or)">${fL(m.ingSom)}</span></div>`;
+  $('chk-resumen').innerHTML = html;
+}
+
+// ── Guardar pedido (schema idéntico al wizard del despacho) ──
+async function guardarPedido(){
+  const cli = $('f-cli-nom').value.trim();
+  const dir = $('f-dir-ent').value.trim();
+  if(!ST.carrito.length) return toast('El carrito está vacío','danger');
+  if(!cli) return toast('El nombre del cliente es requerido','danger');
+  if(!dir) return toast('La dirección de entrega es requerida','danger');
+
+  const btn=$('btn-guardar'); btn.disabled=true; btn.textContent='⏳ Guardando...';
+  await calcularTarifa(); // garantizar km/tarifa antes de guardar
+  const m = calcularMontos();
+  const rec = gpsRecolecta();
+  const modos={NORMAL:1,LLUVIA:1.2,HORA_PICO:1.3,NOCTURNO:1.15};
+  const tarifaMod = modos[$('f-tarifa-din').value]||1;
+  const pagaCon = parseFloat($('f-paga-con').value)||0;
+  const itemsTxt = ST.carrito.map(i=>`${i.qty}x ${i.nombre}`).join(', ');
+
+  const nuevoPed = {
+    canal: 'DESPACHO',
+    agente: ST.nombreAgente,
+    tipo: 'MANDADO',
+    estatus: 'PENDIENTE',
+    metodo_pago: ST.metodoPago,
+    creado_por_id: ST.usuario?.id || null,
+    cliente_id: ST.cliente?.id || null,
+    comercio_id: ST.comercio?.id ? parseInt(ST.comercio.id) : null,
+
+    nombre_cliente: cli,
+    celular_cliente: $('f-cli-tel').value.trim() || null,
+
+    nombre_comercio: ST.comercio?.nombre || null,
+    ciudad_origen: rec.ciudad || 'CHOLOMA',
+    direccion_recogida: rec.dir || null,
+    ubicacion_recogida_gps: rec.gps || null,
+    ya_encargado: false,
+    datos_encargo: null,
+    descripcion_paquete: itemsTxt,
+
+    nombre_destinatario: cli,
+    telefono_destinatario: $('f-cli-tel').value.trim() || null,
+    ciudad_destino: $('f-ciudad').value || 'CHOLOMA',
+    direccion_entrega: dir,
+    ubicacion_entrega_gps: $('f-gps-ent').value.trim() || null,
+
+    subtotal: m.prod,
+    tarifa_envio: m.envio,
+    tarifa_dinamica: tarifaMod,
+    propina: m.prop,
+    descuento: m.desc,
+    cupon_id: ST.cupon?.cupon_id || null,
+    total: m.total,
+    monto_cobrar: m.total,
+    monto_pagado: m.montoPagado,
+    pct_comision: m.pctCom,
+    comision_tipo: m.comTipo,
+    base_app: m.baseApp,
+    ingreso_delivery: m.ingDel,
+    ingreso_somar: m.ingSom,
+    distancia_km: ST.km || null,
+
+    quien_paga: $('f-quien-paga').value || 'DESTINATARIO',
+    recibira_efectivo: pagaCon > 0,
+    monto_recibido_efectivo: pagaCon || null,
+    monto_pagado_en_comercio: null,
+
+    observaciones: $('f-obs').value.trim() || null,
+    notas_especiales: null,
+    detalle_json: {
+      items: ST.carrito.map(i=>({ id:i.id, nombre:i.nombre, precio:i.precio, qty:i.qty, subtotal:parseFloat((i.precio*i.qty).toFixed(2)) })),
+      subtotal: m.prod
+    },
+  };
+  Object.keys(nuevoPed).forEach(k=>{ if(nuevoPed[k]===null||nuevoPed[k]==='') delete nuevoPed[k]; });
+
+  const { data, error } = await sb.from('pedidos').insert(nuevoPed).select().single();
+  btn.disabled=false; btn.textContent='💾 Crear Pedido';
+  if(error) return toast('Error: '+error.message,'danger');
+
+  if(ST.cupon?.cupon_id){ await sb.rpc('usar_cupon', { p_cupon_id: ST.cupon.cupon_id }); ST.cupon=null; }
+
+  $('exito-orden').textContent = data.no_orden ? ('Orden ' + data.no_orden) : 'Pedido registrado';
+  mostrar('exito');
+
+  // Fallback de reasignación (mismo patrón que el despacho)
+  setTimeout(async ()=>{
+    try{
+      const { data: pd } = await sb.from('pedidos').select('estatus,delivery_id').eq('id', data.id).single();
+      if(pd?.estatus==='ASIGNADO' && pd?.delivery_id){
+        const { data: asig } = await sb.from('asignaciones_pendientes')
+          .select('estatus').eq('pedido_id', data.id).eq('estatus','ENVIADO').maybeSingle();
+        if(asig) await sb.rpc('reasignar_si_no_aceptado', { p_pedido_id:data.id, p_rider_anterior:pd.delivery_id });
+      }
+    }catch(e){ console.warn('[reasignar]', e); }
+  }, 32000);
+}
+
+init();
+</script>
+</body>
+</html>
