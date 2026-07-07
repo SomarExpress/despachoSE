@@ -580,6 +580,10 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
         Nuevo Pedido
       </div>
+      <div class="nav-item" onclick="window.open('./pedido-rapido.html?v=1','_blank')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h2l2.4 12.5a2 2 0 002 1.5h9.7a2 2 0 002-1.6L23 7H6"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg>
+        Pedido Rápido 🍔
+      </div>
       <div class="nav-item" onclick="nav('mapa')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
         Mapa en Vivo
@@ -683,6 +687,10 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
       <div class="nav-item" id="nav-fin-cuentas" onclick="nav('fin-cuentas')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
         Caja &amp; Cuentas
+      </div>
+      <div class="nav-item" onclick="window.open('./contabilidad.html?v=1','_blank')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 7h6M9 11h6M9 15h4"/><rect x="4" y="3" width="16" height="18" rx="2"/></svg>
+        Contabilidad
       </div>
     </div>
     </div><!-- /sb-nav-scroll -->
@@ -2796,7 +2804,8 @@ function renderRidersMini() {
 
 function renderRidersGrid(filtro='todos') {
   const grid = document.getElementById('riders-grid');
-  let riders = S.riders;
+  // Los riders bloqueados no se muestran en esta sección (gestionar desde su detalle)
+  let riders = S.riders.filter(d => d.estatus !== 'BLOQUEADO');
   if(filtro === 'online')  riders = riders.filter(d => d.en_turno === true);
   if(filtro === 'offline') riders = riders.filter(d => d.en_turno !== true);
   if(!riders.length) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">No hay riders</div>'; return; }
@@ -2876,6 +2885,27 @@ async function abrirDetalleRider(riderId) {
     const { count: totalPedidos } = await sb.from('pedidos').select('id',{count:'exact',head:true}).eq('delivery_id', riderId).eq('estatus','FINALIZADO');
     const { count: cancelados }   = await sb.from('pedidos').select('id',{count:'exact',head:true}).eq('delivery_id', riderId).eq('estatus','CANCELADO');
 
+    // 3b) Tiempo promedio por pedido — igual que en Mi Guaca del rider:
+    //     promedio de (hora_finalizado − hora_aceptado) en minutos, descartando outliers (0–300 min)
+    let tiempoPromMin = null;
+    const { data: tiemposData } = await sb.from('pedidos')
+      .select('hora_aceptado,hora_finalizado')
+      .eq('delivery_id', riderId).eq('estatus','FINALIZADO')
+      .not('hora_aceptado','is',null).not('hora_finalizado','is',null)
+      .order('hora_finalizado',{ascending:false}).limit(200);
+    if(tiemposData?.length){
+      const mins = [];
+      tiemposData.forEach(p => {
+        const t = (new Date(p.hora_finalizado) - new Date(p.hora_aceptado)) / 60000;
+        if(t > 0 && t < 300) mins.push(t);
+      });
+      if(mins.length) tiempoPromMin = mins.reduce((a,b)=>a+b,0) / mins.length;
+    }
+    const tiempoPromTxt = tiempoPromMin == null ? '—'
+      : tiempoPromMin >= 60
+        ? `${Math.floor(tiempoPromMin/60)}h ${Math.round(tiempoPromMin%60)}m`
+        : `${Math.round(tiempoPromMin)}m`;
+
     // 4) Ubicación actual
     const { data: ubi } = await sb.from('ubicaciones_delivery').select('*').eq('delivery_id', riderId).maybeSingle();
 
@@ -2942,21 +2972,25 @@ async function abrirDetalleRider(riderId) {
       ` : ''}
 
       <!-- STATS -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px">
-        <div style="background:rgba(255,255,255,.03);border:1px solid var(--g4);border-radius:10px;padding:10px 8px;text-align:center">
-          <div style="font-size:18px;font-weight:800;color:${saldoCol}">L.${saldo.toFixed(0)}</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:18px">
+        <div style="background:rgba(255,255,255,.03);border:1px solid var(--g4);border-radius:10px;padding:10px 6px;text-align:center">
+          <div style="font-size:17px;font-weight:800;color:${saldoCol}">L.${saldo.toFixed(0)}</div>
           <div style="font-size:9px;color:var(--td);letter-spacing:.3px">SALDO</div>
         </div>
-        <div style="background:rgba(255,255,255,.03);border:1px solid var(--g4);border-radius:10px;padding:10px 8px;text-align:center">
-          <div style="font-size:18px;font-weight:800;color:var(--verde)">${totalPedidos||0}</div>
+        <div style="background:rgba(255,255,255,.03);border:1px solid var(--g4);border-radius:10px;padding:10px 6px;text-align:center">
+          <div style="font-size:17px;font-weight:800;color:var(--verde)">${totalPedidos||0}</div>
           <div style="font-size:9px;color:var(--td);letter-spacing:.3px">FINALIZADOS</div>
         </div>
-        <div style="background:rgba(255,255,255,.03);border:1px solid var(--g4);border-radius:10px;padding:10px 8px;text-align:center">
-          <div style="font-size:18px;font-weight:800;color:var(--rojo)">${cancelados||0}</div>
+        <div style="background:rgba(255,255,255,.03);border:1px solid var(--g4);border-radius:10px;padding:10px 6px;text-align:center">
+          <div style="font-size:17px;font-weight:800;color:var(--rojo)">${cancelados||0}</div>
           <div style="font-size:9px;color:var(--td);letter-spacing:.3px">CANCELADOS</div>
         </div>
-        <div style="background:rgba(255,255,255,.03);border:1px solid var(--g4);border-radius:10px;padding:10px 8px;text-align:center">
-          <div style="font-size:18px;font-weight:800;color:var(--or)">${d.id}</div>
+        <div style="background:rgba(255,255,255,.03);border:1px solid var(--g4);border-radius:10px;padding:10px 6px;text-align:center">
+          <div style="font-size:17px;font-weight:800;color:var(--az)">${tiempoPromTxt}</div>
+          <div style="font-size:9px;color:var(--td);letter-spacing:.3px">T. PROMEDIO</div>
+        </div>
+        <div style="background:rgba(255,255,255,.03);border:1px solid var(--g4);border-radius:10px;padding:10px 6px;text-align:center">
+          <div style="font-size:17px;font-weight:800;color:var(--or)">${d.id}</div>
           <div style="font-size:9px;color:var(--td);letter-spacing:.3px">ID RIDER</div>
         </div>
       </div>
