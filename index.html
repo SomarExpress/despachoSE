@@ -1470,6 +1470,8 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
         <div class="card-hdr" style="margin-bottom:12px">
           <input type="text" id="cli-search" placeholder="🔍 Buscar cliente..." oninput="filtrarLista('clientes')"
             class="fi" style="max-width:280px;font-size:13px;padding:8px 12px">
+          <button class="btn btn-ghost btn-sm" id="cli-ord-ped" onclick="ordenarClientes('pedidos')">📦 Pedidos</button>
+          <button class="btn btn-ghost btn-sm" id="cli-ord-ant" onclick="ordenarClientes('antiguedad')">🕐 Antigüedad</button>
           <button class="btn btn-primary btn-sm" onclick="abrirModal('cliente')">+ Nuevo Cliente</button>
         </div>
         <div id="clientes-lista" class="grid-lista"></div>
@@ -5246,6 +5248,7 @@ function cacheObj(tipo, obj) {
 var MD = {
   clientes:[], comercios:[], categorias:[], productos:[], cupones:[], usuarios:[], zonas:[],
   filtros:{ clientes:'', comercios:'', productos_comercio:'' },
+  ordenClientes:{ campo:null, dir:'desc' },
   cupFiltro:'todos', usrFiltro:'todos',
   modalTipo:null, editId:null,
   _catComercioId:null, _catComercioNombre:null,
@@ -5784,6 +5787,7 @@ async function cargarCatsComercioEnForm(comercioId, catIdActual='') {
   if(sel) {
     sel.innerHTML = '<option value="">Sin categoría</option>' +
       (data||[]).map(c=>`<option value="${c.id}" ${c.id===catIdActual?'selected':''}>${c.icono||''} ${c.nombre}</option>`).join('');
+    selBuscable(sel); selBuscableSync(sel);
   }
 }
 
@@ -6210,6 +6214,10 @@ function abrirModal(tipo, datos=null) {
   document.getElementById('md-titulo').textContent = cfg.titulo;
   document.getElementById('md-cuerpo').innerHTML   = cfg.html;
   document.getElementById('modal-datos').style.display = 'flex';
+  // Selectores con muchos datos → buscador
+  ({ producto:['prod-com','prod-cat-sel'], comercio:['com-cat','com-zona'],
+     catcomercio:['catc-com'], cliente:['cli-zona'], sucursal:['suc-zona']
+   }[tipo]||[]).forEach(selBuscable);
   const mdg = document.getElementById('md-guardar');
   if(mdg){
     mdg.style.display = 'flex';
@@ -6267,9 +6275,38 @@ function filtrarLista(tipo) {
   MD.filtros[tipo]=q;
   tipo==='clientes'?renderClientes():renderComerciosList();
 }
+function ordenarClientes(campo) {
+  const o=MD.ordenClientes;
+  // Mismo botón => alterna dirección. Botón distinto => arranca en desc.
+  o.dir = (o.campo===campo && o.dir==='desc') ? 'asc' : 'desc';
+  o.campo = campo;
+  renderClientes();
+}
+function pintarBotonesOrdenClientes() {
+  const o=MD.ordenClientes;
+  [['pedidos','cli-ord-ped','📦 Pedidos'],['antiguedad','cli-ord-ant','🕐 Antigüedad']].forEach(([campo,id,base])=>{
+    const b=document.getElementById(id); if(!b) return;
+    const act = o.campo===campo;
+    b.textContent = base + (act ? (o.dir==='desc'?' ↓':' ↑') : '');
+    b.classList.toggle('btn-primary', act);
+    b.classList.toggle('btn-ghost', !act);
+  });
+}
 function renderClientes() {
   const q=MD.filtros.clientes;
-  const lista=q?MD.clientes.filter(c=>(c.nombre+c.celular+c.ciudad).toLowerCase().includes(q)):MD.clientes;
+  let lista=q?MD.clientes.filter(c=>(c.nombre+c.celular+c.ciudad).toLowerCase().includes(q)):MD.clientes;
+  const o=MD.ordenClientes;
+  if(o.campo){
+    const mul = o.dir==='desc' ? -1 : 1;
+    const val = c => o.campo==='pedidos'
+      ? (c._pedidos_reales ?? c.total_pedidos ?? 0)
+      : new Date(c.created_at||0).getTime();   // antigüedad: desc = más antiguo primero
+    lista = lista.slice().sort((a,b)=>{
+      const d = val(a)-val(b);
+      return (o.campo==='antiguedad' ? -d*mul : d*mul) || (a.nombre||'').localeCompare(b.nombre||'');
+    });
+  }
+  pintarBotonesOrdenClientes();
   const el=document.getElementById('clientes-lista');
   if(!el) return;
   if(!lista.length){el.innerHTML='<div class="empty" style="grid-column:1/-1">Sin clientes</div>';return;}
@@ -6491,6 +6528,7 @@ async function cargarComerciosList() {
   if(sel){
     const opts=MD.comercios.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
     sel.innerHTML='<option value="">Todos los comercios</option>'+opts;
+    selBuscable(sel); selBuscableSync(sel);
   }
   renderComerciosList();
 }
@@ -6572,7 +6610,7 @@ guardarDatos.comercio = async()=>{
 };
 async function verProductosComercio(id){
   nav('productos');
-  setTimeout(()=>{const s=document.getElementById('prod-comercio-filter');if(s){s.value=id;cargarProductos();}},200);
+  setTimeout(()=>{const s=document.getElementById('prod-comercio-filter');if(s){s.value=id;selBuscableSync(s);cargarProductos();}},200);
 }
 
 // ─── PRODUCTOS ───────────────────────────────────────────────
@@ -7876,6 +7914,156 @@ window.addEventListener('popstate', e => {
     <div id="sol-det-cuerpo" style="padding:18px;overflow-y:auto;flex:1"></div>
   </div>
 </div>
+
+<!-- ═══ SELECT BUSCABLE (searchable select) ═══════════════════ -->
+<style>
+.ss-wrap{position:relative;width:100%;}
+.ss-btn{width:100%;text-align:left;display:flex;align-items:center;gap:8px;cursor:pointer;}
+.ss-btn::after{content:'▾';margin-left:auto;color:var(--td);font-size:11px;flex-shrink:0;}
+.ss-btn.ss-ph{color:var(--td);}
+.ss-lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;}
+.ss-pop{position:fixed;z-index:9999;background:#1A1A1A;border:1px solid #333;border-radius:10px;
+  box-shadow:0 12px 32px rgba(0,0,0,.6);display:none;flex-direction:column;overflow:hidden;}
+.ss-pop.open{display:flex;}
+.ss-sbox{padding:8px;border-bottom:1px solid #2a2a2a;flex-shrink:0;}
+.ss-sinp{width:100%;background:#0F0F0F;border:1px solid #333;border-radius:8px;color:#e8e8e8;
+  font-family:'Inter',sans-serif;font-size:13px;padding:8px 10px;outline:none;}
+.ss-sinp:focus{border-color:var(--or);}
+.ss-list{overflow-y:auto;max-height:240px;padding:4px;}
+.ss-opt{padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;color:#e8e8e8;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ss-opt:hover,.ss-opt.ss-hi{background:rgba(255,140,0,.14);}
+.ss-opt.ss-sel{color:var(--or);font-weight:700;}
+.ss-none{padding:14px 10px;text-align:center;color:var(--td);font-size:12px;}
+</style>
+<script>
+/* Convierte un <select> nativo en un selector con buscador.
+   El <select> real queda oculto y sigue siendo la fuente de verdad:
+   .value, .onchange y todo el código existente funcionan igual. */
+(function(){
+  var _pop=null, _cur=null, _hi=-1;
+
+  function cerrar(){
+    if(_pop) _pop.classList.remove('open');
+    _cur=null; _hi=-1;
+  }
+  document.addEventListener('mousedown',function(e){
+    if(_pop && !_pop.contains(e.target) && !(_cur && _cur.wrap.contains(e.target))) cerrar();
+  });
+  window.addEventListener('resize',cerrar);
+  window.addEventListener('scroll',cerrar,true);
+
+  function getPop(){
+    if(_pop) return _pop;
+    _pop=document.createElement('div');
+    _pop.className='ss-pop';
+    _pop.innerHTML='<div class="ss-sbox"><input class="ss-sinp" type="text" placeholder="🔍 Buscar..."></div><div class="ss-list"></div>';
+    document.body.appendChild(_pop);
+    var inp=_pop.querySelector('.ss-sinp');
+    inp.addEventListener('input',function(){ pintar(inp.value); });
+    inp.addEventListener('keydown',function(e){
+      var vis=_pop.querySelectorAll('.ss-opt');
+      if(e.key==='ArrowDown'){ e.preventDefault(); _hi=Math.min(_hi+1,vis.length-1); marcar(vis); }
+      else if(e.key==='ArrowUp'){ e.preventDefault(); _hi=Math.max(_hi-1,0); marcar(vis); }
+      else if(e.key==='Enter'){ e.preventDefault(); if(vis[_hi]) vis[_hi].click(); }
+      else if(e.key==='Escape'){ e.preventDefault(); cerrar(); }
+    });
+    return _pop;
+  }
+
+  function marcar(vis){
+    vis.forEach(function(o,i){ o.classList.toggle('ss-hi',i===_hi); });
+    if(vis[_hi]) vis[_hi].scrollIntoView({block:'nearest'});
+  }
+
+  function pintar(q){
+    if(!_cur) return;
+    q=(q||'').toLowerCase().trim();
+    var list=_pop.querySelector('.ss-list');
+    var opts=Array.prototype.slice.call(_cur.sel.options);
+    var f=q?opts.filter(function(o){ return (o.text||'').toLowerCase().indexOf(q)>-1; }):opts;
+    if(!f.length){ list.innerHTML='<div class="ss-none">Sin resultados</div>'; _hi=-1; return; }
+    list.innerHTML='';
+    f.forEach(function(o){
+      var d=document.createElement('div');
+      d.className='ss-opt'+(o.selected?' ss-sel':'');
+      d.textContent=o.text;
+      d.addEventListener('click',function(){ elegir(o); });
+      list.appendChild(d);
+    });
+    _hi=f.indexOf(_cur.sel.options[_cur.sel.selectedIndex]);
+    if(_hi<0) _hi=0;
+    marcar(list.querySelectorAll('.ss-opt'));
+  }
+
+  function elegir(opt){
+    var sel=_cur.sel, wrap=_cur.wrap;
+    sel.value=opt.value;
+    refrescarBtn(sel,wrap);
+    cerrar();
+    sel.dispatchEvent(new Event('change',{bubbles:true}));
+  }
+
+  function refrescarBtn(sel,wrap){
+    var btn=wrap.querySelector('.ss-btn'), o=sel.options[sel.selectedIndex];
+    var t=o?o.text:'';
+    btn.querySelector('.ss-lbl').textContent=t||'Seleccionar...';
+    btn.classList.toggle('ss-ph',!o||!o.value);
+  }
+
+  function abrir(sel,wrap){
+    var pop=getPop();
+    _cur={sel:sel,wrap:wrap};
+    var r=wrap.getBoundingClientRect();
+    pop.style.width=r.width+'px';
+    pop.style.left=r.left+'px';
+    var abajo=window.innerHeight-r.bottom;
+    if(abajo<220 && r.top>abajo){ pop.style.top=''; pop.style.bottom=(window.innerHeight-r.top+4)+'px'; }
+    else { pop.style.bottom=''; pop.style.top=(r.bottom+4)+'px'; }
+    pop.classList.add('open');
+    var inp=pop.querySelector('.ss-sinp');
+    inp.value='';
+    pintar('');
+    setTimeout(function(){ inp.focus(); },0);
+  }
+
+  // API pública
+  window.selBuscable=function(id){
+    var sel=typeof id==='string'?document.getElementById(id):id;
+    if(!sel || sel.tagName!=='SELECT') return;
+    if(sel._ssWrap){ refrescarBtn(sel,sel._ssWrap); return; }  // ya montado: solo refresca
+
+    var wrap=document.createElement('div');
+    wrap.className='ss-wrap';
+    sel.parentNode.insertBefore(wrap,sel);
+    wrap.appendChild(sel);
+    sel.style.display='none';
+    sel._ssWrap=wrap;
+
+    var btn=document.createElement('button');
+    btn.type='button';
+    btn.className=(sel.className||'fi')+' ss-btn';
+    btn.style.cssText=sel.getAttribute('style')||'';
+    btn.innerHTML='<span class="ss-lbl"></span>';
+    btn.addEventListener('click',function(e){
+      e.preventDefault(); e.stopPropagation();
+      if(_cur && _cur.sel===sel) cerrar(); else abrir(sel,wrap);
+    });
+    wrap.appendChild(btn);
+    refrescarBtn(sel,wrap);
+
+    // Si el código existente reescribe las <option> o cambia .value, el botón se resincroniza
+    new MutationObserver(function(){ refrescarBtn(sel,wrap); }).observe(sel,{childList:true,subtree:true});
+    sel.addEventListener('change',function(){ refrescarBtn(sel,wrap); });
+  };
+
+  // Refresca la etiqueta después de asignar .value por código
+  window.selBuscableSync=function(id){
+    var sel=typeof id==='string'?document.getElementById(id):id;
+    if(sel && sel._ssWrap) refrescarBtn(sel,sel._ssWrap);
+  };
+})();
+</script>
 
 </body>
 </html>
